@@ -1,0 +1,37 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-53af0c8d"
+title = "Provide an agent-executable integration plan"
+status = "active"
+
+requirement = """
+When an implementation agent begins the Hantek DSO3062L PulseView integration, the planning package shall provide an ordered, evidence-gated path from repository bootstrap through architecture, protocol characterization, implementation, testing, cross-platform build, deployment, and release.
+"""
+
+verification = "Inspection: read every document indexed by 00_Planning/Codex/README.md and confirm that an agent can identify prerequisites, inputs, commands or script contracts, implementation order, checkpoints, acceptance evidence, risks, and handoff state without inventing a project-level decision."
+
+affected_paths = [
+    "00_Planning/README.md",
+    "00_Planning/Codex/README.md",
+    "00_Planning/Codex/01_Feasibility_and_Decision_Gates.md",
+    "00_Planning/Codex/02_Architecture.md",
+    "00_Planning/Codex/03_Repository_and_Toolchain_Bootstrap.md",
+    "00_Planning/Codex/04_Implementation_Roadmap.md",
+    "00_Planning/Codex/05_USB_Protocol_and_Hardware_Research.md",
+    "00_Planning/Codex/06_Build_Deployment_and_Release.md",
+    "00_Planning/Codex/07_Test_and_Acceptance.md",
+    "00_Planning/Codex/08_Agentic_Execution_Playbook.md",
+    "00_Planning/Codex/09_Risks_and_Open_Questions.md",
+    "CHANGELOG.md",
+]
+
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "The integration spans undocumented hardware behavior, two upstream projects, incompatible licensing domains, and two deployment platforms; durable decisions and evidence gates are required for safe agentic implementation."
+created = 2026-08-15
+updated = 2026-08-15

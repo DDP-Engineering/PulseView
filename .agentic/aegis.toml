@@ -1,0 +1,50 @@
+# Project-owned AEGIS configuration for the DSO3062L PulseView integration.
+# AEGIS is advisory; this file does not grant Git, driver, hardware, or
+# publication authority.
+
+schema = 1
+
+[commands]
+# Intentionally empty while the repository contains planning and vendor
+# reference material only. Add owner-relative commands when the corresponding
+# scripts exist, for example after 02_Tools/test and the upstream submodules
+# have been implemented. Do not use placeholder commands as test evidence.
+
+[timeouts]
+# Add limits together with real commands. A stopped command proves nothing.
+
+[layout]
+default_branch = "master"
+source = [
+    "02_Tools/",
+    "05_Software/",
+]
+tests = [
+    "02_Tools/test/",
+    "02_Tools/tests/",
+    "05_Software/**/test/**",
+    "05_Software/**/tests/**",
+]
+# Planning, documentation, hardware evidence, and delivery records are
+# intentionally outside source/tests. An outside-layout finding for those paths
+# is a review prompt, not a reason to classify documentation as executable
+# source and demand irrelevant test changes.
+
+[zones]
+frame = []
+specify = []
+design = []
+survey = []
+components = ["tests"]
+close = []
+
+[check]
+secret_patterns_extra = []
+ignore = []
+strict_promote = [
+    "config",
+    "secret-in-diff",
+]
+# Populate this only when executable commands exist. Listing a command here
+# controls `aegis check --run`; it does not create the command.
+run = []

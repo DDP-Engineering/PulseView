@@ -1,0 +1,41 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: VCDSO - Win32 Debug--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4A.tmp" with contents
+[
+/nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_AFXDLL" /D "_MBCS" /FR"Debug/" /Fp"Debug/VCDSO.pch" /Yu"stdafx.h" /Fo"Debug/" /Fd"Debug/" /FD /GZ /c 
+"E:\SDK File\SDK_3062AL\Code Demo\VCDSO\Hard.cpp"
+]
+Creating command line "cl.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4A.tmp" 
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4B.tmp" with contents
+[
+/nologo /subsystem:windows /incremental:yes /pdb:"Debug/VCDSO.pdb" /debug /machine:I386 /out:"Debug/VCDSO.exe" /pdbtype:sept 
+".\Debug\Hard.obj"
+".\Debug\MainFrm.obj"
+".\Debug\StdAfx.obj"
+".\Debug\VCDSO.obj"
+".\Debug\VCDSODoc.obj"
+".\Debug\VCDSOView.obj"
+".\Debug\VCDSO.res"
+]
+Creating command line "link.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4B.tmp"
+<h3>Output Window</h3>
+Compiling...
+Hard.cpp
+Linking...
+Creating command line "bscmake.exe /nologo /o"Debug/VCDSO.bsc"  ".\Debug\StdAfx.sbr" ".\Debug\Hard.sbr" ".\Debug\MainFrm.sbr" ".\Debug\VCDSO.sbr" ".\Debug\VCDSODoc.sbr" ".\Debug\VCDSOView.sbr""
+Creating browse info file...
+<h3>Output Window</h3>
+
+
+
+<h3>Results</h3>
+VCDSO.exe - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>
