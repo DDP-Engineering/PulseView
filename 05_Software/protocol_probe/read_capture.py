@@ -115,6 +115,17 @@ def set_buffer_size(dev, code: int) -> None:
     send(dev, bytes([0x0D, 0x0F, code & 7, 0x00]))
 
 
+def set_dac(dev, selector: int, value: int) -> None:
+    """0x16 - 8-byte buffer carrying a 12-bit DAC word.
+
+    Byte 2 selects the target (0 = channel offset, 1 = trigger level per
+    dsoHTSetVTriggerLevel). The high nibble of the DAC word is OR'd with 0x10.
+    """
+    v = value & 0xFFF
+    send(dev, bytes([0x16, 0x00, selector & 0xFF, 0x00,
+                     v & 0xFF, ((v >> 8) & 0x0F) | 0x10, 0x00, 0x00]))
+
+
 def drain(dev, want: int) -> bytes:
     """Read in 512-byte packets, the way the DLL's loop does."""
     out = b""
@@ -167,6 +178,8 @@ def main() -> int:
     ap.add_argument("--ticks", type=int, help="0x0e divider; rate = 250MHz/(ticks+1)")
     ap.add_argument("--mode", type=int, default=0, help="0x0e byte 2")
     ap.add_argument("--bufcode", type=int, help="0x0d buffer-size code, 0-7")
+    ap.add_argument("--dac", type=int, help="0x16 DAC value, 0-4095")
+    ap.add_argument("--dacsel", type=int, default=0, help="0x16 byte 2 selector")
     args = ap.parse_args()
 
     backend = libusb_package.get_libusb1_backend()
@@ -188,6 +201,11 @@ def main() -> int:
             rate = 250e6 / (args.ticks + 1)
             print(f"0x0e ticks {args.ticks} mode {args.mode} -> {rate / 1e3:g} kS/s")
             set_sample_rate(dev, args.ticks, args.mode)
+            time.sleep(0.05)
+
+        if args.dac is not None:
+            print(f"0x16 selector {args.dacsel} DAC 0x{args.dac:03x}")
+            set_dac(dev, args.dacsel, args.dac)
             time.sleep(0.05)
 
         send(dev, bytes([CMD_START_COLLECT, 0x00]))

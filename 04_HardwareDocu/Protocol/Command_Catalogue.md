@@ -142,24 +142,86 @@ makes this the safest possible acquisition test.
 Bit 4 of the status byte is set in all three states (`0x10`, `0x11`, `0x17`)
 and is still unexplained.
 
-### Data readout — not yet working
+### Data readout — working
 
-Sending a bare `[05 00]` in the ready state returns **zero bytes**. The DLL
-shows why: `dsoHTGetData` is a four-step sequence, and `0x05` is only the last
-step.
+A bare `[05 00]` returns zero bytes because `dsoHTGetData` is a four-step
+sequence and `0x05` is only the last step. All four are decoded and confirmed
+on hardware.
 
-| Step | Opcode | Request | Notes |
+| Step | Opcode | Request | Meaning |
 |---|---|---|---|
-| 1 | `0x17` | 2 bytes | issues both IOCTLs, so it reads a value back |
-| 2 | `0x13` | 8 bytes | sets `[+7] = 0x80` |
-| 3 | `0x1b` | 8 bytes | |
-| 4 | `0x05` | 2 bytes | reads the sample payload |
+| 1 | `0x17` | 2 bytes | read the capture-end address in the ring buffer |
+| 2 | `0x13` | 8 bytes | set the read start address, 512-aligned |
+| 3 | `0x1b` | 8 bytes | set the read length in words |
+| 4 | `0x05` | 2 bytes | stream the samples off the bulk IN endpoint |
 
-`0x13` and `0x1b` almost certainly carry the transfer length, memory bank or
-channel selection. Their 8-byte layouts are the next thing to decode; until
-then `0x05` has nothing to transfer. The same `0x17`/`0x13`/`0x1b`/`0x05`
-grouping appears in `dsoHTGetScanData`, `dsoHTGetRollData`, `dsoHTStartRoll`
-and the `dsoSD*` variants.
+`0x17` returns a 24-bit little-endian address in the first three bytes. The
+ring buffer is 2^24 samples — the constant `16777216.0` at `0x10008098`.
+
+`0x13` and `0x1b` share one 8-byte layout:
+
+```
+[0] opcode        [1] 0x00
+[2..5] value, little-endian 32-bit
+[6] value & 0xff  [7] 0x80 for 0x13, 0x00 for 0x1b
+```
+
+Byte 6 duplicating the low byte is not a typo. The DLL computes it with
+`shr eax, 0x20`, which x86-32 masks to a shift of zero, so a 40-bit field was
+intended and the low byte lands there instead. The firmware tolerates it.
+Reproduce it verbatim rather than "fixing" it.
+
+`0x13`'s value is the start address **minus one**; `0x1b`'s length is used
+as-is. The device then returns `length + 2048` bytes.
+
+Start address selection, from `dsoHTGetData`:
+
+```
+back    = int(nHTriggerPos * nReadDataLen * 0.01)   # const 0.01 at 0x10008070
+start   = (end_address - back) mod 2^24
+rem     = start & 0x1ff
+aligned = start - rem                                # what 0x13 receives
+words   = 2 * nReadDataLen + 0x800                   # what 0x1b receives
+```
+
+The first `rem + 512` sample points are preamble and must be discarded.
+
+### Sample stream format
+
+`sub_10003330` de-interleaves the bulk stream with a stride of four, widening
+each byte to a `WORD`. One group of four bytes is:
+
+```
+[CH1 core A] [CH1 core B] [CH2 core A] [CH2 core B]
+```
+
+Each channel's ADC is **time-interleaved across two cores**, so a four-byte
+group carries two consecutive samples per channel, not one sample of four
+channels. The two cores show a constant offset mismatch of about 1 LSB, which
+a naive midpoint edge detector will trip over — correct the offset or use
+hysteresis.
+
+Measured against the probe-compensation output: a 1 kHz square wave gives a
+median half-period of 100007 samples per core, so **200.014 MS/s** per
+channel — 0.007% from nominal 200 MS/s.
+
+### Confirmed capture, end to end
+
+`05_Software/protocol_probe/read_capture.py` drives the whole path over WinUSB
+with no vendor driver, DLL or SDK loaded:
+
+```
+0x16  centre the offset DAC
+0x03  StartCollectData
+0x04  StartTrigger
+0x02  ForceTrigger
+0x06  poll to CAPTURE_READY_9BIT
+0x17 -> 0x13 -> 0x1b -> 0x05
+```
+
+Reading 500000 (`nReadDataLen`) yields 250279 four-byte points, CH1 swinging
+113..128 counts, a clean square wave at the reference frequency. Gate G2
+step 5 is met.
 
 ## Configuration opcodes
 
@@ -178,6 +240,102 @@ and the `dsoSD*` variants.
 | `0x19` | `dsoHTOpenRollMode`, `dsoHTCloseRollMode` | |
 | `0x1a` | `dsoHTSetPeakDetect`, `dsoHTClosePeakDetect` | |
 | `0x2b` | `dsoGetFPGAVersion`, `ReadFPGAVersion` | |
+
+Note `0x15` is a **read**, not a write: it returns the current 16-bit relay
+word. The relay write is `0x12`, below.
+
+### Decoded configuration buffers
+
+`0x0d` SetBufferSize, 4 bytes:
+
+```
+[0] 0x0d  [1] 0x0f  [2] size code & 7  [3] 0x00
+```
+
+`0x0e` SetSampleRate, 12 bytes:
+
+```
+[0] 0x0e  [1] 0x00  [2] mode bits  [3] 0x00
+[4..7] divider, little-endian signed 32-bit
+[8..11] 0x00
+```
+
+`nTimeDIV` selects the divider through a 38-entry jump table at `0x10002284`.
+The wire value is negative: `divider = -(ticks)`, and
+
+```
+sample_rate = 250 MHz / (ticks + 1)
+```
+
+The extracted ticks are a clean 1-2-5 sequence — 1, 4, 9, 19, 49, 99, 199,
+499, 999, 1999, 4999, 9999, 19999 — giving 125 MS/s down to 12.5 kS/s.
+Indices 24–33 compute their arm rather than loading a constant and are not
+decoded yet; 34–37 are the roll-mode rates.
+`05_Software/protocol_probe/dump_timebase.py` regenerates the table.
+
+Byte 2 packs two mode flags the same jump table sets, as
+`(flagA & 1) << 1 | (flagB & 1)`. Sending `0x0e` alone had no observable
+effect on the capture rate, so at least one of `0x0d`, `0x0f` or the relay
+word is a prerequisite. **Not yet working.**
+
+`0x0f` SetHTriggerLength, 12 bytes — two 24-bit fields, presumed pre- and
+post-trigger record lengths:
+
+```
+[0] 0x0f  [1] 0x00
+[2..4] value A, little-endian 24-bit   [5] 0x00
+[6..8] value B, little-endian 24-bit   [9] 0x00
+[10..11] uninitialised in the DLL
+```
+
+`0x16` SetCHPos / SetVTriggerLevel, 8 bytes:
+
+```
+[0] 0x16  [1] 0x00  [2] selector  [3] 0x00
+[4] dac & 0xff  [5] ((dac >> 8) & 0x0f) | 0x10  [6] 0x00  [7] 0x00
+```
+
+Selector 0 is the channel offset, 1 the trigger level. The DAC is 12-bit and
+the `0x10` bit in the high nibble is always set.
+
+Confirmed on hardware: CH1 rails at `0x00` for DAC 0 and at `0xff` for DAC
+1024 and above, and tracks linearly between — 256 → 45, 512 → 126, 768 → 197
+counts. **The offset DAC must be set before any capture**, or the channel
+reads a constant and looks like a dead datapath. DAC 512 centres it.
+
+### Relay control — `0x12`
+
+`dsoHTSetCHAndTrigger` builds a 16-bit relay word from the `RELAYCONTROL`
+struct, reads the current word with `0x15`, then clocks out **only the
+differing bits, one at a time**, with `Sleep(20 ms)` between writes. This is a
+serial relay driver, not a parallel register.
+
+Each write is 10 bytes:
+
+```
+[0] 0x12  [1] 0x00
+[2..3] mask, little-endian 16-bit
+[4..6] mask, little-endian 24-bit
+[7] 0x00
+[8..9] full target relay word, little-endian 16-bit
+```
+
+Bit *n* is addressed as `mask = 1 << (n + 3)` to set and `~(1 << (n + 3))` to
+clear. Confirmed on hardware: individual bits visibly shift the CH1 DC level
+(126 → 113 → 92 → 71 → 59 counts), so the attenuator and coupling relays do
+respond. The bit-to-function mapping is not yet established.
+
+`RELAYCONTROL` offsets, confirmed against the disassembly:
+
+| Offset | Field |
+|---|---|
+| `0x00` | `bCHEnable[4]`, 4 bytes each |
+| `0x10` | `nCHVoltDIV[4]`, WORD |
+| `0x18` | `nCHCoupling[4]`, WORD |
+| `0x20` | `bCHBWLimit[4]`, 4 bytes each |
+| `0x30` | `nTrigSource`, WORD |
+| `0x34` | `bTrigFilt` |
+| `0x38` | `nALT`, WORD |
 
 ## Data transfer opcodes
 
@@ -239,13 +397,24 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 
 ## Open questions
 
-1. Full request-buffer layout beyond byte 0 for each opcode.
-2. Meaning of `0x13` / `0x17` / `0x1b` versus `0x05`.
-3. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
-4. Whether logic samples arrive through the `pCH3Data`/`pCH4Data` arguments of
-   `dsoHTGetData`, as the header's shape suggests.
-5. Bit 4 of the status byte.
-6. Opcodes for calibration read, and their buffer format.
+1. Why `0x0e` alone does not change the capture rate. Prime suspects are
+   `0x0f` SetHTriggerLength and `0x0d` SetBufferSize as prerequisites.
+2. The `0x12` relay bit-to-function map: which bits are channel enable,
+   coupling, attenuator and bandwidth limit.
+3. How `nTimeDIV` indices 24–33 compute their divider.
+4. The two 24-bit fields of `0x0f`, and how `dsoHTGetData` derives them from
+   `nBufferLen` and `HTriggerPos`.
+5. Whether CH2 needs its own offset DAC write, and what selector value
+   addresses it — selector 0 appears to move CH1 only, and CH2 sits railed at
+   `0xff`.
+6. Volts/div to ADC-counts scaling, needed to report real voltages.
+7. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
+8. Whether logic samples arrive through the `pCH3Data`/`pCH4Data` arguments of
+   `dsoHTGetData`, as the header's shape suggests. The four-byte stream group
+   is two interleaved ADC cores per analog channel, so the logic pod is
+   evidently carried some other way.
+9. Bit 4 of the status byte.
+10. Opcodes for calibration read, and their buffer format.
 
 ## Reproducing
 
