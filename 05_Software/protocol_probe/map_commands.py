@@ -28,7 +28,7 @@ import sys
 import capstone
 import pefile
 
-MAX_FUNC_BYTES = 0x800
+MAX_FUNC_BYTES = 0x2000
 MAX_DEPTH = 5
 
 
