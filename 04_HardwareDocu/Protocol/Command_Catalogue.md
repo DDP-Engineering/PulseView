@@ -43,11 +43,15 @@ Vendor control requests, confirmed answered by the device:
 ## Vendor driver path
 
 The Windows SDK does not speak USB directly. It opens the vendor kernel driver
-with `CreateFileA` and issues exactly **one** IOCTL:
+with `CreateFileA` and issues **two** IOCTLs, a write/read pair:
 
 ```
-0x222051   FILE_DEVICE_UNKNOWN (0x22), function 0x814, METHOD_IN_DIRECT, FILE_ANY_ACCESS
+0x222051   FILE_DEVICE_UNKNOWN (0x22), function 0x814, METHOD_IN_DIRECT   - send command
+0x22204e   FILE_DEVICE_UNKNOWN (0x22), function 0x813, METHOD_OUT_DIRECT  - read reply
 ```
+
+These correspond directly to bulk OUT `0x02` and bulk IN `0x86`. A query is
+therefore: write the request buffer to `0x02`, then read from `0x86`.
 
 The opcode travels in the request buffer, not the IOCTL code. `HTHardDLL`
 marshals through a generic wrapper at `0x10001000`:
@@ -91,6 +95,27 @@ returned `10 00 02 00 04 00 ...`. Applying the SDK's own mask,
 `0x10 & 7 == 0` — `CAPTURE_EMPTY`, which is correct for an idle instrument.
 Bit 4 is set and is not part of the `hantek-dso` state field; it is a
 DSO3062L extension of unknown meaning.
+
+## Device-confirmed opcodes
+
+Sent to the physical instrument over WinUSB on 2026-08-16 by
+`05_Software/protocol_probe/validate_opcodes.py`, with nothing connected to the
+inputs and the instrument idle. Each request is `[opcode, 0x00]` on EP `0x02`
+after the `0xb3` handshake, reply read from EP `0x86`. All four returned
+distinct, structured data — no echo, no constant filler.
+
+| Opcode | SDK export | First bytes of reply | Reading |
+|---|---|---|---|
+| `0x06` | `dsoHTGetState` | `10 00 02 00 04 00 04 00` | `0x10 & 7 = 0` → `CAPTURE_EMPTY`, pack bit 0. Correct for an idle scope. |
+| `0x09` | `dsoGetHardVersion` | `03 01 20 08 00 00 …` | LE words `0x0103`, `0x0820`. Reads as hardware version 1.03. |
+| `0x2b` | `dsoGetFPGAVersion` | `18 02` repeated | LE word `0x0218` repeated across the buffer — FPGA version register. |
+| `0x0a` | `dsoHTGetHardFC` | `00 00 00 00 ff ff ff ff` | Zero count with nothing connected, then an all-ones field. Plausible for no input. |
+
+This validates the static-analysis method end to end: opcodes recovered from
+the DLL produce meaningful answers when written straight to the bulk endpoint,
+with no vendor driver and no vendor DLL in the path.
+
+Field-level meaning beyond byte 0 is still unconfirmed for every one of these.
 
 ## Configuration opcodes
 
