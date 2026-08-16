@@ -117,6 +117,50 @@ with no vendor driver and no vendor DLL in the path.
 
 Field-level meaning beyond byte 0 is still unconfirmed for every one of these.
 
+### Acquisition state machine — confirmed on hardware
+
+`05_Software/protocol_probe/try_capture.py`, nothing connected to the probes,
+using only the instrument's existing front-panel configuration:
+
+```
+0x06 -> 10   state 0  CAPTURE_EMPTY        idle
+0x03         StartCollectData   (no reply)
+0x04         StartTrigger       (no reply)
+0x06 -> 11   state 1  CAPTURE_FILLING      armed, awaiting trigger
+0x02         ForceTrigger       (no reply)
+0x06 -> 17   state 7  CAPTURE_READY_9BIT   capture complete
+```
+
+Every transition matches libsigrok `hantek-dso`'s model, including the value
+`7` for a 9-bit-ready capture. `0x02`, `0x03` and `0x04` return no reply; they
+are write-only commands.
+
+**A capture can be armed and completed with no configuration commands at all**,
+inheriting the instrument's front-panel timebase, volts/div and trigger. That
+makes this the safest possible acquisition test.
+
+Bit 4 of the status byte is set in all three states (`0x10`, `0x11`, `0x17`)
+and is still unexplained.
+
+### Data readout — not yet working
+
+Sending a bare `[05 00]` in the ready state returns **zero bytes**. The DLL
+shows why: `dsoHTGetData` is a four-step sequence, and `0x05` is only the last
+step.
+
+| Step | Opcode | Request | Notes |
+|---|---|---|---|
+| 1 | `0x17` | 2 bytes | issues both IOCTLs, so it reads a value back |
+| 2 | `0x13` | 8 bytes | sets `[+7] = 0x80` |
+| 3 | `0x1b` | 8 bytes | |
+| 4 | `0x05` | 2 bytes | reads the sample payload |
+
+`0x13` and `0x1b` almost certainly carry the transfer length, memory bank or
+channel selection. Their 8-byte layouts are the next thing to decode; until
+then `0x05` has nothing to transfer. The same `0x17`/`0x13`/`0x1b`/`0x05`
+grouping appears in `dsoHTGetScanData`, `dsoHTGetRollData`, `dsoHTStartRoll`
+and the `dsoSD*` variants.
+
 ## Configuration opcodes
 
 | Opcode | SDK export | Notes |
