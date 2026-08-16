@@ -1,0 +1,134 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-15T19:53:49.754897Z",
+      "anchor_head": "4d65d5a7448575ba24c12b80ef253d95f69ee8bf",
+      "anchor_id": "8e584ca642bd77fe",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "af29b7bb4386732afaff28243b48135c7d73a272d42082c17adf41017cbfd0e1"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "ae7dd1934af68ad6b93cbda0c123216c735194d59bac43e66b85116800b2bd00"
+          },
+          "path": "02_Tools/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "d49ab9d2e7481b02a60cdc7af179b571d1f9f08048ff6869978b88a54074d47f"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/bootstrap/README.md",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "87d06f368565860dd76ce6199510a557097a650357bbe4a1d0cbce3493c580cd"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/upstream/README.md",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "fb3b9d15268889fd4a71d1d8cd09b4e3066a2327c807330cf851c7b20734c38c"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/upstream/upstreams.lock.toml",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "09a5bf2902759a7c1f09ac3c99e04eb2a61fff83b8f7fd639b0599c19b5a81b1"
+          },
+          "area": "other",
+          "before": null,
+          "path": "06_SoftwareDocu/Governance_and_Licensing.md",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "a7e3bd585d8c75e3dd9e8b5a52c2b216cac64b1cf03d87fd47bffe17ee562fd8"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "fe6a68ea98553c1c72dedc3dd78b129a3ef35cd447d2a6f42d84b1614435268b"
+          },
+          "path": "06_SoftwareDocu/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1a92edaf1f5584c8862a6a991e8048ec9b78198e6cfeca9fbe58c8ad349333d4"
+          },
+          "area": "other",
+          "before": null,
+          "path": "06_SoftwareDocu/Research_Security.md",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "6d4981e1d900dfbfa7f152f340824632c36c82cd8d2c2877d1c7f692a95c3e8f"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "1dcd3714724eca4e0fda18fc28e8be3000fc741d47478e50d6be0c7a8610bea4"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 2,
+            "modified": 2,
+            "removed": 0,
+            "unchanged": 89
+          },
+          "source": {
+            "added": 3,
+            "modified": 1,
+            "removed": 0,
+            "unchanged": 1
+          },
+          "tests": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 0
+          }
+        },
+        "status": {
+          "added": 5,
+          "modified": 3,
+          "removed": 0,
+          "unchanged": 90
+        }
+      },
+      "current_head": "4d65d5a7448575ba24c12b80ef253d95f69ee8bf",
+      "evolution_stage": "build",
+      "evolved_at": "2026-08-15T20:01:48.000046Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-4459b9f5"
+}

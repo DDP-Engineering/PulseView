@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-6f37c2b1 - Plan the DSO3062L PulseView integration
 
-stage: deliver
+stage: done
 type: feature
 path: full
 requirements: REQ-FUNC-53af0c8d
@@ -23,8 +23,8 @@ opened: 2026-08-15
 - [x] legal headers, inventory, internal links, LF endings, and trailing whitespace inspected
 - [x] Codex package improved after the independent assistant-plan review
 - [x] revised package revalidated; pre-existing assistant files remained unchanged
-- [ ] candidate presented to the owner for acceptance
-- [ ] local delivery outcome recorded after owner response
+- [x] candidate presented to the owner for acceptance
+- [x] local delivery outcome recorded after owner response
 
 ## Design
 
@@ -52,3 +52,14 @@ opened: 2026-08-15
 - 2026-08-15 validate: The eight assistant files present at validation start retained identical hashes; a ninth assistant document appeared concurrently and was preserved without modification.
 - 2026-08-15 validate: The AEGIS CLI remains unavailable because `.agentic/aegis.py` is absent; no executable, upstream source, hardware, build, or Git validation applies to this plan-only update.
 - 2026-08-15 deliver: Prepared the revised uncommitted local candidate for owner review without modifying the assistant plan, initializing Git, committing, pushing, or publishing.
+- 2026-08-15 deliver: Owner accepted the planning candidate by directing the first implementation step to begin.
+- 2026-08-15 deliver: Planning delivery completed locally by owner acceptance and transition to TASK-4459b9f5; no Git or publication action was performed by the agent.
+
+## Delivery report (2026-08-15)
+
+- stage: deliver; type: feature; path: full; branch: 
+- requirements:
+  - REQ-FUNC-53af0c8d - Provide an agent-executable integration plan
+- diff vs merge base: 12 file(s) changed, 1424 line(s) added
+- checks: errors=0 warnings=2 notes=2
+- checklist: 7/8 done; open: local delivery outcome recorded after owner response

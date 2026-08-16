@@ -1,0 +1,112 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+policy = "immutable-commits-only"
+reviewed = 2026-08-15
+
+[[source]]
+name = "libsigrok"
+canonical_url = "https://github.com/sigrokproject/libsigrok.git"
+commit = "0bc2487778e660f4d3116729b6f4aee2b1996bb0"
+head_observed = "0bc2487778e660f4d3116729b6f4aee2b1996bb0"
+role = "modified-submodule"
+licence = "GPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/libsigrok/blob/0bc2487778e660f4d3116729b6f4aee2b1996bb0/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "pending-owner-input"
+clone_enabled = false
+
+[[source]]
+name = "pulseview"
+canonical_url = "https://github.com/sigrokproject/pulseview.git"
+commit = "af02198741b4e57c9f9b796bd5e6c0f2ae9f2f2b"
+head_observed = "af02198741b4e57c9f9b796bd5e6c0f2ae9f2f2b"
+role = "modified-submodule"
+licence = "GPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/pulseview/blob/af02198741b4e57c9f9b796bd5e6c0f2ae9f2f2b/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "pending-owner-input"
+clone_enabled = false
+
+[[source]]
+name = "libsigrokdecode"
+canonical_url = "https://github.com/sigrokproject/libsigrokdecode.git"
+commit = "71f451443029322d57376214c330b518efd84f88"
+head_observed = "71f451443029322d57376214c330b518efd84f88"
+role = "build-dependency"
+licence = "GPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/libsigrokdecode/blob/71f451443029322d57376214c330b518efd84f88/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true
+
+[[source]]
+name = "sigrok-cli"
+canonical_url = "https://github.com/sigrokproject/sigrok-cli.git"
+commit = "f44dd91347e7ac797cefc23162b9fcf0b7329f1f"
+head_observed = "f44dd91347e7ac797cefc23162b9fcf0b7329f1f"
+role = "diagnostic-frontend"
+licence = "GPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/sigrok-cli/blob/f44dd91347e7ac797cefc23162b9fcf0b7329f1f/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true
+
+[[source]]
+name = "libserialport"
+canonical_url = "https://github.com/sigrokproject/libserialport.git"
+commit = "21b3dfe5f68c205be4086469335fd2fc2ce11ed2"
+head_observed = "21b3dfe5f68c205be4086469335fd2fc2ce11ed2"
+role = "build-dependency"
+licence = "LGPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/libserialport/blob/21b3dfe5f68c205be4086469335fd2fc2ce11ed2/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true
+
+[[source]]
+name = "sigrok-util"
+canonical_url = "https://github.com/sigrokproject/sigrok-util.git"
+commit = "249b79d0a94e9ac4ec96533bf3108e2a50e6b38d"
+head_observed = "249b79d0a94e9ac4ec96533bf3108e2a50e6b38d"
+role = "build-script-reference"
+licence = "GPL-2.0 top-level repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/sigrok-util/blob/249b79d0a94e9ac4ec96533bf3108e2a50e6b38d/COPYING.v2"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true
+
+[[source]]
+name = "libusb"
+canonical_url = "https://github.com/libusb/libusb.git"
+commit = "c75357cd70393b24e0416f664a09f0e97aced934"
+head_observed = "c75357cd70393b24e0416f664a09f0e97aced934"
+role = "transport-dependency"
+licence = "LGPL-2.1 repository licence; per-file terms govern"
+licence_url = "https://github.com/libusb/libusb/blob/c75357cd70393b24e0416f664a09f0e97aced934/COPYING"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true
+
+[[source]]
+name = "mxe"
+canonical_url = "https://github.com/mxe/mxe.git"
+commit = "bfff609d0301534f06a4fda080ba4e0c5b501e78"
+head_observed = "bfff609d0301534f06a4fda080ba4e0c5b501e78"
+role = "windows-cross-toolchain"
+licence = "MIT for MXE core; downloaded packages retain their own licences"
+licence_url = "https://github.com/mxe/mxe/blob/bfff609d0301534f06a4fda080ba4e0c5b501e78/LICENSE.md"
+reviewed = 2026-08-15
+fork_url = ""
+fork_status = "not-required"
+clone_enabled = true

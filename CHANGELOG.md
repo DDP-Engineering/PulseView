@@ -19,6 +19,10 @@ in this file.
 - Detailed agentic implementation planning package covering feasibility gates,
   architecture, upstream repository bootstrap, USB protocol research, phased
   implementation, Windows and Linux builds, deployment, testing, and delivery.
+- Complete repository-local AEGIS payload, including canonical lifecycle steps,
+  artifact templates, CLI reference, and licence.
+- P0 governance baseline with immutable upstream locks, a fail-closed bootstrap
+  contract, licence/material boundaries, and research security rules.
 
 ### Changed
 

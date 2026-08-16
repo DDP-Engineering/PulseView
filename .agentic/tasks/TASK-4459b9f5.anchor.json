@@ -1,0 +1,487 @@
+{
+  "anchor_id": "8e584ca642bd77fe",
+  "categories": {
+    ".gitattributes": "other",
+    ".gitignore": "other",
+    "00_Planning/00_Project_Goals.md": "other",
+    "00_Planning/assistant/01_Architecture.md": "other",
+    "00_Planning/assistant/02_Environment_And_Repos.md": "other",
+    "00_Planning/assistant/03_Phase1_Implementation_Plan.md": "other",
+    "00_Planning/assistant/04_Phase2_Protocol_Plan.md": "other",
+    "00_Planning/assistant/05_Build_And_Deploy_Scripts.md": "other",
+    "00_Planning/assistant/06_Validation_And_Acceptance.md": "other",
+    "00_Planning/assistant/07_Risks_And_Open_Questions.md": "other",
+    "00_Planning/assistant/08_Agentic_Playbook.md": "other",
+    "00_Planning/assistant/README.md": "other",
+    "00_Planning/Codex/01_Feasibility_and_Decision_Gates.md": "other",
+    "00_Planning/Codex/02_Architecture.md": "other",
+    "00_Planning/Codex/03_Repository_and_Toolchain_Bootstrap.md": "other",
+    "00_Planning/Codex/04_Implementation_Roadmap.md": "other",
+    "00_Planning/Codex/05_USB_Protocol_and_Hardware_Research.md": "other",
+    "00_Planning/Codex/06_Build_Deployment_and_Release.md": "other",
+    "00_Planning/Codex/07_Test_and_Acceptance.md": "other",
+    "00_Planning/Codex/08_Agentic_Execution_Playbook.md": "other",
+    "00_Planning/Codex/09_Risks_and_Open_Questions.md": "other",
+    "00_Planning/Codex/README.md": "other",
+    "00_Planning/README.md": "other",
+    "01_Documentation/Code_Style.md": "other",
+    "01_Documentation/DSO3062L_Driver.zip": "other",
+    "01_Documentation/DSO3062_Manual.pdf": "other",
+    "01_Documentation/README.md": "other",
+    "01_Documentation/SDK_3062L/Code Demo/LabView/3062L.vi": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/DeclareFun.bas": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/DeclareGlobalVal.bas": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Form1.frm": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/MSSCCPRJ.SCC": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Project1.vbp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Project1.vbw": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Start.bas": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB4AD.tmp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB695.tmp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB8DF.tmp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Hard.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Hard.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/MainFrm.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/MainFrm.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/ReadMe.txt": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Resource.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/StdAfx.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/StdAfx.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.APS": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.clw": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.dsp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.dsw": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.ncb": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.opt": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.plg": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.rc": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSODoc.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSODoc.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSOView.cpp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSOView.h": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/Toolbar.bmp": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSO.ico": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSO.rc2": "other",
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSODoc.ico": "other",
+    "01_Documentation/SDK_3062L/Dll/HTDisplayDll.dll": "other",
+    "01_Documentation/SDK_3062L/Dll/HTHardDLL.dll": "other",
+    "01_Documentation/SDK_3062L/Dll/HTSoftDll.dll": "other",
+    "01_Documentation/SDK_3062L/HeadFiles/HTDisplayDll.h": "other",
+    "01_Documentation/SDK_3062L/HeadFiles/HTHardDll.h": "other",
+    "01_Documentation/SDK_3062L/HeadFiles/HTSoftDll.h": "other",
+    "01_Documentation/SDK_3062L/Lib/HTDisplayDll.lib": "other",
+    "01_Documentation/SDK_3062L/Lib/HTHardDLL.lib": "other",
+    "01_Documentation/SDK_3062L/Lib/HTSoftDll.lib": "other",
+    "01_Documentation/SDK_3062L/Log.txt": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTDisplayDll-CHS.pdf": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTDisplayDll-EN.pdf": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-CHS.pdf": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-EN.pdf": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTSoftDLL-CHS.pdf": "other",
+    "01_Documentation/SDK_3062L/Manual/SDK_HTSoftDLL-EN.pdf": "other",
+    "02_Tools/README.md": "source",
+    "03_Hardware/README.md": "other",
+    "04_HardwareDocu/README.md": "other",
+    "05_Software/README.md": "source",
+    "06_SoftwareDocu/README.md": "other",
+    "07_Delivery/README.md": "other",
+    "09_Others/README.md": "other",
+    "AGENTS.md": "other",
+    "CHANGELOG.md": "other",
+    "assistant.md": "other",
+    "LICENSE.txt": "other",
+    "QWEN.md": "other",
+    "README.md": "other"
+  },
+  "created_at": "2026-08-15T19:53:49.754897Z",
+  "files": {
+    ".gitattributes": {
+      "kind": "file",
+      "sha256": "1a45ef3c12a3f439240551644edc10645e69986f60d541fc98d3ff817e4ccf9f"
+    },
+    ".gitignore": {
+      "kind": "file",
+      "sha256": "cd0bd04136852ed7f3b6a9aad10357b6b1d634d92645f1ac4ba12e91a62faaa4"
+    },
+    "00_Planning/00_Project_Goals.md": {
+      "kind": "file",
+      "sha256": "338e496cf384ca44cb252a83852c484a158200d1cd155f28fe46d9d40bb921c0"
+    },
+    "00_Planning/assistant/01_Architecture.md": {
+      "kind": "file",
+      "sha256": "fd2ee671c8c39733d7413ceee7a01f13077129df1c7b9f252d7315c5969fdbb0"
+    },
+    "00_Planning/assistant/02_Environment_And_Repos.md": {
+      "kind": "file",
+      "sha256": "e00b57aca4250b672be5ba0ca92f0841232bb85d2af91ed5bb53b2455cf02cac"
+    },
+    "00_Planning/assistant/03_Phase1_Implementation_Plan.md": {
+      "kind": "file",
+      "sha256": "97ac51f8e13528b541499c8859e359bdf92f2b6161aad0c74e1ac7dec1e9276c"
+    },
+    "00_Planning/assistant/04_Phase2_Protocol_Plan.md": {
+      "kind": "file",
+      "sha256": "3eee39815fdd55cc3ed38abd3867b9ab78ffd39a016df996d62a9d6a30dec7ed"
+    },
+    "00_Planning/assistant/05_Build_And_Deploy_Scripts.md": {
+      "kind": "file",
+      "sha256": "df07aac67a2ca10dd1fa7d5880f61914016d4c717b33785bfaaf036ad3a28292"
+    },
+    "00_Planning/assistant/06_Validation_And_Acceptance.md": {
+      "kind": "file",
+      "sha256": "fa90379d1b5fbe055af0fb9f758d5f2b7d07d023860c6a3ec78cc9639e6f46c7"
+    },
+    "00_Planning/assistant/07_Risks_And_Open_Questions.md": {
+      "kind": "file",
+      "sha256": "fc405ea06e3d78f0fc67f2d6d52af018f69f39eeb36242103d8be621235022c8"
+    },
+    "00_Planning/assistant/08_Agentic_Playbook.md": {
+      "kind": "file",
+      "sha256": "72bb9708d7728e440c8cac13a6f8a4323ddcfe804342f759c6c5d3ca45633a65"
+    },
+    "00_Planning/assistant/README.md": {
+      "kind": "file",
+      "sha256": "c542d874114c6007881352dfe31979e1a3885eb57640c1a73996e88658f6ecfc"
+    },
+    "00_Planning/Codex/01_Feasibility_and_Decision_Gates.md": {
+      "kind": "file",
+      "sha256": "43bb913a9284ed9f5f20c078eb6b02d0c740d9a098362266739e1811c47c5518"
+    },
+    "00_Planning/Codex/02_Architecture.md": {
+      "kind": "file",
+      "sha256": "d96844fcaa1a4871a4d46956e1524cddaedf343f3985971560a1e29a027326e4"
+    },
+    "00_Planning/Codex/03_Repository_and_Toolchain_Bootstrap.md": {
+      "kind": "file",
+      "sha256": "addea1fb2eec0de7c7ec2367337716e1e4010d10188cf293ad170608fd4eaecd"
+    },
+    "00_Planning/Codex/04_Implementation_Roadmap.md": {
+      "kind": "file",
+      "sha256": "ee9836c9dedb7dfd610bbdda2712e7f7e57234d837939aba32d50df2ef604eb8"
+    },
+    "00_Planning/Codex/05_USB_Protocol_and_Hardware_Research.md": {
+      "kind": "file",
+      "sha256": "df818da6d0d6152986b9b1129bb23dbb1259c32cbbe2964ef05659fc92fa9b3f"
+    },
+    "00_Planning/Codex/06_Build_Deployment_and_Release.md": {
+      "kind": "file",
+      "sha256": "d516f0853caa59b67dabe05549140eb2aedf135b24d75ec5a5a48e11ad9a8683"
+    },
+    "00_Planning/Codex/07_Test_and_Acceptance.md": {
+      "kind": "file",
+      "sha256": "49ada7339bbf8c6d13788747490ce7ec8ed2d7c3857ce2008f6c85f9b7b8044d"
+    },
+    "00_Planning/Codex/08_Agentic_Execution_Playbook.md": {
+      "kind": "file",
+      "sha256": "af733cfa462f3bc76b9b99982c3d63db685c8a280a6b28254cbceaf8794bd7c5"
+    },
+    "00_Planning/Codex/09_Risks_and_Open_Questions.md": {
+      "kind": "file",
+      "sha256": "786ac2be4771925b7959fe779478d1a5b97e63935246ee65a81c7da95a4beef2"
+    },
+    "00_Planning/Codex/README.md": {
+      "kind": "file",
+      "sha256": "4c39de52233bed21056b5b896ecd3d78173840d78ef0902b0b557cfe97a27795"
+    },
+    "00_Planning/README.md": {
+      "kind": "file",
+      "sha256": "c56963a5440ce30b84c9399e62f9776e84eebae47f7a453b403411843e4aeac9"
+    },
+    "01_Documentation/Code_Style.md": {
+      "kind": "file",
+      "sha256": "5c357ba10de7abbec8fb44ce1818865df28a6bdc84de922369dda80a471ed362"
+    },
+    "01_Documentation/DSO3062L_Driver.zip": {
+      "kind": "file",
+      "sha256": "1d002ccdf640065f515120342f7baef162be33a8f2ea8a617f9d7017209e3c9d"
+    },
+    "01_Documentation/DSO3062_Manual.pdf": {
+      "kind": "file",
+      "sha256": "9393ac5de3a6c120801dff77162585b07defe851c6f3ce4a4b7a7f5b6beb357a"
+    },
+    "01_Documentation/README.md": {
+      "kind": "file",
+      "sha256": "0dad54c02da56b4d6dcbeb41ccdd773eed9af750e5408250fb075ccf8277ffeb"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/LabView/3062L.vi": {
+      "kind": "file",
+      "sha256": "3fdccb23c9db6dfb7413e5c9be79a681edb465a98e380766ef95272a51df39ac"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/DeclareFun.bas": {
+      "kind": "file",
+      "sha256": "d77f110df7c5c3333b8512922dad183b1159113087361e47282c347fd627a018"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/DeclareGlobalVal.bas": {
+      "kind": "file",
+      "sha256": "55b2d2f8ba9186d2b58a8bc5ca2a8d083492cdec428f1749025e68a548a09efb"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Form1.frm": {
+      "kind": "file",
+      "sha256": "614a669af5ddf7b0ea8995615afe09c3a10f9073d2b4e6c0a49b9932af4da456"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/MSSCCPRJ.SCC": {
+      "kind": "file",
+      "sha256": "b37d4428d76abc0c1ae48f574e763f097d90e65b0fc1167241762785c0c68b27"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Project1.vbp": {
+      "kind": "file",
+      "sha256": "6d064e969444fa1b1f34183550dda1218d6cfa732985a27558d89b17345c8253"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Project1.vbw": {
+      "kind": "file",
+      "sha256": "d714ed2ca8134d66ace569f01a5f165b790ebef0b048336dbd859f7bd95e5145"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/Start.bas": {
+      "kind": "file",
+      "sha256": "5e8d112ce2fe764dc1f77689fceb4f77597d7db2484f080e7cdf13502e15c340"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB4AD.tmp": {
+      "kind": "file",
+      "sha256": "e5930383e5043238a4e384dae5f6fcf6f3b0ac7532b2107723215359fb180c02"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB695.tmp": {
+      "kind": "file",
+      "sha256": "48a919e65986d6086693fdedb4717b2f898ef3d7479b4bbbea128d3fd8733a6d"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VBDSO/VB8DF.tmp": {
+      "kind": "file",
+      "sha256": "48a919e65986d6086693fdedb4717b2f898ef3d7479b4bbbea128d3fd8733a6d"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Hard.cpp": {
+      "kind": "file",
+      "sha256": "3dabc24fe03af4aa2578c61d349e8b4eaf58a13489ca09c3a349f12454f93543"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Hard.h": {
+      "kind": "file",
+      "sha256": "a2e10d1cc06d049e0f18da6c41c4d8ad43edd24396716513a3ea6e0b341171e9"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/MainFrm.cpp": {
+      "kind": "file",
+      "sha256": "a77537da6032410b2a62b6badbd2f241483ef7ba7e846c9dd12ea771007efe88"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/MainFrm.h": {
+      "kind": "file",
+      "sha256": "0eb861d78c8f51825fe17332691c742db24d1f00bdc2a2886427c978da0d787c"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/ReadMe.txt": {
+      "kind": "file",
+      "sha256": "def9191864d9912cf19c047192bb0b86dfc1cd0729d11702383be8d7a97020fb"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/Resource.h": {
+      "kind": "file",
+      "sha256": "e4f6b1e053c82a40bb05267ce2d8b90f2459bb8054a08635eaade65b3b9290e7"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/StdAfx.cpp": {
+      "kind": "file",
+      "sha256": "8b130aef0b5184340317385782b200f39c0b2a53a11560695c74fd2e3e943ddf"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/StdAfx.h": {
+      "kind": "file",
+      "sha256": "e3ac1b3d619b28ed50ad8fea3b92904e2160ceb46a0b0e43544c25db8ce71d66"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.APS": {
+      "kind": "file",
+      "sha256": "84b331f9c542d062757b66c821869c18b31f3deb7762254328807e9b73ee6715"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.clw": {
+      "kind": "file",
+      "sha256": "b9975954b4f89682451de4ab01c21b0192366c9b451ee2421541fe3aba9edc1e"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.cpp": {
+      "kind": "file",
+      "sha256": "d9daaa3ac813b78caf0f269c6ed16a50db8fc0debd6925ea050d962144eeacd8"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.dsp": {
+      "kind": "file",
+      "sha256": "7bf40270ac173c1d9affd9a7eb7c1f15ad5ce46af74e0c08411210d147181fa4"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.dsw": {
+      "kind": "file",
+      "sha256": "715ab3836381d4c444123be5ad1a2d5af59d41ddc6a1200543d6969d0456d747"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.h": {
+      "kind": "file",
+      "sha256": "2f18af701251d07c856960c42a226cff55186fd4aaba0e7260e07b9f239f63b7"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.ncb": {
+      "kind": "file",
+      "sha256": "e31eeefea3d820aa6a99a6bc9a21add66c4641f022300559eb262fb2e544ca1e"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.opt": {
+      "kind": "file",
+      "sha256": "08dce27d2bb80c85bd9e63cb86a94cc2639d4827f165e9d85174937e0a0f8fe9"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.plg": {
+      "kind": "file",
+      "sha256": "737ece7c37c6c37cd3554dd523997e9c073e878761b33949982bfa331fa04644"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSO.rc": {
+      "kind": "file",
+      "sha256": "db98e7809475e11c8ee25112ab7abb2f9e157971ce9c94c3e04c0e9fbf6da97d"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSODoc.cpp": {
+      "kind": "file",
+      "sha256": "db91c2e1b86d542b85605c82fe530eef5521940d079b474889f380d3641eedb8"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSODoc.h": {
+      "kind": "file",
+      "sha256": "ad80745fc1bb6ce1d13d8a6a0a20185e11877f73d87f576b99b98bf8225206c6"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSOView.cpp": {
+      "kind": "file",
+      "sha256": "20ca7ce07e4dcfa1f68b106c6176b90dcebc269baa5ef3a2282c5e0d585b906e"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/VCDSOView.h": {
+      "kind": "file",
+      "sha256": "254b9ff6ed8f9337cd659c1c32115b04e49e48f17bccfd0fb83f62ee6262d619"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/Toolbar.bmp": {
+      "kind": "file",
+      "sha256": "0c02069254cb93d4f64e4773ecf8b441e3adf0851b22e1ba8f4dae92bce91213"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSO.ico": {
+      "kind": "file",
+      "sha256": "17d9ba10a2faf5620bd85df1b7691c1f1de2c29db33c3eef719c90d0d10aea94"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSO.rc2": {
+      "kind": "file",
+      "sha256": "f9e49acd34126e9c14f2368fb2b122808f3ce80fdbd409f57e59dc4e1cdf794a"
+    },
+    "01_Documentation/SDK_3062L/Code Demo/VCDSO/res/VCDSODoc.ico": {
+      "kind": "file",
+      "sha256": "1ebd673d37993bdf72aa4116c6cb04601ceb06326f694ef25ee0c8d9bb51bd66"
+    },
+    "01_Documentation/SDK_3062L/Dll/HTDisplayDll.dll": {
+      "kind": "file",
+      "sha256": "ed8ec13589f5b540fb7c5ced591984e4e44d713428aa0c5c2988eb5b9b74f6d1"
+    },
+    "01_Documentation/SDK_3062L/Dll/HTHardDLL.dll": {
+      "kind": "file",
+      "sha256": "ed21de24b5fb935cb44663b84d7b1df6f023efb3252c21ca9876b8f418817a99"
+    },
+    "01_Documentation/SDK_3062L/Dll/HTSoftDll.dll": {
+      "kind": "file",
+      "sha256": "5ac5df049fedebddfab7c85484157a53c2bc2f9bbb9c68ff82640b480de81247"
+    },
+    "01_Documentation/SDK_3062L/HeadFiles/HTDisplayDll.h": {
+      "kind": "file",
+      "sha256": "068d2788346d4d0d1399d2486a2447ab95c640998c8527593ec0763223ef9262"
+    },
+    "01_Documentation/SDK_3062L/HeadFiles/HTHardDll.h": {
+      "kind": "file",
+      "sha256": "3042fa96b54dc1f66ef8e554a104ba78009c2a4f80323ca1fb9df1806159deef"
+    },
+    "01_Documentation/SDK_3062L/HeadFiles/HTSoftDll.h": {
+      "kind": "file",
+      "sha256": "9f29d2227fea8f28ae43cd0d1e8d4fb7adbbf86a6517cce418f76db2fddaef37"
+    },
+    "01_Documentation/SDK_3062L/Lib/HTDisplayDll.lib": {
+      "kind": "file",
+      "sha256": "9d70b77c7853bb8ac86cd7b1fde1f6374faab1994777e964ee1f8deec46ea97a"
+    },
+    "01_Documentation/SDK_3062L/Lib/HTHardDLL.lib": {
+      "kind": "file",
+      "sha256": "6fcc23d19de1b81e11126d8cc1c0c6ce8d2b0abc79d25a41810faf204a1ffc51"
+    },
+    "01_Documentation/SDK_3062L/Lib/HTSoftDll.lib": {
+      "kind": "file",
+      "sha256": "1e86c995dd22a723cc0b2545739860c2fec75989a7034f9e13f064b46316e7f6"
+    },
+    "01_Documentation/SDK_3062L/Log.txt": {
+      "kind": "file",
+      "sha256": "46766caf290129195a3bc27641599783687b43afb8d521db2cbaa9572ccc11c1"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTDisplayDll-CHS.pdf": {
+      "kind": "file",
+      "sha256": "96926b7268aeca7a991a9ea6332542a315cab41dbcbf3c140af6b1711bc5edf9"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTDisplayDll-EN.pdf": {
+      "kind": "file",
+      "sha256": "84fab5c744615ec52d78f61818a993180741fab8f5ec79a6ff89b1365ad7a582"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-CHS.pdf": {
+      "kind": "file",
+      "sha256": "fd33aee7fd5084b7b99899d33930ad1c6b52b829163783cefe0d413bb936dc9f"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-EN.pdf": {
+      "kind": "file",
+      "sha256": "c0681104aa4889613095d2b07da957ac159dcead4adeab6261388b78cee31cee"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTSoftDLL-CHS.pdf": {
+      "kind": "file",
+      "sha256": "119fad6bb8e8cbfbaf70f3af8f617474e06531707c96e3cb942b2ed1a5d18fa5"
+    },
+    "01_Documentation/SDK_3062L/Manual/SDK_HTSoftDLL-EN.pdf": {
+      "kind": "file",
+      "sha256": "b05aef0ad384358d1c9a52802bf0d7299f9de6695d3f0ab7df5c92c3ab88b13a"
+    },
+    "02_Tools/README.md": {
+      "kind": "file",
+      "sha256": "ae7dd1934af68ad6b93cbda0c123216c735194d59bac43e66b85116800b2bd00"
+    },
+    "03_Hardware/README.md": {
+      "kind": "file",
+      "sha256": "fc434eac38ab5ad1c8e61e7db81b31404a4d69769cab949e9bea665bd60727ff"
+    },
+    "04_HardwareDocu/README.md": {
+      "kind": "file",
+      "sha256": "3db99f581451a4af9222c9ff9111783b1c1be4786f1b63c6a9a0a27d536e9af8"
+    },
+    "05_Software/README.md": {
+      "kind": "file",
+      "sha256": "0f296506a825412ef229d5f9aa4861fa08476228573e0c6b7441be83b7e2eb73"
+    },
+    "06_SoftwareDocu/README.md": {
+      "kind": "file",
+      "sha256": "fe6a68ea98553c1c72dedc3dd78b129a3ef35cd447d2a6f42d84b1614435268b"
+    },
+    "07_Delivery/README.md": {
+      "kind": "file",
+      "sha256": "9a5b19b0d06172f3f4f7e78793b63c9981b2f0e85a7a98a6282b6ff8c7901077"
+    },
+    "09_Others/README.md": {
+      "kind": "file",
+      "sha256": "e179a122968da35ee661457aa20c2d9c0bb3f8d00236e9cf3a6b0deeac62bb18"
+    },
+    "AGENTS.md": {
+      "kind": "file",
+      "sha256": "98bef55f40dc94e9b9dce5ab0b59922f2910792fdd1c49e714c3761085850c81"
+    },
+    "CHANGELOG.md": {
+      "kind": "file",
+      "sha256": "1dcd3714724eca4e0fda18fc28e8be3000fc741d47478e50d6be0c7a8610bea4"
+    },
+    "assistant.md": {
+      "kind": "file",
+      "sha256": "cc1aad6c468fa204d792cdce675b9ee29a27c13d613b32a5fc657cab606bb3b8"
+    },
+    "LICENSE.txt": {
+      "kind": "file",
+      "sha256": "2494616d0c43cfda4aa0fd8c53f429d615a2e38b50d45c3d9e6db264149e65a6"
+    },
+    "QWEN.md": {
+      "kind": "file",
+      "sha256": "aff39ec718e1616b657ae712952b7dc305a635022450afaf0586620ee5fc3e82"
+    },
+    "README.md": {
+      "kind": "file",
+      "sha256": "bc529746d03b17ccf04101ab7b601b8f544da9fe0143f292ceae5cd590d20e1e"
+    }
+  },
+  "head": "4d65d5a7448575ba24c12b80ef253d95f69ee8bf",
+  "schema": 1,
+  "source_globs": [
+    "02_Tools/",
+    "05_Software/"
+  ],
+  "stage": "build",
+  "task": "TASK-4459b9f5",
+  "test_globs": [
+    "02_Tools/test/",
+    "02_Tools/tests/",
+    "05_Software/**/test/**",
+    "05_Software/**/tests/**"
+  ]
+}

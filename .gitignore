@@ -41,3 +41,10 @@ dist/
 
 # Local tool state
 .codex/local/
+
+# Build/research workspace: upstream clones, build prefixes, raw captures
+.work/
+
+# USB captures
+*.pcap
+*.pcapng
