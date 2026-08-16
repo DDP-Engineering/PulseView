@@ -1,0 +1,21 @@
+[submodule "05_Software/upstream/libsigrok"]
+	path = 05_Software/upstream/libsigrok
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrok.git
+[submodule "05_Software/upstream/libsigrokdecode"]
+	path = 05_Software/upstream/libsigrokdecode
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrokdecode.git
+[submodule "05_Software/upstream/sigrok-cli"]
+	path = 05_Software/upstream/sigrok-cli
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-cli.git
+[submodule "05_Software/upstream/sigrok-util"]
+	path = 05_Software/upstream/sigrok-util
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-util.git
+[submodule "05_Software/upstream/pulseview"]
+	path = 05_Software/upstream/pulseview
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-pulseview.git
+[submodule "05_Software/upstream/libserialport"]
+	path = 05_Software/upstream/libserialport
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libserialport.git
+[submodule "05_Software/upstream/libusb"]
+	path = 05_Software/upstream/libusb
+	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libusb.git
