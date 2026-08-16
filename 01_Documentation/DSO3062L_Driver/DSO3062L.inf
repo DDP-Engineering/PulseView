@@ -1,0 +1,123 @@
+[Version]
+Signature="$CHICAGO$"
+Class=USB
+ClassGuid = {79042200-7904-7904-1980-198007053062}
+provider=%ODM%
+LayoutFile=layout.inf
+CatalogFile=DSO3062L.cat
+
+[ClassInstall32]
+Addreg = DSOReg
+
+[ClassInstall]
+Addreg = DSOReg
+
+[ClassInstall32.ntamd64]
+Addreg = DSOReg
+
+[ClassInstall32.ntia64]
+Addreg = DSOReg
+
+[DSOReg]
+HKR, , , 0, %ClassName%
+HKR, , Icon, , -5
+HKR, , NoInstallClass, , 1
+
+[Manufacturer]
+%ODM%=ODM
+%ODM%=ODM,NTia64
+%ODM%=ODM,NTamd64
+
+
+[ODM]
+%USB\VID_04B5&PID_3062.DeviceDesc%=DSO3062.Dev, USB\VID_04B5&PID_3062
+
+[ODM.NTamd64]
+%USB\VID_04B5&PID_3062.DeviceDesc% = DSO3062.Dev.NTamd64, USB\VID_04B5&PID_3062
+
+[ODM.NTia64]
+%USB\VID_04B5&PID_3062.DeviceDesc% = DSO3062.Dev.NTia64, USB\VID_04B5&PID_3062
+
+[PreCopySection]
+HKR,,NoSetupUI,,1
+
+[DestinationDirs]
+DSO3062.Files.Ext = 10,System32\Drivers
+DSO3062.Files.Ext.amd64 = 10,System32\Drivers
+DSO3062.Files.Ext.ia64 = 10,System32\Drivers
+
+[DSO3062.Dev]
+CopyFiles=DSO3062.Files.Ext
+AddReg=DSO3062.AddReg
+
+[DSO3062.Dev.NT]
+CopyFiles=DSO3062.Files.Ext
+AddReg=DSO3062.AddReg
+
+[DSO3062.Dev.NTamd64]
+CopyFiles = DSO3062.Files.Ext.amd64
+AddReg    = DSO3062.amd64.AddReg
+
+[DSO3062.Dev.NTia64]
+CopyFiles = DSO3062.Files.Ext.I64
+AddReg    = DSO3062.ia64.AddReg
+
+[DSO3062.Dev.NT.Services]
+Addservice = DSO3062, 0x00000002, DSO3062.AddService
+
+[DSO3062.Dev.NTamd64.Services]
+AddService = DSO3062, 2, DSO3062.AddServiceAmd64
+
+[DSO3062.Dev.NTia64.Services]
+AddService = DSO3062, 2, DSO3062.AddServiceIA64
+
+[DSO3062.AddService]
+DisplayName    = %DSO3062.SvcDesc%
+ServiceType    = 1                  
+StartType      = 3                  
+ErrorControl   = 1                  
+ServiceBinary  = %10%\System32\Drivers\DSO3062LX86.SYS
+LoadOrderGroup = Base
+
+[DSO3062.AddServiceAmd64]
+DisplayName   = %DSO3062.SvcDesc%
+ServiceType   = 1
+StartType     = 3
+ErrorControl  = 1
+ServiceBinary = %10%\System32\Drivers\DSO3062LAMD64.SYS
+
+[DSO3062.AddServiceIA64]
+DisplayName   = %DSO3062.SvcDesc%
+ServiceType   = 1
+StartType     = 3
+ErrorControl  = 1
+ServiceBinary = %10%\System32\Drivers\DSO3062LIA64.SYS
+
+[DSO3062.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,DSO3062LX86.SYS
+
+[DSO3062.amd64.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,DSO3062LAMD64.SYS
+
+[DSO3062.ia64.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,DSO3062LIA64.SYS
+
+
+[DSO3062.Files.Ext]
+DSO3062LX86.SYS
+
+[DSO3062.Files.Ext.amd64]
+DSO3062LAMD64.SYS
+
+[DSO3062.Files.Ext.I64]
+DSO3062LIA64.SYS
+
+
+[Strings]
+ClassName="DSO-3062L"
+ODM="ODM "
+USB\VID_04B5&PID_3062.DeviceDesc="DSO-3062L"
+DSO3062.SvcDesc="DSO-3062L DRIVER"
