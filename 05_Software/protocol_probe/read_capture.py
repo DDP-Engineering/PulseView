@@ -173,6 +173,34 @@ def set_dac(dev, value: int, channel: int = 1, trigger_level: bool = False) -> N
                      v & 0xFF, ((v >> 8) & 0x0F) | DAC_CH[channel], 0x00, 0x00]))
 
 
+# dsoHTSetCHAndTrigger builds two words. The bit-serial 0x12 loop clocks only
+# the second (coupling and attenuator); the first is written once at the end by
+# a 0x12 whose bytes 2-3 are zero and whose bytes 4-6 carry all 24 bits. The
+# channel-enable flags live in that first word, which is why no amount of
+# bit-serial poking ever turned CH2 on.
+#
+# Values derived from the branch tree at 0x10002513 with nTrigSource = 0 and
+# the coupling/bandwidth bits clear. CH1_ONLY and CH1_CH2 are confirmed on
+# hardware; the others follow the same derivation but are untested.
+W1_CH1_ONLY = 0x00C000
+W1_CH2_ONLY = 0x2AC000
+W1_CH1_CH2 = 0x27C000
+W1_CH3_ONLY = 0x15C000
+
+
+def set_channels(dev, word: int = W1_CH1_CH2) -> None:
+    """0x12 with bytes 2-3 zero - a direct 24-bit write of the enable word.
+
+    Enabling CH2 halves each channel's sample rate: in single-channel mode
+    both stream slots carry CH1 from two time-interleaved ADC cores, and in
+    dual-channel mode slot 0 is CH1 and slot 1 is CH2.
+    """
+    send(dev, bytes([0x12, 0x00, 0x00, 0x00,
+                     word & 0xFF, (word >> 8) & 0xFF, (word >> 16) & 0xFF,
+                     0x00, 0x00, 0x00]))
+    time.sleep(0.1)
+
+
 def drain(dev, want: int) -> bytes:
     """Read in 512-byte packets, the way the DLL's loop does."""
     out = b""
@@ -185,11 +213,11 @@ def drain(dev, want: int) -> bytes:
 
 
 def describe(data: bytes, skip_points: int) -> None:
-    """The stream is 4 bytes per sample point: CH1, CH2, CH3, CH4.
+    """Four bytes per sample point. What each slot holds depends on the mode.
 
-    sub_10003330 de-interleaves it with a stride of 4, widening each byte to a
-    WORD, so one sample point costs four bytes on the wire regardless of how
-    many channels are actually enabled.
+    Slots 2 and 3 are always the 16 logic channels, D0-D7 and D8-D15. Slots 0
+    and 1 are CH1 on two time-interleaved ADC cores when only CH1 is enabled,
+    or CH1 and CH2 respectively when both are.
     """
     print(f"\n  first 32 bytes: {data[:32].hex(' ')}")
     body = data[skip_points * 4:]
@@ -201,7 +229,8 @@ def describe(data: bytes, skip_points: int) -> None:
         if not stream:
             continue
         lo, hi = min(stream), max(stream)
-        print(f"  CH{ch + 1}: min={lo:3d} max={hi:3d} span={hi - lo:3d} "
+        label = ("CH1/A", "CH1B/CH2", "LOGIC D0-7", "LOGIC D8-15")[ch]
+        print(f"  {label:>11}: min={lo:3d} max={hi:3d} span={hi - lo:3d} "
               f"distinct={len(set(stream))}")
         if hi - lo < 8:
             continue
@@ -226,6 +255,8 @@ def main() -> int:
     ap.add_argument("--mode", type=int, default=3, help="0x0e byte 2")
     ap.add_argument("--bufcode", type=int, help="0x0d buffer-size code, 0-7")
     ap.add_argument("--dac", type=int, help="0x16 DAC value, 0-4095")
+    ap.add_argument("--dual", action="store_true",
+                    help="enable CH2 as well (halves the per-channel rate)")
     ap.add_argument("--dacsel", type=int, default=0, help="0x16 byte 2 selector")
     ap.add_argument("--buflen", type=int, help="0x0f record length")
     ap.add_argument("--timeout", type=float, default=3.0, help="ready-poll seconds")
@@ -257,6 +288,10 @@ def main() -> int:
             print(f"0x0f buflen {args.buflen} pos {args.trigpos}% "
                   f"-> 0x{a:06x} / 0x{b:06x}")
             time.sleep(0.05)
+
+        if args.dual:
+            print("0x12 enable word 0x27c000 (CH1+CH2)")
+            set_channels(dev, W1_CH1_CH2)
 
         if args.dac is not None:
             print(f"0x16 DAC 0x{args.dac:03x} on all four channel targets")

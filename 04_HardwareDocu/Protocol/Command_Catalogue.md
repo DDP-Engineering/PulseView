@@ -475,9 +475,72 @@ cores". Three independent lines of evidence:
 3. They flip together exactly as the `0x41` comparator threshold crosses 0 V,
    which is where 16 unconnected inputs sitting at ground switch.
 
-Slots 0 and 1 remain CH1's two time-interleaved ADC cores. Where CH2's analog
-samples appear when CH2 is enabled is **still open** — nothing found so far
-puts them in the stream.
+### Stream layout depends on the enabled-channel set — solved
+
+| Slot | CH1 only | CH1 + CH2 |
+|---|---|---|
+| 0 | CH1, ADC core A | CH1 |
+| 1 | CH1, ADC core B | **CH2** |
+| 2 | logic D0–D7 | logic D0–D7 |
+| 3 | logic D8–D15 | logic D8–D15 |
+
+With one analog channel enabled the two slots carry it from two
+time-interleaved ADC cores, so CH1 gets the full rate. Enabling CH2 reassigns
+slot 1, and **each channel then runs at half the single-channel rate**. The
+per-slot rate is unchanged at `100 MHz / (ticks + 1)` in both modes; the
+200 MS/s figure is a shared budget, which is consistent with the instrument's
+published 200 MS/s spec.
+
+So the effective per-channel rate is:
+
+```
+one analog channel   200 MHz / (ticks + 1)
+two analog channels  100 MHz / (ticks + 1)
+```
+
+### The enable word — a second `0x12` form
+
+`dsoHTSetCHAndTrigger` builds **two** words, not one. The bit-serial loop
+described above clocks only the second (coupling and attenuator). The first is
+written once at the very end by a `0x12` with a different shape:
+
+```
+[0] 0x12  [1] 0x00  [2] 0x00  [3] 0x00
+[4..6] the 24-bit enable word, little-endian
+[7] 0x00
+[8..9] the coupling/attenuator word, little-endian 16-bit
+```
+
+**Bytes 2–3 being zero is what distinguishes the two forms.** A bit-serial
+pulse carries a mask there; this direct register write does not. Channel
+enable lives only in this word, which is why no amount of single-bit poking
+ever turned CH2 on — the earlier sweeps were driving the wrong register
+entirely.
+
+Bit order in the 24-bit word, recovered from the packing chain at
+`0x100029b2` (MSB first):
+
+```
+bit23 branch flag   bit22 [0x1c]        bit21 [0x10]        bit20 [0x11]
+bit19 [0x15]        bit18 [0x16]        bit17 [0x12]        bit16 [0x13]
+bit15 [0x17]        bit14 [0x18]        bit13 [0x19]        bit12 TrigFilt
+bit11 BWLimit[0]    bit10 BWLimit[1]    bit9  BWLimit[2]    bit8  BWLimit[3]
+bit7..bit0          volts/div group
+```
+
+Values for `nTrigSource = 0` with coupling and bandwidth bits clear, derived
+from the `bCHEnable[]` branch tree at `0x10002513`:
+
+| Channels | Word | Status |
+|---|---|---|
+| CH1 only | `0x00C000` | **confirmed on hardware** |
+| CH1 + CH2 | `0x27C000` | **confirmed on hardware** |
+| CH2 only | `0x2AC000` | derived, untested |
+| CH3 only | `0x15C000` | derived, untested |
+
+Confirmed by writing `0x27C000` with CH1 and CH2 held at different offset DACs
+(400 and 850): slot 1 jumped from tracking CH1 within 0.5 counts to a 66-count
+offset, and reverting to `0x00C000` put it straight back.
 
 ### `0x41` — logic threshold
 
@@ -564,11 +627,10 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 5. How `nTimeDIV` indices 24–33 combine `BASE` and `MASK` in practice, and
    what `nYTFormat` selects there.
 6. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
-7. Where CH2's analog samples appear. Slots 0/1 are CH1's two interleaved
-   ADC cores and slots 2/3 are the logic bytes, so nothing in the stream
-   currently carries CH2 even with it physically driven.
-8. Whether the logic channels capture real edges. Verified only against
+7. Whether the logic channels capture real edges. Verified only against
    unconnected inputs and a threshold sweep so far - no pod attached.
+8. The volts/div group, bits 0-7 of the enable word, and how it maps to the
+   instrument's 10 mV/div .. 5 V/div range.
 9. Bit 4 of the status byte.
 10. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
    is the first call in the SDK demo's `Init()` and its result feeds the
