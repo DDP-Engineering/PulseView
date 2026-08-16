@@ -382,9 +382,47 @@ Each write is 10 bytes:
 ```
 
 Bit *n* is addressed as `mask = 1 << (n + 3)` to set and `~(1 << (n + 3))` to
-clear. Confirmed on hardware: individual bits visibly shift the CH1 DC level
-(126 → 113 → 92 → 71 → 59 counts), so the attenuator and coupling relays do
-respond. The bit-to-function mapping is not yet established.
+clear.
+
+**Relay state carries across writes and must be fully reset before each
+measurement.** Clearing only the previously-set bit contaminates the next
+reading — that mistake produced a first table where 11 of 16 bits looked
+identical, and made a set/clear pair appear to contradict itself. With a full
+16-bit clear before each set, results repeat exactly (`set bit 3` gave span
+176, dc 169 on four consecutive trials).
+
+The mask's exact semantics are **still open**. It is not a plain accumulate:
+clearing bit 10 after setting bit 3 wipes bit 3's effect, which fits a
+whole-word overwrite. But a bare overwrite does not explain why `1 << 6`
+applied directly after `1 << 13` leaves the `1 << 13` gain in place. Bytes
+8–9, the "full target word", were swept across `0x0000`, `0x0040`, `0x2000`
+and `0xffff` with no measurable effect, so the mask is what drives the
+hardware.
+
+Measured with CH1 on the 1 kHz 2 Vpp probe-compensation output, at 200 kS/s,
+offset DAC 512, each bit set from a fully cleared state:
+
+| Bit | CH1 span | CH1 DC | Effect |
+|---|---|---|---|
+| all clear | 1 | 59 | no signal |
+| 3 | 196 | 169 | gain up |
+| 4 | 163 | 183 | gain up, less |
+| 10 | 255 | 127 | **maximum gain — clips — and centres the signal** |
+| 11, 12 | 130 | 184 | gain down |
+| 0,1,2,5–9,13–15 | 135–140 | 188 | no distinct effect at this setting |
+
+So bits 3, 4, 10, 11 and 12 form the attenuator/gain ladder. The eleven
+remaining bits do nothing measurable here; they are presumably coupling,
+bandwidth limit and CH2 controls that this single-channel DC test cannot
+distinguish.
+
+**No bit brought CH2 alive** — it stayed railed at 255 throughout, which
+suggests CH2 needs its own offset DAC write rather than a relay change.
+
+`0x15` returned `0x0000` in early runs but `0x8584` on a later entry, so it is
+a real readback, not a stub. The DLL guards against a zero result with
+`test edi, edi; je` — if bit 0 of the readback is clear it writes every bit
+unconditionally instead of diffing.
 
 `RELAYCONTROL` offsets, confirmed against the disassembly:
 
@@ -458,20 +496,23 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 
 ## Open questions
 
-1. The `0x12` relay bit-to-function map: which bits are channel enable,
-   coupling, attenuator and bandwidth limit.
-2. Whether CH2 needs its own offset DAC write, and what selector value
+1. The exact write semantics of the `0x12` mask — neither plain accumulate nor
+   plain overwrite explains every observed sequence.
+2. What the eleven relay bits with no measured effect do. Distinguishing them
+   needs an AC-coupled test, a signal on CH2, and a bandwidth sweep rather
+   than the single DC test used so far.
+3. Whether CH2 needs its own offset DAC write, and what selector value
    addresses it — selector 0 appears to move CH1 only, and CH2 sits railed at
-   `0xff`.
-3. Volts/div to ADC-counts scaling, needed to report real voltages.
-4. How `nTimeDIV` indices 24–33 combine `BASE` and `MASK` in practice, and
+   `0xff` regardless of relay state.
+4. Volts/div to ADC-counts scaling, needed to report real voltages.
+5. How `nTimeDIV` indices 24–33 combine `BASE` and `MASK` in practice, and
    what `nYTFormat` selects there.
-5. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
-6. How logic-analyzer samples are carried. The four-byte stream group is two
+6. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
+7. How logic-analyzer samples are carried. The four-byte stream group is two
    interleaved ADC cores per analog channel, which **disproves** the earlier
    guess that logic arrives via `dsoHTGetData`'s `pCH3Data`/`pCH4Data`.
-7. Bit 4 of the status byte.
-8. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
+8. Bit 4 of the status byte.
+9. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
    is the first call in the SDK demo's `Init()` and its result feeds the
    `0x16` DAC values, so real voltage accuracy depends on it.
 
