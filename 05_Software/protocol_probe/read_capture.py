@@ -156,15 +156,21 @@ def set_htrigger_length(dev, buflen: int, pos: int) -> tuple[int, int]:
     return a, b
 
 
-def set_dac(dev, selector: int, value: int) -> None:
+# Byte 5's high nibble selects which DAC the 0x16 write lands on. The four
+# dsoHTSetCHPos issuers OR in 0x10, 0x50, 0x90 and 0xd0 for channels 1-4.
+DAC_CH = {1: 0x10, 2: 0x50, 3: 0x90, 4: 0xD0}
+
+
+def set_dac(dev, value: int, channel: int = 1, trigger_level: bool = False) -> None:
     """0x16 - 8-byte buffer carrying a 12-bit DAC word.
 
-    Byte 2 selects the target (0 = channel offset, 1 = trigger level per
-    dsoHTSetVTriggerLevel). The high nibble of the DAC word is OR'd with 0x10.
+    Byte 2 picks channel position (0) or trigger level (1); byte 5's high
+    nibble picks the channel. Getting this wrong is quiet - the write is
+    accepted and simply lands on CH1.
     """
     v = value & 0xFFF
-    send(dev, bytes([0x16, 0x00, selector & 0xFF, 0x00,
-                     v & 0xFF, ((v >> 8) & 0x0F) | 0x10, 0x00, 0x00]))
+    send(dev, bytes([0x16, 0x00, 1 if trigger_level else 0, 0x00,
+                     v & 0xFF, ((v >> 8) & 0x0F) | DAC_CH[channel], 0x00, 0x00]))
 
 
 def drain(dev, want: int) -> bytes:
@@ -253,8 +259,9 @@ def main() -> int:
             time.sleep(0.05)
 
         if args.dac is not None:
-            print(f"0x16 selector {args.dacsel} DAC 0x{args.dac:03x}")
-            set_dac(dev, args.dacsel, args.dac)
+            print(f"0x16 DAC 0x{args.dac:03x} on all four channel targets")
+            for ch in (1, 2, 3, 4):
+                set_dac(dev, args.dac, ch)
             time.sleep(0.05)
 
         send(dev, bytes([CMD_START_COLLECT, 0x00]))

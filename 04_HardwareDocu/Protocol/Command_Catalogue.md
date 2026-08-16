@@ -460,8 +460,64 @@ instrument and covers the complex triggers the project plan rated only
 | `0x42` | `laSetTrigNow` | immediate trigger |
 | `0x43` | `SetTrigRelease` | trigger release/re-arm |
 
-`laSetVoltDiv` taking `WORD*` for 16 entries remains the evidence for
-per-channel thresholds. Whether all 16 are independent is still unproven.
+### Where the logic samples live — solved
+
+**Bytes 2 and 3 of every four-byte group in the `dsoHTGetData` stream are the
+16 logic channels**, D0–D7 and D8–D15, one byte each. There is no separate
+`laGetData` export because logic rides in the same stream as analog.
+
+This corrects the earlier reading of those slots as "CH2's two interleaved ADC
+cores". Three independent lines of evidence:
+
+1. They never respond to any of the four `0x16` offset DACs, swept 0–768.
+2. They never respond to any of the 16 relay bits — including with CH2
+   physically driven from the same 1 kHz source.
+3. They flip together exactly as the `0x41` comparator threshold crosses 0 V,
+   which is where 16 unconnected inputs sitting at ground switch.
+
+Slots 0 and 1 remain CH1's two time-interleaved ADC cores. Where CH2's analog
+samples appear when CH2 is enabled is **still open** — nothing found so far
+puts them in the stream.
+
+### `0x41` — logic threshold
+
+Four bytes:
+
+```
+[0] 0x41  [1] 0x00  [2] DAC, even channels  [3] DAC, odd channels
+```
+
+The two DACs do **not** split by byte. One drives the even-numbered logic
+channels and the other the odd, across both bytes:
+
+| byte 2 | byte 3 | every logic byte reads |
+|---|---|---|
+| 0 | 240 | `0b01010101` |
+| 240 | 0 | `0b10101010` |
+| 0 | 0 | `0b11111111` |
+| 240 | 240 | `0b00000000` |
+
+That matches `laSetVoltDiv` reading array entries 0 and 8 of its 16-entry
+`WORD*` — two banks, not sixteen independent thresholds.
+
+From the constants at `0x100080d0`, `0x100080d8` and `0x100080e0`:
+
+```
+dac = 121.848 - 10.8696 * threshold_volts
+```
+
+so DAC 122 is 0 V and the usable range is roughly −12 V to +11 V.
+`laSetVoltDiv` clamps its own input to 0–6 V before conversion.
+
+Confirmed end to end: `05_Software/protocol_probe/probe_logic.py` reads all
+16 channels at 200 kS/s with a 1.4 V threshold. With nothing attached all 16
+read high, and the threshold sweep drives them low as expected.
+
+`laSetVoltDiv` first calls `laReadEEROM` for per-instrument calibration, which
+this implementation skips — thresholds are therefore uncalibrated.
+
+**Not yet tested with a logic pod attached**, so edge capture on a real
+digital signal is unproven.
 
 ## Function generator opcodes
 
@@ -508,11 +564,13 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 5. How `nTimeDIV` indices 24–33 combine `BASE` and `MASK` in practice, and
    what `nYTFormat` selects there.
 6. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
-7. How logic-analyzer samples are carried. The four-byte stream group is two
-   interleaved ADC cores per analog channel, which **disproves** the earlier
-   guess that logic arrives via `dsoHTGetData`'s `pCH3Data`/`pCH4Data`.
-8. Bit 4 of the status byte.
-9. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
+7. Where CH2's analog samples appear. Slots 0/1 are CH1's two interleaved
+   ADC cores and slots 2/3 are the logic bytes, so nothing in the stream
+   currently carries CH2 even with it physically driven.
+8. Whether the logic channels capture real edges. Verified only against
+   unconnected inputs and a threshold sweep so far - no pod attached.
+9. Bit 4 of the status byte.
+10. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
    is the first call in the SDK demo's `Init()` and its result feeds the
    `0x16` DAC values, so real voltage accuracy depends on it.
 

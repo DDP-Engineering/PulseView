@@ -134,7 +134,8 @@ def main() -> int:
 
         set_sample_rate(dev, args.ticks, 3)
         set_htrigger_length(dev, args.buflen, 50)
-        set_dac(dev, 0, args.dac)
+        for _ch in (1, 2, 3, 4):
+            set_dac(dev, args.dac, _ch)
         time.sleep(0.05)
 
         # Known baseline: every bit cleared.
