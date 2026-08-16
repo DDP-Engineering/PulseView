@@ -6,6 +6,7 @@
 schema = 1
 policy = "immutable-commits-only"
 reviewed = 2026-08-15
+mirrored = 2026-08-17
 
 [[source]]
 name = "libsigrok"
@@ -16,9 +17,9 @@ role = "modified-submodule"
 licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libsigrok/blob/0bc2487778e660f4d3116729b6f4aee2b1996bb0/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "pending-owner-input"
-clone_enabled = false
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrok.git"
+fork_status = "mirrored-verified"
+clone_enabled = true
 
 [[source]]
 name = "pulseview"
@@ -29,9 +30,9 @@ role = "modified-submodule"
 licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/pulseview/blob/af02198741b4e57c9f9b796bd5e6c0f2ae9f2f2b/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "pending-owner-input"
-clone_enabled = false
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-pulseview.git"
+fork_status = "mirrored-verified"
+clone_enabled = true
 
 [[source]]
 name = "libsigrokdecode"
@@ -42,8 +43,8 @@ role = "build-dependency"
 licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libsigrokdecode/blob/71f451443029322d57376214c330b518efd84f88/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrokdecode.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
 
 [[source]]
@@ -55,8 +56,8 @@ role = "diagnostic-frontend"
 licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/sigrok-cli/blob/f44dd91347e7ac797cefc23162b9fcf0b7329f1f/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-cli.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
 
 [[source]]
@@ -68,8 +69,8 @@ role = "build-dependency"
 licence = "LGPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libserialport/blob/21b3dfe5f68c205be4086469335fd2fc2ce11ed2/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libserialport.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
 
 [[source]]
@@ -81,8 +82,8 @@ role = "build-script-reference"
 licence = "GPL-2.0 top-level repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/sigrok-util/blob/249b79d0a94e9ac4ec96533bf3108e2a50e6b38d/COPYING.v2"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-util.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
 
 [[source]]
@@ -94,8 +95,8 @@ role = "transport-dependency"
 licence = "LGPL-2.1 repository licence; per-file terms govern"
 licence_url = "https://github.com/libusb/libusb/blob/c75357cd70393b24e0416f664a09f0e97aced934/COPYING"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libusb.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
 
 [[source]]
@@ -107,6 +108,44 @@ role = "windows-cross-toolchain"
 licence = "MIT for MXE core; downloaded packages retain their own licences"
 licence_url = "https://github.com/mxe/mxe/blob/bfff609d0301534f06a4fda080ba4e0c5b501e78/LICENSE.md"
 reviewed = 2026-08-15
-fork_url = ""
-fork_status = "not-required"
+fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-mxe.git"
+fork_status = "mirrored-verified"
 clone_enabled = true
+
+# Added 2026-08-17 after reading sigrok-util's own MSYS2 build script, which
+# needs two sources the original eight did not cover.
+[[source]]
+name = "sigrok-firmware"
+canonical_url = "https://github.com/sigrokproject/sigrok-firmware.git"
+commit = "11eed913a9c535b87b5d5b5b92d2622cf34cee8b"
+head_observed = "11eed913a9c535b87b5d5b5b92d2622cf34cee8b"
+role = "build-dependency"
+licence = "GPL-3.0 repository licence; per-file terms govern"
+licence_url = "https://github.com/sigrokproject/sigrok-firmware/blob/11eed913a9c5/COPYING"
+reviewed = 2026-08-17
+fork_url = ""
+fork_status = "pending-mirror"
+clone_enabled = true
+
+# Not a git repository: a release tarball fetched by wget in the build script.
+# It has to be archived as a binary artifact or the offline build breaks.
+[[artifact]]
+name = "sigrok-firmware-fx2lafw-bin"
+version = "0.1.6"
+url = "http://sigrok.org/download/binary/sigrok-firmware-fx2lafw/sigrok-firmware-fx2lafw-bin-0.1.6.tar.gz"
+role = "build-dependency"
+reviewed = 2026-08-17
+mirrored = false
+
+# Findings that affect the offline build, recorded 2026-08-17:
+#
+# 1. sigrok-util/cross-compile/msys2/sigrok-native-msys2 clones
+#    git://github.com/dickens/libusb -b event-abstraction-v4. That branch NO
+#    LONGER EXISTS - the repo is still there but the branch is gone. The
+#    upstream script cannot run as written. Mainline libusb, already pinned
+#    above, is the replacement.
+# 2. The same script uses git://sigrok.org and git://github.com. The git://
+#    protocol is disabled on GitHub; sigrok.org still serves it. Both are moot
+#    once the Gitea mirrors are used.
+# 3. git://sigrok.org/libsigrok HEAD equals the pinned commit 0bc2487778e6, so
+#    sigrok.org is the canonical origin and GitHub is itself a mirror.
