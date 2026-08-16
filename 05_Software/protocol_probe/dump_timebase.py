@@ -22,26 +22,48 @@ from map_commands import Image
 
 TABLE_VA = 0x10002284
 ENTRIES = 0x26
-BASE_CLOCK_HZ = 250_000_000
+# Confirmed on hardware against the 1 kHz probe-compensation reference: the
+# measured half-period scales as 50000/(ticks+1) samples per interleaved core
+# across ticks 99..1999, which puts the per-channel base clock at 200 MHz.
+BASE_CLOCK_HZ = 200_000_000
 
 
 def arm(img: Image, addr: int) -> tuple[int | None, int | None, int | None]:
     """Decode one switch arm: (divider, flag_at_0x60, flag_at_0x58)."""
     div = f60 = f58 = None
+    regs: dict[str, int] = {}
     off = addr - img.start
     for insn in img.md.disasm(img.code[off : off + 64], addr):
         if insn.mnemonic == "jmp":
             break
-        if insn.mnemonic in ("mov", "or") and insn.op_str.startswith("ebx,"):
-            v = int(insn.op_str.split(",")[1].strip(), 16)
+        m = [p.strip() for p in insn.op_str.split(",")]
+        if len(m) != 2:
+            continue
+        # Several arms load the flag into eax first and store the register, so
+        # immediates alone are not enough - track a little register state.
+        if insn.mnemonic == "mov" and m[0] in ("eax", "ebx"):
+            if m[1].startswith("0x"):
+                regs[m[0]] = int(m[1], 16)
+            elif m[1].isdigit():
+                regs[m[0]] = int(m[1])
+        if insn.mnemonic == "xor" and m[0] == m[1]:
+            regs[m[0]] = 0
+
+        if insn.mnemonic in ("mov", "or") and m[0] == "ebx" and m[1].startswith("0x"):
+            v = int(m[1], 16)
             div = v - (1 << 32) if v >= 0x80000000 else v
-        m = insn.op_str.split(",")
-        if insn.mnemonic == "mov" and len(m) == 2 and "esp + 0x60" in m[0]:
-            if m[1].strip().startswith(("0x", "1", "2", "3", "4", "5", "6", "7", "8", "9")):
-                f60 = int(m[1].strip(), 0)
-        if insn.mnemonic == "mov" and len(m) == 2 and "esp + 0x58" in m[0]:
-            if m[1].strip().startswith(("0x", "1", "2", "3", "4", "5", "6", "7", "8", "9")):
-                f58 = int(m[1].strip(), 0)
+
+        for slot, name in (("esp + 0x60", "f60"), ("esp + 0x58", "f58")):
+            if insn.mnemonic == "mov" and slot in m[0]:
+                val = regs.get(m[1]) if m[1] in regs else (
+                    int(m[1], 0) if m[1].lstrip("-").isdigit() or
+                    m[1].startswith("0x") else None
+                )
+                if val is not None:
+                    if name == "f60":
+                        f60 = val
+                    else:
+                        f58 = val
     return div, f60, f58
 
 

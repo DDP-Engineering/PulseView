@@ -12,10 +12,19 @@ Implements the full dsoHTGetData sequence recovered from HTHardDLL.dll:
     0x1b  set the read length
     0x05  stream the samples off the bulk IN endpoint
 
+and optionally configures the acquisition first, via 0x0e (sample rate),
+0x0f (record length and trigger position) and 0x16 (offset DAC).
+
 Every opcode used here is volatile: acquisition control and transfer setup.
 Nothing writes calibration, flash or EEPROM - those opcodes must never appear
-in this file. The instrument's front-panel timebase, volts/div and trigger are
-left untouched, so the capture reflects whatever the scope is already showing.
+in this file.
+
+Two things are easy to get wrong and both look like broken hardware:
+
+  - Without a 0x16 offset-DAC write the channel sits railed at 0x00 and reads
+    like a dead datapath. 512 centres it.
+  - Without the mode bits in 0x0e byte 2 the divider is ignored and the scope
+    stays at full rate. Use mode 3 for any dividing rate.
 
 Expects CH1 on the probe-compensation output (1 kHz square wave).
 """
@@ -98,11 +107,19 @@ def set_read_len(dev, words: int) -> None:
     send(dev, _addr_cmd(CMD_SET_READ_LEN, words, 0x00))
 
 
-def set_sample_rate(dev, ticks: int, mode: int = 0) -> None:
+BASE_CLOCK_HZ = 200_000_000
+
+
+def set_sample_rate(dev, ticks: int, mode: int = 3) -> None:
     """0x0e - 12-byte buffer. The divider goes on the wire as -(ticks).
 
-    Sample rate is 250 MHz / (ticks + 1); the DLL's jump table holds the clean
-    1-2-5 sequence 1, 4, 9, 19, 49, 99, 199, 499, 999, ...
+    Sample rate is 200 MHz / (ticks + 1) per channel; the DLL's jump table
+    holds the clean 1-2-5 sequence 1, 4, 9, 19, 49, 99, 199, 499, 999, ...
+
+    The mode bits in byte 2 are not cosmetic: with mode 0 the divider is
+    ignored entirely and the scope stays at full rate. Every jump-table arm
+    from index 13 down sets both flags, so mode 3 is what the dividing rates
+    want.
     """
     v = (-ticks) & 0xFFFFFFFF
     send(dev, bytes([0x0E, 0x00, mode & 3, 0x00,
@@ -113,6 +130,30 @@ def set_sample_rate(dev, ticks: int, mode: int = 0) -> None:
 def set_buffer_size(dev, code: int) -> None:
     """0x0d - 4-byte buffer, second byte is a fixed 0x0f."""
     send(dev, bytes([0x0D, 0x0F, code & 7, 0x00]))
+
+
+RING_LIMIT = 0xFFFBFF  # 2^24 - 1025, the clamp dsoHTSetHTriggerLength applies
+
+
+def set_htrigger_length(dev, buflen: int, pos: int) -> tuple[int, int]:
+    """0x0f - two 24-bit ring-buffer pointers derived from length and position.
+
+    Both are expressed as offsets down from 0xfffbff, so a larger record or a
+    later trigger position moves them toward zero.
+    """
+    buflen = min(buflen, RING_LIMIT)
+    if pos == 100:
+        a, b = RING_LIMIT - buflen, RING_LIMIT
+    else:
+        pre = int(pos * buflen * 0.01)
+        post = int((100 - pos) * buflen * 0.01)
+        a = max(0, RING_LIMIT - pre)
+        b = max(0, RING_LIMIT - post)
+    send(dev, bytes([0x0F, 0x00,
+                     a & 0xFF, (a >> 8) & 0xFF, (a >> 16) & 0xFF, 0x00,
+                     b & 0xFF, (b >> 8) & 0xFF, (b >> 16) & 0xFF, 0x00,
+                     0x00, 0x00]))
+    return a, b
 
 
 def set_dac(dev, selector: int, value: int) -> None:
@@ -175,11 +216,13 @@ def main() -> int:
     ap.add_argument("--trigpos", type=int, default=50, help="nHTriggerPos, percent")
     ap.add_argument("--force", action="store_true", help="force the trigger")
     ap.add_argument("--save", help="write the raw payload to this file")
-    ap.add_argument("--ticks", type=int, help="0x0e divider; rate = 250MHz/(ticks+1)")
-    ap.add_argument("--mode", type=int, default=0, help="0x0e byte 2")
+    ap.add_argument("--ticks", type=int, help="0x0e divider; rate = 200MHz/(ticks+1)")
+    ap.add_argument("--mode", type=int, default=3, help="0x0e byte 2")
     ap.add_argument("--bufcode", type=int, help="0x0d buffer-size code, 0-7")
     ap.add_argument("--dac", type=int, help="0x16 DAC value, 0-4095")
     ap.add_argument("--dacsel", type=int, default=0, help="0x16 byte 2 selector")
+    ap.add_argument("--buflen", type=int, help="0x0f record length")
+    ap.add_argument("--timeout", type=float, default=3.0, help="ready-poll seconds")
     args = ap.parse_args()
 
     backend = libusb_package.get_libusb1_backend()
@@ -198,9 +241,15 @@ def main() -> int:
             set_buffer_size(dev, args.bufcode)
             time.sleep(0.05)
         if args.ticks is not None:
-            rate = 250e6 / (args.ticks + 1)
+            rate = BASE_CLOCK_HZ / (args.ticks + 1)
             print(f"0x0e ticks {args.ticks} mode {args.mode} -> {rate / 1e3:g} kS/s")
             set_sample_rate(dev, args.ticks, args.mode)
+            time.sleep(0.05)
+
+        if args.buflen is not None:
+            a, b = set_htrigger_length(dev, args.buflen, args.trigpos)
+            print(f"0x0f buflen {args.buflen} pos {args.trigpos}% "
+                  f"-> 0x{a:06x} / 0x{b:06x}")
             time.sleep(0.05)
 
         if args.dac is not None:
@@ -218,7 +267,7 @@ def main() -> int:
             send(dev, bytes([CMD_FORCE_TRIGGER, 0x00]))
             time.sleep(0.3)
 
-        deadline = time.time() + 3.0
+        deadline = time.time() + args.timeout
         state = None
         while time.time() < deadline:
             state = get_state(dev)

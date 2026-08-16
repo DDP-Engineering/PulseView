@@ -244,6 +244,28 @@ step 5 is met.
 Note `0x15` is a **read**, not a write: it returns the current 16-bit relay
 word. The relay write is `0x12`, below.
 
+### Vendor init order
+
+`Code Demo/VCDSO/Hard.cpp` in the SDK spells out the order the vendor uses in
+`CHard::Init()`, which is worth following in a driver:
+
+```
+dsoSetUSBBus
+dsoHTReadCalibrationData         -> feeds the 0x16 DAC values
+dsoHTSetSampleRate               0x0e
+dsoHTSetCHAndTrigger             0x15 read + 0x12 writes
+dsoHTSetTriggerAndSyncOutput     0x0c
+dsoHTSetCHPos        per channel 0x16 selector 0
+dsoHTSetVTriggerLevel            0x16 selector 1
+dsoHTSetHTriggerLength           0x0f
+laSetVoltDiv
+```
+
+`dsoHTSetBufferSize` (`0x0d`) is **never called** — it is not part of normal
+setup. The demo's defaults are `nTimeDIV = 12`, `nYTFormat = 0`,
+`nHTriggerPos = 50`, `nCHSet = 0x0f`, and buffer/read lengths all
+`BUF_10K_LEN`.
+
 ### Decoded configuration buffers
 
 `0x0d` SetBufferSize, 4 bytes:
@@ -264,29 +286,68 @@ word. The relay write is `0x12`, below.
 The wire value is negative: `divider = -(ticks)`, and
 
 ```
-sample_rate = 250 MHz / (ticks + 1)
+sample_rate = 200 MHz / (ticks + 1)      per channel
 ```
 
-The extracted ticks are a clean 1-2-5 sequence — 1, 4, 9, 19, 49, 99, 199,
-499, 999, 1999, 4999, 9999, 19999 — giving 125 MS/s down to 12.5 kS/s.
-Indices 24–33 compute their arm rather than loading a constant and are not
-decoded yet; 34–37 are the roll-mode rates.
-`05_Software/protocol_probe/dump_timebase.py` regenerates the table.
+**Byte 2 is not cosmetic.** It packs two flags the same jump table arms set,
+as `(flagA & 1) << 1 | (flagB & 1)`. With byte 2 = 0 the divider is ignored
+outright and the scope stays at full rate — this cost a full debugging cycle.
+Every arm from index 13 down sets both flags, so **any dividing rate needs
+byte 2 = 3**.
 
-Byte 2 packs two mode flags the same jump table sets, as
-`(flagA & 1) << 1 | (flagB & 1)`. Sending `0x0e` alone had no observable
-effect on the capture rate, so at least one of `0x0d`, `0x0f` or the relay
-word is a prerequisite. **Not yet working.**
+| `nTimeDIV` | byte 2 | ticks | rate per channel |
+|---|---|---|---|
+| 0–10 | `0b00` | 1 | 100 MS/s |
+| 11 | `0b01` | 1 | 100 MS/s |
+| 12 | `0b10` | 4 | 40 MS/s |
+| 13 | `0b11` | 9 | 20 MS/s |
+| 14 | `0b11` | 19 | 10 MS/s |
+| 15 | `0b11` | 49 | 4 MS/s |
+| 16 | `0b11` | 99 | 2 MS/s |
+| 17 | `0b11` | 199 | 1 MS/s |
+| 18 | `0b11` | 499 | 400 kS/s |
+| 19 | `0b11` | 999 | 200 kS/s |
+| 20 | `0b11` | 1999 | 100 kS/s |
+| 21 | `0b11` | 4999 | 40 kS/s |
+| 22 | `0b11` | 9999 | 20 kS/s |
+| 23 | `0b11` | 19999 | 10 kS/s |
 
-`0x0f` SetHTriggerLength, 12 bytes — two 24-bit fields, presumed pre- and
-post-trigger record lengths:
+Indices 24–33 derive their divider from `nYTFormat` rather than loading a
+constant: `ebx = BASE` when `nYTFormat` is 0, else `BASE + MASK`. 34–37 are
+the roll-mode rates. `05_Software/protocol_probe/dump_timebase.py`
+regenerates the table.
+
+The 200 MHz base clock is **measured, not assumed**. Against the 1 kHz
+probe-compensation reference the median half-period per interleaved core
+follows `50000 / (ticks + 1)` samples exactly across ticks 99, 199, 499, 999
+and 1999 — a 20× span with no drift, which fixes the per-channel base at
+200 MHz. The DLL's own naming suggests 250 MHz; the hardware disagrees.
+
+`0x0f` SetHTriggerLength, 12 bytes — two 24-bit ring-buffer pointers:
 
 ```
 [0] 0x0f  [1] 0x00
-[2..4] value A, little-endian 24-bit   [5] 0x00
-[6..8] value B, little-endian 24-bit   [9] 0x00
+[2..4] fieldA, little-endian 24-bit    [5] 0x00
+[6..8] fieldB, little-endian 24-bit    [9] 0x00
 [10..11] uninitialised in the DLL
 ```
+
+```
+buflen = min(nBufferLen, 0xfffbff)          # 2^24 - 1025
+pre    = HTriggerPos * buflen / 100
+post   = (100 - HTriggerPos) * buflen / 100
+fieldA = max(0, 0xfffbff - pre)
+fieldB = max(0, 0xfffbff - post)
+```
+
+`HTriggerPos == 100` is special-cased to `fieldA = 0xfffbff - buflen`,
+`fieldB = 0xfffbff`. When `nYTFormat == 1` and `nTimeDIV >= 0x18` the length
+is pre-multiplied by 4; when `nYTFormat == 2` the trigger position is forced
+to 0.
+
+Note this command carries **no timebase** despite taking `nTimeDIV` — that
+argument only selects the ×4 branch above. The sample rate comes from `0x0e`
+alone.
 
 `0x16` SetCHPos / SetVTriggerLevel, 8 bytes:
 
@@ -397,24 +458,22 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 
 ## Open questions
 
-1. Why `0x0e` alone does not change the capture rate. Prime suspects are
-   `0x0f` SetHTriggerLength and `0x0d` SetBufferSize as prerequisites.
-2. The `0x12` relay bit-to-function map: which bits are channel enable,
+1. The `0x12` relay bit-to-function map: which bits are channel enable,
    coupling, attenuator and bandwidth limit.
-3. How `nTimeDIV` indices 24–33 compute their divider.
-4. The two 24-bit fields of `0x0f`, and how `dsoHTGetData` derives them from
-   `nBufferLen` and `HTriggerPos`.
-5. Whether CH2 needs its own offset DAC write, and what selector value
+2. Whether CH2 needs its own offset DAC write, and what selector value
    addresses it — selector 0 appears to move CH1 only, and CH2 sits railed at
    `0xff`.
-6. Volts/div to ADC-counts scaling, needed to report real voltages.
-7. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
-8. Whether logic samples arrive through the `pCH3Data`/`pCH4Data` arguments of
-   `dsoHTGetData`, as the header's shape suggests. The four-byte stream group
-   is two interleaved ADC cores per analog channel, so the logic pod is
-   evidently carried some other way.
-9. Bit 4 of the status byte.
-10. Opcodes for calibration read, and their buffer format.
+3. Volts/div to ADC-counts scaling, needed to report real voltages.
+4. How `nTimeDIV` indices 24–33 combine `BASE` and `MASK` in practice, and
+   what `nYTFormat` selects there.
+5. Which opcodes the `0xb3` `CTRL_BEGINCOMMAND` handshake must precede.
+6. How logic-analyzer samples are carried. The four-byte stream group is two
+   interleaved ADC cores per analog channel, which **disproves** the earlier
+   guess that logic arrives via `dsoHTGetData`'s `pCH3Data`/`pCH4Data`.
+7. Bit 4 of the status byte.
+8. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
+   is the first call in the SDK demo's `Init()` and its result feeds the
+   `0x16` DAC values, so real voltage accuracy depends on it.
 
 ## Reproducing
 
