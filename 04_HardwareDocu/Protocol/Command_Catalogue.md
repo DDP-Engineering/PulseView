@@ -247,6 +247,56 @@ Reading 500000 (`nReadDataLen`) yields 250279 four-byte points, CH1 swinging
 113..128 counts, a clean square wave at the reference frequency. Gate G2
 step 5 is met.
 
+## The SDK manual is an authoritative source, and was under-used
+
+`01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-EN.pdf` documents every
+exported function's parameters and their legal values. It gives semantics that
+disassembly can only guess at. The headers under `HeadFiles/` give the struct
+layouts, and `Code Demo/VCDSO/Hard.cpp` shows the vendor's own calling
+sequence. Where the manual and the demo disagree, the demo wins: it presumably
+runs.
+
+What that settles for trigger support, which had looked like it needed `0x0c`
+reverse-engineered from scratch:
+
+```c
+dsoHTSetTriggerAndSyncOutput(WORD nDeviceIndex, WORD nSynMode,
+    WORD nlaTriggerMode, WORD nTriggerMode, WORD nTriggerSlope,
+    WORD nPWCondition, ULONG nPW, USHORT nVideoStandard,
+    USHORT nVedioSyncSelect, USHORT nVideoHsyncNumOption, WORD nSync);
+```
+
+| Parameter | Values |
+|---|---|
+| `nSynMode` | 0 for CH1/CH2/EXT as source, 5 for D0-D15 |
+| `nlaTriggerMode` | logic trigger: 0 edge, 1 pulse |
+| `nTriggerMode` | analog trigger: 0 edge, 1 pulse |
+| `nTriggerSlope` | 0 rising, 1 falling |
+| `nPWCondition` | 0 +Less, 1 +Equal, 2 +More, 3 -Less, 4 -Equal, 5 -More |
+| `nPW` | pulse width in units of 5 ns, range 2 to 2e9 |
+| `nSync` | sync output, 1 enable, 0 disable |
+
+Trigger source indexing comes from `Hard.cpp`, which branches on it:
+
+```
+CH1 = 0, CH2 = 1, D0..D15 = 2..17, EXT = 18
+```
+
+with `laSetTrigSource(nTrigSource - 2)` called for the logic sources.
+
+Also pinned down: coupling is `DC=0, AC=1, GND=2`; `nHTriggerPos` is a
+percentage 0-100; `nVTriggerPos` is 0-255; `nYTFormat` is 0 normal, 1 scan,
+2 roll.
+
+**What the SDK cannot give is the wire format.** The DLL marshals these
+parameters into the bulk buffer, and only disassembly or experiment reveals
+the byte layout. But knowing every field, its order in the signature and its
+legal range turns that from open-ended reverse engineering into a hypothesis
+that can be tested against hardware in minutes.
+
+The Chinese editions of the manuals, and the `HTSoftDll` and `HTDisplayDll`
+manuals, have not been read.
+
 ## Configuration opcodes
 
 | Opcode | SDK export | Notes |
@@ -639,6 +689,37 @@ bit15 [0x17]        bit14 [0x18]        bit13 [0x19]        bit12 TrigFilt
 bit11 BWLimit[0]    bit10 BWLimit[1]    bit9  BWLimit[2]    bit8  BWLimit[3]
 bit7..bit0          volts/div group
 ```
+
+#### Correction: this word carries no channel-enable bits
+
+Naming it "the enable word" was wrong, and it explains why no amount of
+poking it ever brought CH2 alive.
+
+The SDK header gives `RELAYCONTROL`'s layout, and Win32 `BOOL` is four bytes:
+
+| Offset | Field |
+|---|---|
+| `0x00`-`0x0F` | `bCHEnable[4]` |
+| `0x10`-`0x17` | `nCHVoltDIV[4]` |
+| `0x18`-`0x1F` | `nCHCoupling[4]` |
+
+Every struct offset referenced above - `0x10`, `0x11`, `0x12`, `0x13`, `0x15`,
+`0x16`, `0x17`, `0x18`, `0x19`, `0x1c` - lands in volts/div or coupling. Not
+one falls in `0x00`-`0x0F`, where the channel-enable flags live. The word
+encodes the front-end *settings*, not which channels are on.
+
+Where `bCHEnable` actually reaches the wire is still unknown. It is passed in,
+`dsoHTSetCHAndTrigger` is documented as taking the whole struct, and the
+disassembly's packing chain at `0x100029b2` simply does not read those
+offsets. Either another command carries it, or it is consumed host-side. That
+is the thread to pull for CH2.
+
+Polarity, incidentally, is not the problem: `Hard.cpp` sets
+`bCHEnable[i] = 1` to enable and the manual's own example passes
+`pCHEnable[4] = {1,1,1,1}`. The manual's separate remark that `nCHSet` uses
+"0 is enable, 1 is disable" contradicts both, and contradicts the demo's own
+`((nCHSet >> i) & 1) == 1` test for an active channel. Treat that line as an
+error in the manual.
 
 Values for `nTrigSource = 0` with coupling and bandwidth bits clear, derived
 from the `bCHEnable[]` branch tree at `0x10002513`:
