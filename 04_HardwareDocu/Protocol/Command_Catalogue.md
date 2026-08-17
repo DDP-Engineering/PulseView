@@ -895,10 +895,58 @@ this implementation skips — thresholds are therefore uncalibrated.
 **Not yet tested with a logic pod attached**, so edge capture on a real
 digital signal is unproven.
 
+## Acquisition memory depth
+
+`nBufferLen`, passed to `dsoHTSetHTriggerLength` (`0x0f`), is the record
+length. The SDK demo defines exactly two: `BUF_10K_LEN` 10240 and
+`BUF_40K_LEN` 40960, and uses 10240 as its "factory setup".
+
+Measured through the libsigrok driver, requesting logic samples:
+
+| Requested | Returned |
+|---|---|
+| 10240 | 10240 |
+| 40960 | 40960 |
+| 200000 | nothing |
+| 1000000 | nothing |
+
+So 40960 is the working ceiling, matching the SDK's larger constant. The ring
+buffer itself is 2^24 samples, so this is a limit of the transfer setup rather
+than of the hardware's memory.
+
+`dsoHTSetBufferSize` (`0x0d`) takes a three-bit size code and **the demo never
+calls it** - it is not part of normal setup. Whether it unlocks the rest of
+that ring is untested, and it is the obvious thing to try for deeper captures.
+
 ## Function generator opcodes
 
-The DSO3062L carries a DDS arbitrary waveform generator. Out of scope for the
-PulseView integration, recorded for completeness.
+The DSO3062L carries a DDS arbitrary waveform generator, declared in
+`HeadFiles/HTHardDll.h` under its own `-----------DDS--------------` banner:
+
+```c
+ddsSetOnOff(WORD DeviceIndex, short nOnOff);
+ddsSetFrequency(WORD DeviceIndex, double dbFre, WORD* pWaveNum, WORD* pPeriodNum);
+ddsDownload(WORD DeviceIndex, WORD iWaveNum, WORD* pData);
+ddsSetSyncOut(WORD DeviceIndex, BOOL bEnable);
+ddsSetCmd(WORD DeviceIndex, USHORT nSingle);
+```
+
+It is an arbitrary-waveform generator - `ddsDownload` sends a sample table -
+rather than a dedicated PWM peripheral, though a downloaded table can of
+course be a pulse train of any duty cycle. `ddsSetSyncOut` drives a separate
+sync output.
+
+**The English SDK manual documents none of these**, and the demo calls none of
+them. Only the export names and signatures are known. That leaves two possible
+sources: the Chinese manual editions, which are unread, and the DLL itself -
+the opcodes below came from disassembly.
+
+There is a second, unrelated output: `nSync`, the last parameter of
+`dsoHTSetTriggerAndSyncOutput` (`0x0c`), documented as "the synchro output is
+enable or disable". The driver packs it at its correct position and leaves it
+at 0. That one is a trigger-synchronous output, not the generator.
+
+Out of scope for the PulseView integration, recorded for completeness.
 
 | Opcode | SDK export |
 |---|---|
