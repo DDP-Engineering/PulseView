@@ -910,13 +910,29 @@ Measured through the libsigrok driver, requesting logic samples:
 | 200000 | nothing |
 | 1000000 | nothing |
 
-So 40960 is the working ceiling, matching the SDK's larger constant. The ring
-buffer itself is 2^24 samples, so this is a limit of the transfer setup rather
-than of the hardware's memory.
+That is a limit of **this driver**, not of the instrument. The vendor software
+advertises 10K to 16M per channel, matching the 2^24 ring, and
+`read_capture.py` reaches it: with the record length raised alongside the read
+length it returns 100522 and 500534 sample points, state 3, clean data.
+
+```
+uv run read_capture.py --samples 500000 --buflen 500000 --ticks 999 --force
+```
+
+Two things are needed together and the driver currently gets only the first
+right. The record length in `0x0f` must match, or the capture never leaves
+state 0. And the bulk read must be issued **one 512-byte packet at a time**,
+which is what the DLL's own loop does - asking for a larger block returns
+`LIBUSB_ERROR_TIMEOUT`, because the device streams a packet at a time and
+never fills a bigger request.
+
+With both fixed the driver still stops at about 40 k: a deep capture returns
+2048 bytes and then times out. Unresolved. The remaining difference from the
+working probe run is that the probe forces the trigger while the driver now
+waits for a real one, so post-trigger fill is the first thing to examine.
 
 `dsoHTSetBufferSize` (`0x0d`) takes a three-bit size code and **the demo never
-calls it** - it is not part of normal setup. Whether it unlocks the rest of
-that ring is untested, and it is the obvious thing to try for deeper captures.
+calls it**. The probe reaches 500 k without it, so it is not the gate.
 
 ## Function generator opcodes
 
