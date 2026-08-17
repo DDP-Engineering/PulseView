@@ -181,14 +181,25 @@ sync_source() {
     cd "${BUILD}/${name}"
 }
 
-# autogen.sh is expensive and only needs re-running when its inputs change.
+# autogen.sh and configure are expensive and only need re-running when their
+# inputs change - but "change" has to include the case that matters most here.
+# Adding a driver edits configure.ac and Makefile.am, and a guard that only
+# asked whether ./configure exists would skip both steps and produce a build
+# with the new driver silently absent. cp -au preserves mtimes, so comparing
+# against the generated files catches it.
 autotools_build() {
     local name="$1"
     shift
     sync_source "${name}"
-    [ -f ./configure ] || run "${name}" autogen ./autogen.sh || return 1
-    # shellcheck disable=SC2086
-    [ -f ./config.status ] || run "${name}" configure ./configure "$@" || return 1
+
+    if [ ! -f ./configure ] || [ configure.ac -nt ./configure ]; then
+        run "${name}" autogen ./autogen.sh || return 1
+    fi
+    if [ ! -f ./config.status ] || [ ./configure -nt ./config.status ]; then
+        # shellcheck disable=SC2086
+        run "${name}" configure ./configure "$@" || return 1
+    fi
+
     run "${name}" make make -j"$(nproc)" || return 1
     run "${name}" install make install || return 1
 }
@@ -355,9 +366,16 @@ done
 
 DRIVERS=0
 DECODERS=0
-[ -f "${LOG_DIR}/libsigrok-configure.log" ] && DRIVERS="$(sed -n \
+# The driver count comes from libsigrok's configure summary, which only
+# exists in runs where configure actually re-ran. On an incremental build it
+# does not, so look in the build tree's own config.log rather than this run's
+# log directory - otherwise the record reports a flat 0 drivers and looks
+# like the catastrophe R-19 exists to catch.
+DRIVER_LOG="${LOG_DIR}/libsigrok-configure.log"
+[ -f "${DRIVER_LOG}" ] || DRIVER_LOG="$(ls -t "${REPO}"/.work/logs/*/libsigrok-configure.log 2>/dev/null | head -1)"
+[ -n "${DRIVER_LOG}" ] && [ -f "${DRIVER_LOG}" ] && DRIVERS="$(sed -n \
     '/Enabled hardware drivers/,/Enabled serial/p' \
-    "${LOG_DIR}/libsigrok-configure.log" | grep -cE '\.\.\.+ yes' || true)"
+    "${DRIVER_LOG}" | grep -cE '\.\.\.+ yes' || true)"
 [ -d "${PREFIX}/share/libsigrokdecode/decoders" ] && DECODERS="$(find \
     "${PREFIX}/share/libsigrokdecode/decoders" -maxdepth 1 -mindepth 1 \
     -type d | wc -l)"

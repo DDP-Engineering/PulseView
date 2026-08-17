@@ -186,6 +186,30 @@ words   = 2 * nReadDataLen + 0x800                   # what 0x1b receives
 
 The first `rem + 512` sample points are preamble and must be discarded.
 
+#### That length formula counts analog samples, not groups
+
+`nReadDataLen` is a count of **analog** samples, and an analog channel owns
+two of the four slots in every group. Logic owns one. So asking for `n` and
+reading the result as logic yields about `n/2 + 512 - rem` logic samples, not
+`n`.
+
+Measured with the libsigrok driver before this was understood: 1000 requested
+gave 906, 4096 gave 2237, 10240 gave 5475 - all matching that expression to
+the sample. `probe_logic.py` and `read_capture.py` inherit the same halving;
+it goes unnoticed there because neither checks the returned count against the
+requested one.
+
+Working in logic samples instead, for `n` of them:
+
+```
+start   = (end_address - n) mod 2^24
+rem     = start & 0x1ff
+words   = 4 * n + 4 * rem + 0x800
+```
+
+Confirmed exact: 1000, 4096 and 10240 requested each return precisely that
+many logic samples.
+
 ### Sample stream format
 
 `sub_10003330` de-interleaves the bulk stream with a stride of four, widening
@@ -419,6 +443,53 @@ distinguish.
 **No bit brought CH2 alive** — it stayed railed at 255 throughout, which
 suggests CH2 needs its own offset DAC write rather than a relay change.
 
+**Reproduced through the libsigrok driver, 2026-08-17.** Implementing the
+clear-all-then-set sequence in C and selecting bit 12 gives min 119, max 249 -
+span 130, midpoint 184 - against the 1 kHz probe-compensation reference. That
+matches the table above exactly, independently of the Python probe path, which
+is good evidence that both the relay encoding and the "fully clear first"
+requirement are correctly understood.
+
+It is also the first usable analog capture: at this setting the waveform fits
+inside the converter's range instead of railing at 255.
+
+### Gain ladder swept through the driver
+
+Each bit set from a fully cleared baseline, 1x probes on the 1 kHz 2 Vpp
+compensation output, offset DAC 512:
+
+| Bit | min | max | span | midpoint | |
+|---|---|---|---|---|---|
+| 3 | 79 | 255 | 176 | 167.0 | clips |
+| 4 | 109 | 255 | 146 | 182.0 | clips |
+| 10 | 0 | 255 | 255 | 127.5 | clips hard, maximum gain |
+| 11 | 119 | 249 | 130 | 184.0 | fits |
+| 12 | 119 | 249 | 130 | 184.0 | fits |
+| 0 | 120 | 255 | 135 | 187.5 | clips |
+
+Bits 11 and 12 produce byte-identical results, which suggests they drive the
+same relay or a redundant pair rather than two distinct attenuator steps.
+
+Only these two keep a 2 Vpp input inside the converter, so bit 12 is the
+driver's default. The clipping settings **cannot be calibrated from this
+reference** - their spans above are truncated by saturation, not measured.
+Characterising them needs a smaller adjustable source.
+
+### One calibrated point
+
+At bit 12 with 1x probes: 2 V spans 130 counts, and the waveform's low level -
+ground, for a ground-referenced compensation output - sits at count 119.
+
+```
+volts = (count - 119) * 2.0 / 130        ~15.4 mV per count
+```
+
+The driver emits volts on this basis. Two honest limits: it holds only for
+this exact gain and offset-DAC combination, and reading 2.000 V back from the
+same signal that produced the constants confirms the arithmetic rather than
+the calibration. The independent check is timing - 1000.0 Hz - which played no
+part in deriving the vertical scale.
+
 `0x15` returned `0x0000` in early runs but `0x8584` on a later entry, so it is
 a real readback, not a stub. The DLL guards against a zero result with
 `test edi, edi; je` — if bit 0 of the readback is clear it writes every bit
@@ -496,7 +567,48 @@ So the effective per-channel rate is:
 ```
 one analog channel   200 MHz / (ticks + 1)
 two analog channels  100 MHz / (ticks + 1)
+logic (always)       100 MHz / (ticks + 1)
 ```
+
+#### Logic rate confirmed, and probe_logic.py corrected
+
+`probe_logic.py` computes `200e6 / (ticks + 1)` for logic and prints the
+"200 kS/s" figure quoted elsewhere in this document. **That is wrong by a
+factor of two.** Logic occupies one slot per four-byte group, so it advances
+at the per-slot rate, never the two-slot analog rate.
+
+Measured 2026-08-17 through the libsigrok driver, against the instrument's own
+1 kHz probe-compensation output on CH1 - which rides the same groups, so its
+timing is the logic timing:
+
+| Rate set | Median period | Implied frequency |
+|---|---|---|
+| 200 kHz | 200 samples | 1000.0 Hz |
+| 500 kHz | 500 samples | 1000.0 Hz |
+| 1 MHz | 1000 samples | 1000.0 Hz |
+
+Exact at all three. Had the 200 MHz figure been right, the 1 kHz reference
+would have measured 500 Hz.
+
+The analog side is the opposite case, and confirms the two-core reading of
+slots 0 and 1. Emitting both slots as consecutive samples makes the same
+1 kHz reference span **400** samples instead of 200 at a reported 200 kHz. So
+with one analog channel enabled CH1 really does sample at
+`200 MHz / (ticks + 1)` - the instrument's full 200 MS/s budget - while the
+group, and therefore logic, advances at half that.
+
+That measurement also reveals the current hardware state: slot 1 is CH1's
+second core, **not CH2**, so the instrument is in single-analog-channel mode
+even with both probes physically connected. Consistent with the finding above
+that no relay bit brought CH2 alive.
+
+Still open, and only a logic pod can close it: whether slots 2 and 3 are two
+banks of eight channels (D0-D7, D8-D15) or two time points of the same eight.
+The evidence favours banks - the instrument is specified as 16 channels,
+`laSetVoltDiv` reads a 16-entry array using entries 0 and 8, and the two bytes
+respond to different threshold DACs - but every test so far ran on unconnected
+inputs, where all sixteen read alike. Drive D0 and check whether the same
+signal appears on D8.
 
 ### The enable word — a second `0x12` form
 
