@@ -397,6 +397,34 @@ follows `50000 / (ticks + 1)` samples exactly across ticks 99, 199, 499, 999
 and 1999 — a 20× span with no drift, which fixes the per-channel base at
 200 MHz. The DLL's own naming suggests 250 MHz; the hardware disagrees.
 
+`0x0c` SetTriggerAndSyncOutput, 10 bytes — decoded from `sub_10003fa0`, which
+`dsoHTSetTriggerAndSyncOutput` is a thin wrapper around. It mallocs ten bytes,
+packs them as below and hands them straight to `DeviceIoControl(0x222051)`:
+
+```
+[0] 0x0c
+[1] 0x00
+[2] ((((nPWCondition & 3) | (nSync << 2)) << 2 | (nTriggerMode & 3)) << 2
+      | (nTriggerSlope & 3)) << 1
+[3] (((nSynMode << 3) | (nVedioSyncSelect & 7)) << 1) | (nVideoStandard & 1)
+[4..6] nPW, little-endian
+[7] (nPW >> 24) & 7                      the pulse width is 27 bits, not 32
+[8] nVideoHsyncNumOption & 0xff
+[9] ((nVideoHsyncNumOption >> 8) & 3) | (nlaTriggerMode << 3)
+```
+
+Note the trailing shift on byte 2: every field there sits one bit higher than
+its own width suggests, so bit 0 is always clear.
+
+The parameter meanings come from the SDK manual, above. Checked against the
+demo's own call `(idx, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)`, which yields
+
+```
+0c 00 00 00 00 00 00 00 01 00      rising-edge trigger on an analog source
+0c 00 02 00 00 00 00 00 01 00      the same, falling edge
+0c 00 00 50 00 00 00 00 01 00      edge trigger on a logic source (nSynMode 5)
+```
+
 `0x0f` SetHTriggerLength, 12 bytes — two 24-bit ring-buffer pointers:
 
 ```
