@@ -432,19 +432,14 @@ instrument still never reports a trigger: every capture falls through to the
 one-second auto-trigger timeout. Sending `0x0c` and a trigger level is not
 sufficient.
 
-The missing piece is the trigger **source**. `RELAYCONTROL.nTrigSource` sits
-at struct offset `0x30`, and `dsoHTSetCHAndTrigger` passes the struct to
-`sub_10002320`, which reads it - `mov cx, word ptr [eax + 0x30]` at
-`0x10002398` and again at `0x100023e6` - and stores it into a buffer being
-assembled at `esp+0x10 .. esp+0x1a`, alongside a run of constant 0s and 1s.
-That buffer is a command this catalogue has not decoded, and it is not the
-24-bit settings word.
+The missing piece is the trigger **source**, and it travels in the 24-bit word
+of the second `0x12` form - not in `0x0c` at all. `sub_10002320` reads
+`nTrigSource` from struct offset `0x30` and stores it at `esp+0x19`, which the
+packing chain places at bit 13.
 
-So the trigger chain needs all three: the source selection from
-`sub_10002320`, the level via `0x16` selector 1, and the mode and slope via
-`0x0c`. Only the last two are understood. Decoding `sub_10002320` is the next
-step, and it is likely to answer the CH2 question at the same time, since
-`bCHEnable` is in the same struct and equally unaccounted for.
+So arming a trigger needs three commands, and this driver sends two: the
+source in `0x12`, the level via `0x16` selector 1, and the mode and slope via
+`0x0c`. Adding the first is what should make it fire.
 
 `0x0f` SetHTriggerLength, 12 bytes — two 24-bit ring-buffer pointers:
 
@@ -739,36 +734,38 @@ bit11 BWLimit[0]    bit10 BWLimit[1]    bit9  BWLimit[2]    bit8  BWLimit[3]
 bit7..bit0          volts/div group
 ```
 
-#### Correction: this word carries no channel-enable bits
+#### Those bracketed numbers are stack locals, not struct offsets
 
-Naming it "the enable word" was wrong, and it explains why no amount of
-poking it ever brought CH2 alive.
+Worth stating explicitly, because reading them as `RELAYCONTROL` offsets
+leads to the confident and wrong conclusion that this word carries no
+channel-enable bits.
 
-The SDK header gives `RELAYCONTROL`'s layout, and Win32 `BOOL` is four bytes:
+`[0x10]` and friends are `esp+0x10` inside `sub_10002320`, a scratch buffer
+the function fills before packing. The packing chain at `0x100029b2` reads
+them in exactly the order listed above: `esp+0x1c`, `0x10`, `0x11`, `0x15`,
+`0x16`, `0x12`, `0x13`, `0x17`, `0x18`, `0x19`.
 
-| Offset | Field |
+Where those locals come from is the answer to two open questions:
+
+| Local | Filled from |
 |---|---|
-| `0x00`-`0x0F` | `bCHEnable[4]` |
-| `0x10`-`0x17` | `nCHVoltDIV[4]` |
-| `0x18`-`0x1F` | `nCHCoupling[4]` |
+| `esp+0x10` .. `esp+0x16` | the `bCHEnable[4]` decision tree at `0x10002422` |
+| `esp+0x19` | `nTrigSource`, `mov cx, word ptr [eax + 0x30]` |
 
-Every struct offset referenced above - `0x10`, `0x11`, `0x12`, `0x13`, `0x15`,
-`0x16`, `0x17`, `0x18`, `0x19`, `0x1c` - lands in volts/div or coupling. Not
-one falls in `0x00`-`0x0F`, where the channel-enable flags live. The word
-encodes the front-end *settings*, not which channels are on.
+So **the 24-bit word does carry channel enable, and it carries the trigger
+source too**. `sub_10002320` branches on the combination of enabled channels -
+`[eax]`, `[eax+4]`, `[eax+8]`, `[eax+0xc]` - and each combination writes its
+own seven-byte pattern into `esp+0x10..0x16`. It is a lookup, not a bitmask,
+which is why poking individual bits never turned CH2 on.
 
-Where `bCHEnable` actually reaches the wire is still unknown. It is passed in,
-`dsoHTSetCHAndTrigger` is documented as taking the whole struct, and the
-disassembly's packing chain at `0x100029b2` simply does not read those
-offsets. Either another command carries it, or it is consumed host-side. That
-is the thread to pull for CH2.
+Decoding the branch for "CH1 and CH2 both enabled" is what enabling CH2 needs.
+The same word, via `esp+0x19`, is what arming a trigger needs.
 
-Polarity, incidentally, is not the problem: `Hard.cpp` sets
-`bCHEnable[i] = 1` to enable and the manual's own example passes
-`pCHEnable[4] = {1,1,1,1}`. The manual's separate remark that `nCHSet` uses
-"0 is enable, 1 is disable" contradicts both, and contradicts the demo's own
-`((nCHSet >> i) & 1) == 1` test for an active channel. Treat that line as an
-error in the manual.
+Polarity is not involved: `Hard.cpp` sets `bCHEnable[i] = 1` to enable and the
+manual's own example passes `pCHEnable[4] = {1,1,1,1}`. The manual's separate
+remark that `nCHSet` uses "0 is enable, 1 is disable" contradicts both, and
+contradicts the demo's own `((nCHSet >> i) & 1) == 1` test for an active
+channel. Treat that line as an error in the manual.
 
 Values for `nTrigSource = 0` with coupling and bandwidth bits clear, derived
 from the `bCHEnable[]` branch tree at `0x10002513`:
