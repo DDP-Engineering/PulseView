@@ -17,14 +17,14 @@ the commit we build from is worthless.
 
 The bare clones under .work/ are only a transport staging area and can be
 deleted once pushed. The repositories you actually build from live in
-05_Software/upstream/ as submodules whose remote is Gitea, never github.com,
-so a fresh checkout of this project needs no internet.
+05_Software/ as submodules whose remote is Gitea, never github.com, so a
+fresh checkout of this project needs no internet.
 
 Usage:
     uv run mirror_upstreams.py --check       # verify pins, clone nothing
     uv run mirror_upstreams.py --clone       # clone/update local bare mirrors
     uv run mirror_upstreams.py --push        # create Gitea repos and push
-    uv run mirror_upstreams.py --submodules  # wire 05_Software/upstream/
+    uv run mirror_upstreams.py --submodules  # wire 05_Software/<name>
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ LOCK = REPO_ROOT / "02_Tools" / "upstream" / "upstreams.lock.toml"
 # Transport staging only - safe to delete once the Gitea push has happened.
 MIRRORS = REPO_ROOT / ".work" / "mirrors"
 # The trees we actually build from.
-UPSTREAM = REPO_ROOT / "05_Software" / "upstream"
+UPSTREAM = REPO_ROOT / "05_Software"
 
 GITEA_SSH = "ssh://git@192.168.1.15:2222/dpasare"
 GITEA_OWNER = "dpasare"
@@ -82,8 +82,8 @@ def has_commit(bare: Path, commit: str) -> bool:
 
 
 def add_submodule(src: dict) -> None:
-    """Wire 05_Software/upstream/<name> to the Gitea mirror at the pinned commit."""
-    rel = f"05_Software/upstream/{src['name']}"
+    """Wire 05_Software/<name> to the Gitea mirror at the pinned commit."""
+    rel = f"05_Software/{src['name']}"
     path = REPO_ROOT / rel
     url = f"{GITEA_SSH}/{mirror_name(src)}.git"
     if not path.exists():

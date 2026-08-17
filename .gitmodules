@@ -1,21 +1,21 @@
-[submodule "05_Software/upstream/libsigrok"]
-	path = 05_Software/upstream/libsigrok
+[submodule "05_Software/libsigrok"]
+	path = 05_Software/libsigrok
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrok.git
-[submodule "05_Software/upstream/libsigrokdecode"]
-	path = 05_Software/upstream/libsigrokdecode
+[submodule "05_Software/libsigrokdecode"]
+	path = 05_Software/libsigrokdecode
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrokdecode.git
-[submodule "05_Software/upstream/sigrok-cli"]
-	path = 05_Software/upstream/sigrok-cli
+[submodule "05_Software/sigrok-cli"]
+	path = 05_Software/sigrok-cli
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-cli.git
-[submodule "05_Software/upstream/sigrok-util"]
-	path = 05_Software/upstream/sigrok-util
+[submodule "05_Software/sigrok-util"]
+	path = 05_Software/sigrok-util
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-util.git
-[submodule "05_Software/upstream/pulseview"]
-	path = 05_Software/upstream/pulseview
+[submodule "05_Software/pulseview"]
+	path = 05_Software/pulseview
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-pulseview.git
-[submodule "05_Software/upstream/libserialport"]
-	path = 05_Software/upstream/libserialport
+[submodule "05_Software/libserialport"]
+	path = 05_Software/libserialport
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libserialport.git
-[submodule "05_Software/upstream/libusb"]
-	path = 05_Software/upstream/libusb
+[submodule "05_Software/libusb"]
+	path = 05_Software/libusb
 	url = ssh://git@192.168.1.15:2222/dpasare/mirror-libusb.git
