@@ -30,6 +30,10 @@ coverage.xml
 
 # Build artifacts
 build/
+# ...but 02_Tools/build/ is source, not output: it holds the container
+# definitions and build drivers. The bare `build/` rule above matches at any
+# depth and would silently swallow them.
+!02_Tools/build/
 dist/
 *.egg-info/
 *.egg
@@ -44,6 +48,17 @@ dist/
 
 # Build/research workspace: upstream clones, build prefixes, raw captures
 .work/
+
+# Delivery: release candidates are build output.
+# Verified releases under 07_Delivery/releases/ are tracked deliberately.
+07_Delivery/staging/
+
+# 07_Delivery/toolchain/ is NOT ignored. The saved builder image lives there
+# and is tracked through Git LFS (see .gitattributes), because it is what
+# makes a clone buildable without reaching MXE's 117 upstream download hosts.
+# Its logs and scratch are still output, though.
+07_Delivery/toolchain/*.log
+07_Delivery/toolchain/tmp/
 
 # USB captures
 *.pcap
