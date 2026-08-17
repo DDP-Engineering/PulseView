@@ -781,6 +781,38 @@ Confirmed by writing `0x27C000` with CH1 and CH2 held at different offset DACs
 (400 and 850): slot 1 jumped from tracking CH1 within 0.5 counts to a 66-count
 offset, and reverting to `0x00C000` put it straight back.
 
+### `0x41` after `0x16` destroys the offset DACs
+
+Ordering, not payload. Sending the logic-threshold write after the
+channel-position writes leaves the offset DACs at whatever they were before,
+so a `0x16` that is byte-for-byte identical to the one the probe scripts use
+appears to do nothing at all.
+
+Found by elimination: through the libsigrok driver, DAC 300 produced counts
+119-249 (the DAC-512 result) with `0x41` last, and 54-184 - the expected DAC
+300 result - with `0x41` moved ahead of the DAC loop. Nothing else changed.
+
+`0x41` is a shared opcode (`laSetTriIntr`, `laSetVolt`, `laSetVoltDiv`), so
+this is plausible rather than surprising: some other arm of it reaches the
+analog position DACs. Follow the vendor's `CHard::Init()` order and the
+problem does not arise - it ends with `laSetVoltDiv`, and its `0x16` writes
+come before that.
+
+### Gain and offset are coupled, and the SDK says so
+
+`dsoHTSetCHPos(WORD nDeviceIndex, WORD* CHLevel, WORD nVoltDIV, WORD nPos,
+WORD nCH)` takes **`nVoltDIV`** alongside the position, and indexes a
+calibration array with it. The offset DAC is therefore a function of the gain
+setting, not an independent control: change the relay attenuator and the DAC
+must be recomputed or the trace walks off screen.
+
+The gain sweep shows the same thing from the other side - each relay bit moves
+the midpoint as well as the span, from 128 counts at bit 10 to 188 at bit 0.
+
+So a real volts/div control needs both halves together: the relay word for the
+attenuator, and a matching DAC value for the position. A fixed DAC of 512 is
+correct only at the gain it was measured against.
+
 ### `0x41` — logic threshold
 
 Four bytes:
