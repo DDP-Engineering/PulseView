@@ -425,6 +425,27 @@ demo's own call `(idx, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)`, which yields
 0c 00 00 50 00 00 00 00 01 00      edge trigger on a logic source (nSynMode 5)
 ```
 
+#### 0x0c alone does not arm a trigger
+
+Implemented in the libsigrok driver and verified to go out correctly, but the
+instrument still never reports a trigger: every capture falls through to the
+one-second auto-trigger timeout. Sending `0x0c` and a trigger level is not
+sufficient.
+
+The missing piece is the trigger **source**. `RELAYCONTROL.nTrigSource` sits
+at struct offset `0x30`, and `dsoHTSetCHAndTrigger` passes the struct to
+`sub_10002320`, which reads it - `mov cx, word ptr [eax + 0x30]` at
+`0x10002398` and again at `0x100023e6` - and stores it into a buffer being
+assembled at `esp+0x10 .. esp+0x1a`, alongside a run of constant 0s and 1s.
+That buffer is a command this catalogue has not decoded, and it is not the
+24-bit settings word.
+
+So the trigger chain needs all three: the source selection from
+`sub_10002320`, the level via `0x16` selector 1, and the mode and slope via
+`0x0c`. Only the last two are understood. Decoding `sub_10002320` is the next
+step, and it is likely to answer the CH2 question at the same time, since
+`bCHEnable` is in the same struct and equally unaccounted for.
+
 `0x0f` SetHTriggerLength, 12 bytes — two 24-bit ring-buffer pointers:
 
 ```
