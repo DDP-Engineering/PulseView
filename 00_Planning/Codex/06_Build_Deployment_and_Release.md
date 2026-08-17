@@ -107,6 +107,63 @@ copies needed vendor runtime files only into an ignored local run directory,
 and never packages them. Failure to build this optional tool does not change
 the native libusb release design.
 
+## Build host
+
+Decision, 2026-08-17: both release artifacts are produced from a single pinned
+Linux container. No build step runs natively on Windows.
+
+The host is confirmed available and is the intended builder:
+
+| Property | Value |
+|---|---|
+| WSL distribution | Ubuntu 24.04.4 LTS, x86_64, WSL2 kernel 6.18.33.2 |
+| Container runtimes | Docker 29.6.1, Podman 4.9.3, Buildah 1.33.7 |
+| Resources | 24 CPU, 31 GB RAM, 921 GB free on rootfs |
+| Repository path inside WSL | `/mnt/f/2026_Hantek_DSO3062L` |
+
+Container definitions live in `02_Tools/build/images/`. The image is pinned by
+base-image digest, not tag.
+
+`sigrok-util/cross-compile` carries six targets: `android`, `appimage`,
+`linux`, `macosx`, `mingw`, `msys2`. Five of the six are Linux-hosted, and the
+two this project needs are among them, so one image produces both deliverables:
+
+- `mingw/sigrok-cross-mingw` produces Windows x64 executables and the NSIS
+  installer, using MXE;
+- `appimage/sigrok-native-appimage` produces the Linux x86_64 AppImage.
+
+The `mingw` README lists the host requirements as bash, gcc, make, cmake, git,
+wget, p7zip, unzip, pkg-config, sdcc, nsis, and MXE. All are installable in a
+Debian or Ubuntu base image.
+
+### MSYS2 is rejected
+
+`msys2/sigrok-native-msys2` is the only Windows-hosted script, and it is broken
+as written: it clones `git://github.com/dickens/libusb` at branch
+`event-abstraction-v4`, which no longer exists in that repository. The `git://`
+protocol is also no longer served by GitHub. This confirms the earlier survey
+note that the MSYS2 script does not fully support PulseView packaging.
+
+Two further reasons stand independently of the breakage. A native MSYS2 tree
+modifies the operator's Windows system outside this repository. Its offline
+archive is a package cache, which is inert without a correctly configured MSYS2
+to consume it, whereas a container image archived with `docker save` is a single
+tarball holding the complete built environment. The container therefore gives a
+stronger offline guarantee at lower host cost.
+
+### Functional scope to preserve
+
+The pinned upstream trees provide 87 hardware drivers
+(`libsigrok/src/hardware/*`) and 132 protocol decoders
+(`libsigrokdecode/decoders/*`). Both counts must survive into the delivered
+artifacts. The decoder set is the primary reason PulseView is the target front
+end rather than a project-owned application.
+
+Reimplementing the stack in another language to obtain a simpler dependency
+graph was considered and rejected: any rewrite starts at zero on both counts,
+and the decoder set is a hard requirement. The build is awkward but solved;
+the functionality is not reproducible at this project's scale.
+
 ## Linux build
 
 ### Development build
@@ -168,8 +225,13 @@ surveyed MSYS2 script does not fully support PulseView packaging.
 
 ### Builder
 
-- Run in a pinned Linux container or WSL2 distribution.
+- Run in the pinned Linux container described under "Build host". Docker under
+  WSL2 Ubuntu 24.04 is the confirmed environment.
 - Pin MXE and every applied patch.
+- Build MXE in its own image layer so the multi-hour Qt5 compile is paid once
+  and survives as a cached layer and in the `docker save` archive.
+- The MXE README freezes Qt to 5.7.x for Windows XP support, which this project
+  does not claim. Evaluate a current Qt5 before adopting the freeze plugin.
 - Target `x86_64-w64-mingw32.static.posix` only for v1.
 - Use the surveyed sigrok-util script as architectural reference, not as an
   unquestioned release script: it contains legacy Python 3.4 downloads and Qt5
@@ -257,8 +319,11 @@ directory and verifies:
 4. absence of unapproved vendor binaries;
 5. expected executables, libraries, udev rules, and documentation;
 6. component version output;
-7. extraction without path traversal;
-8. optional clean-machine smoke results supplied as signed-off evidence.
+7. driver and decoder counts equal to the pinned upstream revisions, so a build
+   that silently drops libsigrokdecode or a driver group fails verification
+   rather than shipping;
+8. extraction without path traversal;
+9. optional clean-machine smoke results supplied as signed-off evidence.
 
 Release outputs:
 

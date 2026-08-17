@@ -37,6 +37,8 @@ record that closes it.
 | R-16 | Upstream revisions drift while the project spans multiple repositories | Medium | Medium | Use immutable locks and separate fork/submodule histories; refresh deliberately and rerun affected baselines before accepting updates. |
 | R-17 | USB parser defects cause overreads, oversized allocations, hangs, or corrupt frames | Medium | Critical | Length-first parsing, allocation caps, bounded timeouts, fuzz/boundary fixtures, sanitizer tests, cancellation drains, and no output on protocol violation. |
 | R-18 | Hardware damage or nonvolatile state change occurs during research | Low | Critical | Use conservative input levels; exclude firmware, EEPROM, serial, and calibration writes; identify every possibly persistent command before replay. |
+| R-19 | A build succeeds but silently ships a reduced driver or decoder set, for example with libsigrokdecode disabled because no cross-built Windows Python was available | Medium | High | Assert the pinned counts (87 drivers, 132 decoders) in `verify_delivery.py`; treat any shortfall as a build failure, not a warning. |
+| R-20 | Upstream `sigrok-util` cross-compile scripts have bit-rotted and cannot run unmodified | High | Medium | Confirmed for the MSYS2 script, which clones a deleted libusb branch over the retired `git://` protocol; build only in a container so a failed script costs an image rebuild, and record every required patch alongside the MXE pin. |
 
 Likelihood and impact are planning estimates until measured. Record changes in
 the active AEGIS journal and link the evidence that justified them.
@@ -58,6 +60,8 @@ the active AEGIS journal and link the evidence that justified them.
 | Q-11 | What are the documented and wire-level signatures of advanced trigger functions? | P2A/P7 | header/static call-site evidence plus controlled captures; never guessed calls |
 | Q-12 | Which pulse, video, alternate, data, duration, and relative modes really work? | P7 | capability catalogue and device-backed boundary tests |
 | Q-13 | What generic libsigrok/PulseView API will upstream accept for complex triggers? | P7 `[HUMAN]` | written proposal, compatibility tests, upstream review decision |
+| Q-14 | Can a prebuilt distribution mingw package set replace MXE's from-source Qt and Python build? | build | confirm a `mingw64-*` set (Fedora is the candidate) provides both glibmm and an embeddable Python 3; libsigrokdecode links a Windows CPython, so absence of that one package decides it |
+| Q-15 | Is the pinned MXE revision still buildable now that `git://` is retired and its Qt 5.7 freeze is obsolete? | build | one clean container build of unmodified upstream sigrok before any project driver is added |
 | Q-14 | Which Windows and Linux versions will be declared supported? | P8 `[HUMAN]` | clean-system matrix on exact release artifacts |
 | Q-15 | May any Hantek file or derived fixture be redistributed? | P0 `[HUMAN]` | recorded licence review and explicit scope per artifact |
 
