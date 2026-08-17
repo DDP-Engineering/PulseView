@@ -773,13 +773,44 @@ from the `bCHEnable[]` branch tree at `0x10002513`:
 | Channels | Word | Status |
 |---|---|---|
 | CH1 only | `0x00C000` | **confirmed on hardware** |
-| CH1 + CH2 | `0x27C000` | **confirmed on hardware** |
+| CH1 + CH2 | `0x27C000` | **confirmed on hardware, and now proven to make CH2 independent** |
 | CH2 only | `0x2AC000` | derived, untested |
 | CH3 only | `0x15C000` | derived, untested |
 
 Confirmed by writing `0x27C000` with CH1 and CH2 held at different offset DACs
 (400 and 850): slot 1 jumped from tracking CH1 within 0.5 counts to a 66-count
 offset, and reverting to `0x00C000` put it straight back.
+
+### The 0x16 channel selectors, and proof that CH2 is real
+
+`05_Software/protocol_probe/probe_dacsel.py` drives one selector at a time to
+a distinct offset and measures both analog slots. The result settles two
+questions at once:
+
+| Selector driven | CH1 only (`0x00C000`) | CH1 + CH2 (`0x27C000`) |
+|---|---|---|
+| ch1 `0x10` | **both** slots move | slot 0 only |
+| ch2 `0x50` | nothing | **slot 1 only** |
+| ch3 `0x90`, ch4 `0xd0` | nothing | nothing |
+
+With one channel enabled the two slots follow the same DAC, because they are
+CH1's two interleaved cores. Write `0x27C000` and they separate: `0x10` moves
+slot 0 and `0x50` moves slot 1, independently. **CH2 is a real second channel,
+and the enable word is what turns it on.**
+
+Selectors `0x90` and `0xd0` do nothing on this two-channel instrument, as
+expected - the DAC block is shared with four-channel models.
+
+### The enable word must be written last
+
+It is a `0x12`, and so are the bit-serial relay writes. Sent before them it is
+simply undone, which looks exactly like an enable word that has no effect. The
+vendor writes it once at the end of `dsoHTSetCHAndTrigger`, after the serial
+bits, and a driver has to do the same.
+
+Together with the `0x41` ordering below, that makes three separate failures in
+this project traced to command order rather than command content. The vendor's
+`CHard::Init()` sequence is worth following exactly.
 
 ### `0x41` after `0x16` destroys the offset DACs
 
