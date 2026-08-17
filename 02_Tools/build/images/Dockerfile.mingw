@@ -1,0 +1,334 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# Builder image for the Windows x86_64 cross-build.
+#
+# This image is the toolbox, not the product. It contains MXE with every
+# sigrok dependency already cross-compiled for Windows, and nothing of this
+# project. The sigrok trees are mounted in at build time, so changing our
+# driver never invalidates this image.
+#
+# Build it with 02_Tools/build/build_image.sh, which stages the context,
+# resolves the MXE pin from upstreams.lock.toml, and records the resolved
+# base-image digest. Do not run `docker build` here by hand: MXE is expected
+# in the context already checked out at the pin, and this file will not clone
+# it (the container holds no credentials and no route to github.com).
+#
+# Network: the MXE layers download upstream source tarballs, so the FIRST
+# build of this image needs the internet. After that the image is saved with
+# `docker save` and no later build reaches the network again.
+#
+# Multi-stage on purpose. MXE's downloaded tarballs are 2-3 GB and are dead
+# weight once built, but deleting them in a later layer only hides them - the
+# bytes stay in the earlier layer's diff, and this image IS the offline
+# archive. Building in a throwaway stage and copying the finished tree into a
+# clean final stage is the only way they actually go away.
+
+# syntax=docker/dockerfile:1.7
+
+# Pinned by digest once the first build has recorded one; see images/README.md.
+ARG BASE_IMAGE=debian:bookworm-slim
+
+
+# --------------------------------------------------------------------------
+# base - the host-side tooling, shared by the builder and the final image
+# --------------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS base
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV MXE_DIR=/opt/mxe
+
+# One layer, one reviewable package set. The first group is MXE's own
+# documented Debian requirement list. The second is what
+# sigrok-util/cross-compile/mingw/README adds: cmake, p7zip, unzip, wget,
+# pkg-config, sdcc for the fx2lafw firmware, and nsis for the installer.
+#
+# python3-yaml is in neither list but mesa, pulled in by qtbase for OpenGL,
+# fails configure without it: "Python (3.x) yaml module (PyYAML) required to
+# build mesa". Both upstream lists predate that requirement.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        autoconf automake autoconf-archive autopoint bash bison bzip2 \
+        ca-certificates flex g++ g++-multilib gettext git gperf intltool \
+        libc6-dev-i386 libgdk-pixbuf-2.0-dev libgl-dev libltdl-dev \
+        libssl-dev libtool libtool-bin libxml-parser-perl lzip make \
+        openssl patch perl python3 python3-mako python3-setuptools \
+        python3-yaml python-is-python3 ruby sed xz-utils \
+        cmake p7zip-full pkg-config sdcc unzip wget nsis; \
+    rm -rf /var/lib/apt/lists/*
+
+# Run as the invoking user so artifacts written to mounted volumes are not
+# owned by root on the WSL side.
+RUN set -eux; \
+    groupadd -g "${USER_GID}" builder 2>/dev/null || true; \
+    useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash builder \
+        2>/dev/null || true; \
+    mkdir -p /work /out; \
+    chown -R "${USER_UID}:${USER_GID}" /work /out
+
+
+# --------------------------------------------------------------------------
+# mxe-src - MXE checked out, verified and patched, nothing built yet
+#
+# The build is split across stages rather than layers so each phase can be
+# reached on its own with `docker build --target`. Debugging a package failure
+# means getting a shell with the toolchain already present; as one stage that
+# was impossible, and every experiment cost a full toolchain rebuild.
+# --------------------------------------------------------------------------
+FROM base AS mxe-src
+
+# Only the 64-bit posix target is supported for v1 (see planning doc 06).
+ARG MXE_TARGET=x86_64-w64-mingw32.static.posix
+
+# Verified against the staged clone; a mismatch fails the build.
+ARG MXE_COMMIT=unrecorded
+
+# sigrok-util's mingw README pins Qt to 5.7.x through MXE's qt5-freeze plugin
+# so that Windows XP keeps working. This project does not claim XP support, so
+# the freeze is off by default and current Qt5 is used.
+ARG MXE_QT5_FREEZE=0
+
+# Space-separated patch filenames from patches/, applied in order.
+# Deliberately a list rather than a flag: sigrok-util's MXE patches are pinned
+# against an older MXE and have not aged equally. mxe_fixes.patch no longer
+# applies, while libusb1_upgrade.patch does and is worth having - it enables
+# WinUSB RAW_IO for transfers divisible by 512, which is exactly this device's
+# bulk endpoint size. build_image.sh checks each patch against the staged
+# clone and passes only the ones that apply.
+ARG MXE_PATCHES=""
+
+# MXE treats these separately and the product is the real load, so keep
+# PKG_JOBS * SUB_JOBS at or under the host core count.
+ARG PKG_JOBS=6
+ARG SUB_JOBS=4
+
+ENV MXE_TARGET=${MXE_TARGET} \
+    MXE_QT5_FREEZE=${MXE_QT5_FREEZE} \
+    PKG_JOBS=${PKG_JOBS} \
+    SUB_JOBS=${SUB_JOBS}
+
+# MXE arrives from the host, already cloned from the Gitea mirror and detached
+# at the pinned commit. Nothing here talks to github.com.
+COPY mxe/ ${MXE_DIR}/
+COPY patches/ /tmp/patches/
+COPY mxe-build.sh /usr/local/bin/mxe-build
+COPY mxe-glib-hold.sh /usr/local/bin/mxe-glib-hold
+
+# COPY leaves /opt/mxe owned by a different user than the one running this
+# layer, which trips git's dubious-ownership guard. Without this, git refuses
+# to read the repository and `rev-parse` returns an empty string, so the pin
+# check below compares against nothing instead of against a real commit.
+RUN set -eux; \
+    git config --global --add safe.directory "${MXE_DIR}"; \
+    chmod +x /usr/local/bin/mxe-build /usr/local/bin/mxe-glib-hold
+
+RUN set -eux; \
+    cd "${MXE_DIR}"; \
+    test "$(git rev-parse HEAD)" = "${MXE_COMMIT}" \
+        || { echo "MXE commit mismatch: want ${MXE_COMMIT}, have $(git rev-parse HEAD)" >&2; exit 1; }; \
+    if [ -z "${MXE_PATCHES}" ]; then \
+        echo "no MXE patches requested; building plain MXE"; \
+    else \
+        for p in ${MXE_PATCHES}; do \
+            echo "applying ${p}"; \
+            patch -p1 --forward < "/tmp/patches/${p}"; \
+        done; \
+    fi
+
+# glibmm needs glib held back one release. MXE pins glibmm 2.66.2, untouched
+# since March 2022, and glib 2.89.2 (July 2026) changed declarations that
+# glibmm's generated headers duplicate:
+#
+#   giomm/dbusactiongroup.h:32: error: conflicting declaration
+#     'using GDBusActionGroupClass = struct _GDBusActionGroupClass'
+#
+# Bisected against this toolchain: 2.89.1 builds glibmm, 2.89.2 does not. So
+# MXE_GLIB_VERSION below holds glib at 2.89.1 while the pinned MXE carries
+# 2.89.3. One release of divergence, and glibmm - and therefore libsigrok's
+# C++ bindings and PulseView - build.
+
+# Replaces src/glib.mk and its patches with the set from the MXE commit that
+# shipped that version - recipe, patches and checksum together, so the
+# checksum is one MXE verified rather than one invented here. Empty means use
+# whatever the pinned MXE carries.
+ARG MXE_GLIB_VERSION="2.89.1"
+RUN if [ -n "${MXE_GLIB_VERSION}" ]; then mxe-glib-hold "${MXE_GLIB_VERSION}"; fi
+
+
+# --------------------------------------------------------------------------
+# mxe-gcc - the cross-compiler. Slowest phase; everything else needs it.
+# --------------------------------------------------------------------------
+FROM mxe-src AS mxe-gcc
+ARG MXE_PKGS_TOOLCHAIN="gcc"
+RUN mxe-build ${MXE_PKGS_TOOLCHAIN}
+
+
+# --------------------------------------------------------------------------
+# mxe-deps - the libraries libsigrok links
+#
+# libusb1 carries our RAW_IO patch, so a failure here matters more than a Qt
+# failure does. libsigrokdecode embeds CPython, so a Windows python3 has to
+# exist in the toolchain too; MXE builds it as a dependency rather than being
+# listed here. If decoders come out missing, check that first (doc 09, R-19).
+# --------------------------------------------------------------------------
+FROM mxe-gcc AS mxe-deps
+# `check` is deliberately absent. libcheck 0.15.2 ships its own
+# lib/clock_gettime.c, and mingw-w64 v14's winpthreads now declares
+# clock_gettime in pthread_time.h, so the two collide:
+#
+#   pthread_time.h:112: note: previous definition of 'clock_gettime'
+#   Error 1  src/CMakeFiles/check.dir/__/lib/clock_gettime.c.obj
+#
+# 0.15.2 is the current release and predates that declaration, so this is
+# upstream bit-rot, not a local misconfiguration. check is only libsigrok's
+# unit-test framework: libsigrok, sigrok-cli and PulseView neither link nor
+# need it. The test suite runs natively on the Linux build, and planning doc
+# 06 already treats cross-compiled tests under Wine as supplemental evidence
+# only, so the Windows artifact loses nothing a user sees.
+#
+# Override MXE_PKGS_DEPS to put it back if a fix appears.
+ARG MXE_PKGS_DEPS="glib libzip libusb1 libftdi1 hidapi glibmm boost \
+gendef libieee1284"
+RUN mxe-build ${MXE_PKGS_DEPS}
+
+
+# --------------------------------------------------------------------------
+# mxe-full - Qt, for PulseView. Biggest and most fragile, so it goes last.
+# --------------------------------------------------------------------------
+FROM mxe-deps AS mxe-full
+ARG MXE_PKGS_QT="qtbase qtimageformats qtsvg qttranslations"
+RUN mxe-build ${MXE_PKGS_QT}
+
+# Must happen in this stage, before the final COPY, or the tarballs travel.
+RUN rm -rf "${MXE_DIR}/pkg" "${MXE_DIR}/log" "${MXE_DIR}/.git"
+
+
+# --------------------------------------------------------------------------
+# final - clean stage carrying only the finished toolchain
+# --------------------------------------------------------------------------
+FROM base AS final
+
+ARG MXE_TARGET=x86_64-w64-mingw32.static.posix
+ARG MXE_COMMIT=unrecorded
+ARG MXE_QT5_FREEZE=0
+ARG MXE_PATCHES=""
+# Re-declared because build arguments do not carry across stages; without
+# these the USER line at the bottom would expand to an empty string.
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+ENV MXE_TARGET=${MXE_TARGET}
+ENV PATH=/opt/mxe/usr/bin:${PATH}
+
+COPY --from=mxe-full ${MXE_DIR} ${MXE_DIR}
+
+# Fail here, loudly, if the toolchain did not survive the copy, rather than at
+# the far end of a sigrok build. MXE names its binaries after the full target
+# string including the .static.posix suffix.
+RUN set -eux; \
+    "${MXE_TARGET}-gcc" --version; \
+    "${MXE_TARGET}-pkg-config" --version; \
+    makensis -VERSION
+
+# A login shell sources /etc/profile, which overwrites PATH and drops the
+# toolchain, so `bash -lc "x86_64-...-gcc"` fails in an image where the
+# compiler is plainly present. Put it back for login shells too, rather than
+# leaving that trap for whoever next opens a shell in here.
+RUN printf 'export PATH=/opt/mxe/usr/bin:$PATH\n' > /etc/profile.d/mxe.sh
+
+# Host tools needed to *build sigrok*, as opposed to building MXE. They live
+# in this stage and not in `base` on purpose: `base` is the ancestor of every
+# MXE stage, so adding a package there invalidates the multi-hour toolchain
+# build for the sake of a tool the toolchain never uses. Adding one here costs
+# a few seconds.
+#
+# doxygen is not optional and is not about documentation. libsigrok generates
+# its C++ bindings by parsing Doxygen's XML dump of its own headers
+# (configure.ac:471, "The C++ bindings use Doxygen to parse libsigrok
+# symbols"). No doxygen means configure quietly drops the C++ bindings, and
+# PulseView - which is C++ and links them - then cannot be built at all. It
+# appears in neither MXE's nor sigrok's documented requirement list.
+#
+# Not installed, and why: graphviz (doxygen only needs it for diagrams, which
+# the binding generator never reads), swig (libsigrok's *Python* bindings,
+# which the Windows build does not produce), asciidoc/xsltproc (PulseView's
+# `make manual` target only - add them when the manual is actually wanted).
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends doxygen; \
+    rm -rf /var/lib/apt/lists/*; \
+    doxygen --version
+
+# The Windows Python that libsigrokdecode links against.
+#
+# MXE has no python3 for the Windows target, so upstream sidesteps
+# cross-compiling CPython by downloading a repackaged Python 3.4.4 from
+# sigrok.org. That is the only proven route, but it is a single third-party
+# host, serving plaintext HTTP, for a runtime that has been end-of-life since
+# March 2019 - the most fragile external dependency in the whole build.
+#
+# Baking it into the image retires that risk the same way the image retires
+# MXE's 117 download hosts: fetched once, checksum-verified, then carried in
+# the archive forever. build_windows_mxe.sh prefers these copies and only
+# falls back to the network if they are absent.
+#
+# Checksums observed 2026-08-17. A mismatch fails the build rather than
+# silently accepting whatever that host serves next.
+ARG PY34_SHA_TARGZ=b50cb8e2f4297ef362d5dad0d516a10f58b74e95a10dc03760f4512e9ceffd86
+ARG PY34_SHA_DLL=a3b3ea1e583c3565cb422af954acc7efa3c3d8031afd1e55921962e6736650d4
+ARG PY34_SHA_ZIP=56d95f69220c068e92617a92f80571314a1b16c02a6d5cb2a0b2613c5b15f3a3
+RUN set -eux; \
+    d=/opt/sigrok-deps; mkdir -p "$d"; \
+    base=http://www.sigrok.org/tmp; \
+    wget -q -O "$d/Python34_x86_64.tar.gz" "$base/Python34_x86_64.tar.gz"; \
+    wget -q -O "$d/python34_x86_64.dll"    "$base/python34_x86_64.dll"; \
+    wget -q -O "$d/python34_x86_64.zip"    "$base/python34_x86_64.zip"; \
+    printf '%s  %s\n' \
+        "${PY34_SHA_TARGZ}" "$d/Python34_x86_64.tar.gz" \
+        "${PY34_SHA_DLL}"   "$d/python34_x86_64.dll" \
+        "${PY34_SHA_ZIP}"   "$d/python34_x86_64.zip" \
+        > "$d/SHA256SUMS"; \
+    sha256sum --check --strict "$d/SHA256SUMS"; \
+    chmod -R a+rX "$d"
+
+# /build is where run_in_builder.sh mounts a named volume for out-of-tree
+# build trees. Docker seeds a fresh named volume from the image's directory,
+# ownership included - but only if the directory exists. Without this the
+# volume is created root-owned, the container runs as builder, and every
+# build fails on its first mkdir. Creating it here is what makes the volume
+# writable.
+RUN set -eux; \
+    mkdir -p /build; \
+    chown "${USER_UID}:${USER_GID}" /build
+
+# MXE's `<triplet>-cmake` wrapper runs the compiler through ccache and points
+# CCACHE_DIR inside the MXE tree, which arrives here root-owned from the COPY
+# above. As a non-root user the very first compiler test then fails with
+#   ccache: error: Failed to create temporary file for
+#   /opt/mxe/.ccache/ccache/tmp/...: Permission denied
+# and CMake reports a broken compiler, which is a thoroughly misleading way to
+# describe a directory permission. Autotools builds never notice because they
+# invoke the compiler directly. Creating the directory writable is enough; the
+# cache then also survives between runs, which is the point of it.
+RUN set -eux; \
+    mkdir -p /opt/mxe/.ccache; \
+    chown -R "${USER_UID}:${USER_GID}" /opt/mxe/.ccache
+
+LABEL org.opencontainers.image.title="sigrok Windows cross-builder" \
+      org.opencontainers.image.description="MXE toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView for Windows x86_64" \
+      org.opencontainers.image.licenses="LicenseRef-PolyForm-Noncommercial-1.0.0" \
+      io.ddp.mxe.commit="${MXE_COMMIT}" \
+      io.ddp.mxe.target="${MXE_TARGET}" \
+      io.ddp.mxe.qt5_freeze="${MXE_QT5_FREEZE}" \
+      io.ddp.mxe.patches="${MXE_PATCHES}"
+
+USER ${USER_UID}:${USER_GID}
+WORKDIR /work
+CMD ["/bin/bash"]

@@ -13,3 +13,4 @@ Project scope, architecture decisions, milestones, and implementation plans.
 
 - [Project goals](00_Project_Goals.md)
 - [Codex implementation planning package](Codex/README.md)
+- [Greenfield PulseView-type application plan](NewPulseViewTypeImplementation/README.md)

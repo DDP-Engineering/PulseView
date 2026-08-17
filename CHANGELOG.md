@@ -23,6 +23,14 @@ in this file.
   artifact templates, CLI reference, and licence.
 - P0 governance baseline with immutable upstream locks, a fail-closed bootstrap
   contract, licence/material boundaries, and research security rules.
+- Containerised builder definitions under `02_Tools/build/`: a Debian/MXE image
+  for the Windows x86_64 cross-build and an Ubuntu 22.04 image for the Linux
+  AppImage, with `build_image.sh` to stage a pinned context and record
+  provenance, and `run_in_builder.sh` to run the compile stage. None has been
+  executed yet; `02_Tools/build/STATUS.md` is the ledger.
+- Repository layout contract in `AGENTS.md` fixing `02_Tools/` for all
+  project-owned scripts, `07_Delivery/` for finished packages, and `.work/`
+  for intermediate output.
 
 ### Changed
 

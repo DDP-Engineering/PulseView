@@ -1,0 +1,83 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# Builder image for the Linux x86_64 AppImage.
+#
+# Separate from Dockerfile.mingw on purpose. The Windows image wants a current
+# Debian because MXE is happiest there; this one wants the OLDEST base we are
+# willing to support, because an AppImage can run on any glibc newer than the
+# one it was built against and none older. The base choice is therefore the
+# compatibility floor of the Linux delivery, not an incidental detail.
+#
+# sigrok-util/cross-compile/appimage/README targets Ubuntu 16.04 and a
+# hand-built AppImageKit. Both are obsolete: 16.04 is long EOL and its archive
+# has moved. Planning doc 06 already requires a maintained packaging tool
+# instead, so this uses Ubuntu 22.04 (glibc 2.35, supported into 2027) and a
+# pinned appimagetool release verified by checksum.
+
+# syntax=docker/dockerfile:1.7
+
+# Pinned by digest once the first build has recorded one; see images/README.md.
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+# appimagetool release and its SHA-256. Both come from the artifact table in
+# 02_Tools/upstream/upstreams.lock.toml and are passed by build_image.sh.
+# There is no default checksum: an unverified download must not be silently
+# accepted into a release toolchain.
+ARG APPIMAGETOOL_VERSION
+ARG APPIMAGETOOL_SHA256
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# FUSE is normally unavailable inside a container, which is exactly the failure
+# appimagetool is famous for. Extracting instead of mounting avoids needing a
+# privileged container.
+ENV APPIMAGE_EXTRACT_AND_RUN=1
+
+# Native build dependencies for the whole sigrok stack. Grouped by which
+# component needs them so the list stays auditable as components change.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        autoconf automake autoconf-archive libtool pkg-config make cmake \
+        g++ git wget ca-certificates patch file desktop-file-utils zsync \
+        libglib2.0-dev libglibmm-2.4-dev libzip-dev check doxygen \
+        libusb-1.0-0-dev libftdi1-dev libhidapi-dev libieee1284-3-dev \
+        python3-dev python3-numpy python3-gi python3-setuptools swig \
+        qtbase5-dev qttools5-dev qttools5-dev-tools libqt5svg5-dev \
+        libboost-filesystem-dev libboost-serialization-dev \
+        libboost-system-dev libboost-test-dev; \
+    rm -rf /var/lib/apt/lists/*
+
+# Pinned, checksum-verified appimagetool. A mismatch fails the image build.
+RUN set -eux; \
+    test -n "${APPIMAGETOOL_VERSION}"; \
+    test -n "${APPIMAGETOOL_SHA256}"; \
+    wget -O /usr/local/bin/appimagetool \
+        "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"; \
+    echo "${APPIMAGETOOL_SHA256}  /usr/local/bin/appimagetool" | sha256sum -c -; \
+    chmod +x /usr/local/bin/appimagetool
+
+RUN set -eux; \
+    groupadd -g "${USER_GID}" builder 2>/dev/null || true; \
+    useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash builder \
+        2>/dev/null || true; \
+    mkdir -p /work /out; \
+    chown -R "${USER_UID}:${USER_GID}" /work /out
+
+LABEL org.opencontainers.image.title="sigrok Linux AppImage builder" \
+      org.opencontainers.image.description="Ubuntu 22.04 toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView as a Linux x86_64 AppImage" \
+      org.opencontainers.image.licenses="LicenseRef-PolyForm-Noncommercial-1.0.0" \
+      io.ddp.appimagetool.version="${APPIMAGETOOL_VERSION}" \
+      io.ddp.glibc.floor="2.35"
+
+USER ${USER_UID}:${USER_GID}
+WORKDIR /work
+CMD ["/bin/bash"]

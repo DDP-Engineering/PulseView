@@ -7,15 +7,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Bootstrap automation contract
 
-This is the P0 contract for P1 bootstrap tools. No executable bootstrap script
-exists yet, and this document must not be reported as an implemented command.
+This is the P0 contract for P1 bootstrap tools. Only `check_host.sh` is
+implemented; everything else in the table below is still a plan and must not
+be reported as an available command.
 
-## Planned tools
+## Tools
 
 | Tool | Purpose | Mutating behavior |
 |---|---|---|
+| `check_host.sh` | **Implemented 2026-08-17.** Inspect Linux/build-host prerequisites and versions | None |
 | `check_host.ps1` | Inspect Windows prerequisites and versions | None |
-| `check_host.sh` | Inspect Linux/build-host prerequisites and versions | None |
 | `clone_upstreams.py` | Materialize approved submodules and build-only clones at locked commits | Explicit `--apply` only |
 | `verify_upstreams.py` | Verify URLs, commits, roles, forks, and dirty states | None |
 | `create_build_workspace.py` | Create bounded ignored build directories | Explicit target only |
@@ -23,6 +24,29 @@ exists yet, and this document must not be reported as an implemented command.
 Each implemented script gets the project legal header, follows
 `01_Documentation/Code_Style.md`, has focused tests, and is recorded in the
 folder's future `STATUS.md` ledger.
+
+### check_host.sh
+
+Reports whether a Linux build host can build the project, and exits non-zero
+if anything failed. It changes nothing, needs no privileges, and prints the
+exact operator command for each missing prerequisite rather than running it.
+
+```sh
+02_Tools/bootstrap/check_host.sh [--result PATH] [--tag IMAGE]
+```
+
+It covers: WSL detection and repository location, git, docker and the
+reachability of its daemon, Git LFS, presence of the builder image, the lock
+file, submodule initialization and drift, an SSH identity, reachability of the
+LAN mirror, free disk against the ~30 GB the image and a build tree need, and
+core count.
+
+Two behaviours are deliberate and easy to mistake for bugs. A submodule that
+has drifted from its locked commit is a **warning**, not a failure - driver
+development happens inside `libsigrok`, so drift there is the normal working
+state. And Git LFS missing on a Linux host is only a failure when the checkout
+lives on the Linux filesystem: with the repository on a Windows drive, Windows
+git owns the checkout and its LFS is the one that matters.
 
 ## Inputs
 
