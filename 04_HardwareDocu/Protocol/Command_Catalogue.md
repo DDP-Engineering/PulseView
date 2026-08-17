@@ -425,21 +425,32 @@ demo's own call `(idx, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)`, which yields
 0c 00 00 50 00 00 00 00 01 00      edge trigger on a logic source (nSynMode 5)
 ```
 
-#### 0x0c alone does not arm a trigger
+#### Arming a trigger takes three commands, in order
 
-Implemented in the libsigrok driver and verified to go out correctly, but the
-instrument still never reports a trigger: every capture falls through to the
-one-second auto-trigger timeout. Sending `0x0c` and a trigger level is not
-sufficient.
+`0x0c` alone does nothing. Nor does `0x0c` plus a level. The trigger only
+arms once the **source** is set, and the source is not in `0x0c` at all - it
+rides at bit 13 of the 24-bit word in the second `0x12` form, from
+`nTrigSource` via `esp+0x19` in `sub_10002320`.
 
-The missing piece is the trigger **source**, and it travels in the 24-bit word
-of the second `0x12` form - not in `0x0c` at all. `sub_10002320` reads
-`nTrigSource` from struct offset `0x30` and stores it at `esp+0x19`, which the
-packing chain places at bit 13.
+So the full chain is:
 
-So arming a trigger needs three commands, and this driver sends two: the
-source in `0x12`, the level via `0x16` selector 1, and the mode and slope via
-`0x0c`. Adding the first is what should make it fire.
+1. the source, in the `0x12` enable word - **after** the bit-serial relay
+   writes, or they undo it
+2. the level, `0x16` with byte 2 = 1
+3. the mode and slope, `0x0c`
+
+Confirmed working through the libsigrok driver against the 1 kHz reference.
+Before the ordering was right, the first rising edge landed at samples 135,
+167, 155, 71, 9 and 172 across six captures - the auto-trigger timeout firing
+at a random phase. After:
+
+| Slope | first rise | first fall | trace starts |
+|---|---|---|---|
+| rising | **145, 146, 146, 146, 145, 146** | 44-46 | high |
+| falling | 46 | **146, 146, 147** | low |
+
+Locked to a sample, and the two slopes are exact phase inversions of each
+other: the triggered edge sits at ~146 in both, only its direction changes.
 
 `0x0f` SetHTriggerLength, 12 bytes — two 24-bit ring-buffer pointers:
 
