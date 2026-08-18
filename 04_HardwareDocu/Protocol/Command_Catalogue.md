@@ -955,6 +955,24 @@ remark that `nCHSet` uses "0 is enable, 1 is disable" contradicts both, and
 contradicts the demo's own `((nCHSet >> i) & 1) == 1` test for an active
 channel. Treat that line as an error in the manual.
 
+**Decoded further 2026-08-18: the word is two independent fields.** Fresh
+disassembly of `sub_10002320` shows the trigger source set as a two-flag
+field (`esp+0x17/0x18`: 1,1 for CH1; 0,0 for CH2; 1,0 and 0,1 for sources
+2 and 3), separate from the channel flags. Empirically, clearing bits 14
+and 15 from the dual word phase-locks the record to CH2's edge within one
+sample on every repeat:
+
+| Field | Bits | Values |
+|---|---|---|
+| channels | 16-18, 21 | `0x270000` dual, `0` CH1 alone |
+| trigger source | 14-15 | `0x00c000` CH1, `0` CH2 |
+
+So `0x00c000`, long recorded as "the CH1-only enable word", contains **no
+channel bits at all** - it is the source-CH1 field, and single-channel
+mode is simply the channel field at zero. The trigger-level DAC (`0x16`
+selector 1) is source-agnostic. EXT and the logic sources presumably use
+the remaining source-field values; untested.
+
 Values for `nTrigSource = 0` with coupling and bandwidth bits clear, derived
 from the `bCHEnable[]` branch tree at `0x10002513`:
 
