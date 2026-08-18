@@ -136,14 +136,29 @@ unbounded-duration capture — the vendor's `dsoHT*RollMode` /
 ```
 
 Stream layout is the SAME four-byte groups as §5 (slot 0 CH1, 1 CH2/core B,
-2 = D0-D7, 3 = D8-D15). Re-reading a fixed window returns fresh data as the
-writer overwrites it. Verified live: a square on D9 reconstructed cleanly
-and gap-free from ~500 chunk reads/s. Sustained ~2 MB/s in this simple
-poll loop; the ceiling is bulk-IN throughput (~4 MB/s ≈ 1 M points/s), so
-roll mode suits rates up to ~1 MHz — faster rates stay on the one-shot
-16 M path. Overrun behaviour (host falling behind the writer, so a window
-straddles the write pointer) is not yet characterised and is the main
-open item for a robust driver implementation.
+2 = D0-D7, 3 = D8-D15).
+
+**Implemented in the libsigrok driver** as `SR_CONF_CONTINUOUS` (PulseView
+renders a checkbox; Run/Stop streams). The driver chases the live pointer,
+reading each ring region once and advancing gap-free, with two safeguards
+learned in testing:
+
+- **Guard band**: read only up to ~16 k points behind the live pointer.
+  Reading right up to it catches points the writer has not finished,
+  which stalls the read and wedges the bulk endpoint.
+- **Resilience**: a transient stall must not end the stream. A short read
+  is drained (bounded) to resync, and a failed `0x17` skips the tick
+  rather than stopping. Without this, one stall ended the whole capture.
+- **Overrun**: if the writer runs more than half the ring ahead of the
+  read cursor, the host has fallen behind (rate above the throughput
+  ceiling); the driver resyncs to the live pointer, logs the gap, and
+  continues (true roll semantics).
+
+Verified live gap-free at 200 kHz and 500 kHz (D9 square, 209/209 periods
+within 5 %, no gaps, zero overruns), and mixed logic+analog. Sustained
+throughput is bulk-IN bound (~1 M points/s), so continuous mode suits
+rates up to ~1 MHz; faster rates stay on the one-shot 16 M path and the
+driver warns when a continuous rate exceeds 1 MHz.
 
 ## 5. Reading samples
 
