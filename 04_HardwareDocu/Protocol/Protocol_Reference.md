@@ -334,8 +334,46 @@ approximate.
   same signal captures perfectly.
 - Storage depth spec: 10 K–68 M/CH (vs 16 M analog); LA bandwidth 10 MHz,
   max rate 100 MHz per the manual.
-- **Unverified against real signals** until the pod session: edge
-  capture, bank mapping, threshold split.
+
+### Logic (bus) trigger commands — decoded from disassembly 2026-08-18
+
+The instrument's own bus/pattern trigger engine, from the DLL's `laSetTri*`
+exports. Selected by putting `0x0c` in logic mode (`synmode = 5`); the
+`la*` commands below then define the condition. All are little-endian.
+
+| Opcode | Export | Layout | Meaning |
+|---|---|---|---|
+| `0x3c` | `laSetTrigSource` | `[3c 00 src 00]` | which channel/bus drives the trigger |
+| `0x3d` | `laSetTriEdge` | `[3d 00 edge 00]` | edge trigger on the source |
+| `0x3e` | `laSetTriDataRange` | 10 bytes, 6 data + 1 | value-range (relative) trigger |
+| `0x3f` | `laSetTriDataTime` | `[3f 00 b2 b3 b4 b5 qual 00]` | pattern + duration |
+| **`0x40`** | **`laSetTriDataEqu`** | **`[40 00 val_lo val_hi mask_lo mask_hi qual&3 00]`** | **bus equals a 16-bit pattern under a 16-bit mask** |
+| `0x41` | `laSetTriIntr` | 8 bytes (shared opcode) | arm the logic trigger |
+| `0x42` | `laSetTrigNow` | `[42 00 arg 00]` | force the logic trigger |
+
+`0x40` is the headline: the manual's "bus value" / advanced "data" trigger
+is `(bus & mask) == value`. `qual` fields (2 bits) are the equal/not-equal
+or edge qualifier, values not yet mapped.
+
+**Live status, 2026-08-18.** Hardware logic triggering *engages and works
+at the source level*: with `0x0c` in logic mode (byte 3 = `0x50` for
+synmode 5) and `laSetTrigSource(9)`, the capture phase-locks to a **D9
+rising edge** — 10/10 captures, a consistent ~150-sample offset, versus a
+random phase without it. So logic-source triggering is real and verified.
+
+Two pieces of fine control are **not yet mapped**:
+- **Polarity**: `laSetTriEdge` args 0-3 all still lock to a rising edge -
+  the polarity must live elsewhere (a channel-mask form, or the source
+  command), not this single byte.
+- **Pattern value/mask** (`0x40`) and **arm** (`0x41` `laSetTriIntr`): the
+  `==0` vs `==1` request does not change the result because the pattern
+  needs arming, and `0x41` is **multiplexed with the threshold command**
+  — its bytes 2-3 overwrite the logic-threshold DACs, so a naive arm
+  destroys the thresholds and the pod reads all-high. Coexisting the two
+  (thresholds in bytes 2-3, arm flag in bytes 4/6) is the next step.
+
+So: **opcodes decoded, source triggering verified live; polarity and
+pattern control await decoding the arm/threshold multiplexing.**
 
 ## 10. What is NOT in this device
 
