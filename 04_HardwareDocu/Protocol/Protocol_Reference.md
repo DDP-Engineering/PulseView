@@ -294,6 +294,29 @@ video fields are decoded but unexercised. Logic-source triggering
 additionally uses `laSetTrigSource` (source − 2); undecoded on the wire,
 untested.
 
+### Factory offset calibration (`0xA2`/`0x1900`, decoded + verified 2026-08-18)
+
+`dsoHTReadCalibrationData` is a vendor control-IN transfer (bmRequestType
+0xC0, request 0xA2, wValue 0x1900, wIndex 1) returning **72 little-endian
+words = 4 channels x 9 ranges x (word0, word1)** - the offset-DAC endpoints
+for vertical position 0 and full. CH1/CH2 are populated; CH3/CH4 read
+0xffff (two-channel instrument).
+
+From `dsoHTSetCHPos`, the position-to-DAC law is:
+
+```
+DAC(nPos) = word0 + nPos * (word1 - word0) / 255      (nPos 0..255)
+```
+
+The centre position (nPos 128) puts ground at ADC mid-scale, so the driver
+uses `word0 + 128*(word1-word0)/255` as each range's offset DAC and takes
+0 V = ADC count 128 uniformly. Verified live on CH1: 0 V reads within
++-0.1 V on every range (versus the previously-estimated per-range zeros),
+gain consistent across ranges, AC coupling centred. This is the vendor's
+own per-unit data - the same result its "Calibrate" routine produces, but
+read-only. The **write** path (`dsoHTWriteCalibrationData`, flash, EEROM)
+is never touched.
+
 ## 8. Offset DACs and trigger level (`0x16`)
 
 ```
