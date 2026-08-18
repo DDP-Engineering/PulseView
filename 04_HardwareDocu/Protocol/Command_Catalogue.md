@@ -595,10 +595,9 @@ that fills a useful part of the converter - a span of five counts carries a
 | 11, 12 | ~15.8 | ~4.0 V | span 30.5 @ 500 mV, 130 @ 2 V | good |
 
 Bits 11 and 12 produce byte-identical amplitudes at every input level tested.
-That does **not** make them the same relay: `RELAYCONTROL` carries a
-`bCHBWLimit[]` field and no bit has been matched to it, and a 20 MHz bandwidth
-limit is invisible in an amplitude measurement at 1 kHz. One of them may well
-be that limit. See below.
+Neither is the bandwidth limit - that lives at bits 8 to 11 of the settings
+word, not in the relay chain - so both act on the gain path. Whether they are
+one relay, a redundant pair, or two coincident steps is still open.
 
 The 11/12 figure is the trustworthy one: 16.4 mV/count from the generator at
 500 mV and 15.4 from the instrument's own 2 Vpp compensation output agree
@@ -609,33 +608,40 @@ Note the ordering is the reverse of the earlier reading. Bit 3 is the
 every step except 11 and 12 saturated, so their spans were the converter's
 limit rather than the instrument's response.
 
-### Bits 11 and 12: indistinguishable, not proven identical
+### Bits 11 and 12 are not the bandwidth limit
 
-An attempt to separate them by edge rise time, sampling both ADC cores
-interleaved at 200 MS/s - 5 ns per sample - with a 3 V 100 kHz square:
+The bandwidth limit is not in the relay chain. `bCHBWLimit[0..3]` occupies
+**bits 8 to 11 of the 24-bit settings word**, as the decoded bit map above
+already shows, and reaches the wire through the second `0x12` form. Nothing
+in the bit-serial relay writes carries it.
 
-| Bit | Rise, three runs |
-|---|---|
-| 11 | 105, 105, 110 ns |
-| 12 | 110, 105, 105 ns |
+Measurement agrees. Sampling both ADC cores interleaved at 200 MS/s with a
+10 MHz sine, where a 20 MHz limit would pass 89 percent:
 
-Equal within one sample. The test is not sensitive enough to conclude
-anything from that, and the reason is worth recording so nobody repeats it
-with the same equipment.
+| Bit | Span at 100 kHz | Span at 10 MHz | Three runs |
+|---|---|---|---|
+| 11 | 134 | 27 | 27, 27, 28 |
+| 12 | 134 | 27 | 27, 28, 27 |
 
-Rise times add in quadrature. The generator's own edges measured about 105 ns
-at this amplitude, so a path limited to 20 MHz would produce
-`sqrt(105^2 + 17.5^2) = 106.4 ns` against the unlimited path's 105.2 ns - a
-1.2 ns difference, against a resolution of +/-5 ns. The instrument's full
-60 MHz and a 20 MHz limit are both far faster than the source driving them.
+One bit limited to 20 MHz would read about 24 against the other's 27. The
+spread is +/-1 and no such gap appears.
 
-Settling it needs an edge source faster than roughly 20 ns: a logic gate
-output, a proper pulse generator, or possibly the instrument's own
-probe-compensation output, which is untested for edge speed.
+Both bits therefore act on the gain path. Whether they are one relay, a
+redundant pair, or two steps that happen to coincide is still unknown, but
+neither is the bandwidth control.
 
-Until then: **bits 11 and 12 are indistinguishable at 1 kHz to 100 kHz, and
-either could be the bandwidth-limit relay.** Do not record them as the same
-function.
+#### The 1x probe rolls off around 10 MHz
+
+Incidental but worth knowing: the span falls from 134 at 100 kHz to 27 at
+10 MHz, an 80 percent loss identical on both bits. That is not the
+instrument - a 60 MHz front end loses nothing at 10 MHz. A 1x probe is
+typically limited to about 6 MHz, and the generator may also be down at its
+maximum rated frequency.
+
+Consequence for calibration: every volts-per-count figure in this document
+was measured at 1 kHz and holds only at low frequency. They say nothing about
+amplitude accuracy in the MHz range, and with a 1x probe the probe itself is
+the limit long before the instrument is.
 
 ### Bit 10 is AC coupling - confirmed
 
