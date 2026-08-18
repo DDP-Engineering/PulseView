@@ -314,4 +314,6 @@ approximate.
 | Front end | nine ranges live; comp reads 0→2.015 V; GND flatlines |
 | AC coupling | mean 1.29 V → 31 mV (CH1); ±152 mV symmetric (CH2) |
 | Logic rate | 1000.0 Hz measured at three reported rates |
-| Logic edges | D0 verified against CH1 on the same node: identical duty, edge count and 9985-sample periods |
+| Logic edges | D0 vs CH1 on the same node: identical duty, edges, 9985-sample periods |
+| Logic banks | D0 -> bit 0, D9 -> bit 9; low and high banks both verified driven |
+| Threshold split | even/odd confirmed on driven D0, D1 and D9 across both banks |
