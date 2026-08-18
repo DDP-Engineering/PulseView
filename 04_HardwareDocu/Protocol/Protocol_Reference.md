@@ -272,11 +272,16 @@ approximate.
 - Rate = point rate = `100 MHz / (ticks+1)`, verified against a 1 kHz
   reference at three settings.
 - **Thresholds** (`0x41`, 4 bytes): `[0] 0x41 [1] 0 [2] DAC-A [3] DAC-B`.
-  `dac = 121.848 − 10.8696 × volts` (DAC 122 = 0 V). The two DACs split
-  the channels **even/odd** by measurement; the vendor UI labels them
-  Level A = D0–D7 / Level B = D8–D15 — contradiction unresolved, needs a
-  pod on known pins. Thresholds are uncalibrated (the vendor reads pod
-  EEPROM calibration first).
+  Measured calibration (this pod, grounded scope-verified square):
+  `dac = 95.2 + 12.47 × volts` — 0.080 V per count, 0 V at DAC 95.
+  The DLL's formula (`121.848 − 10.8696 × volts`) has the wrong sign and
+  scale; the vendor corrects it with per-pod EEPROM calibration. The two
+  DACs split the channels **even/odd** by floating-input measurement; the
+  vendor UI labels them Level A = D0–D7 / Level B = D8–D15 — resolution
+  pending driven tests on an odd channel.
+- **The pod needs a real ground return.** Signal fed to a hook without a
+  shared ground reads as mush (99 % duty artifacts); with a ground the
+  same signal captures perfectly.
 - Storage depth spec: 10 K–68 M/CH (vs 16 M analog); LA bandwidth 10 MHz,
   max rate 100 MHz per the manual.
 - **Unverified against real signals** until the pod session: edge
@@ -304,4 +309,4 @@ approximate.
 | Front end | nine ranges live; comp reads 0→2.015 V; GND flatlines |
 | AC coupling | mean 1.29 V → 31 mV (CH1); ±152 mV symmetric (CH2) |
 | Logic rate | 1000.0 Hz measured at three reported rates |
-| Logic edges | **pending pod session** |
+| Logic edges | D0 verified against CH1 on the same node: identical duty, edge count and 9985-sample periods |
