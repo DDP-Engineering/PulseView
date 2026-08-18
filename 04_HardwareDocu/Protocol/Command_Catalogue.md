@@ -586,9 +586,31 @@ the compensation output on CH2 and the offset DAC pulled down:
 | 7 | CH2 AC coupling - comp square's mean fell count 193 -> 129, span kept |
 
 The chain is mirror-symmetric with CH1 (gain pair 11/12, coupling 10).
-CH2's zero is count 128 at offset DAC 512. Its finer gain steps, if any
-(CH1's bits 3/4 analogues - plausibly bits 5/6), clip on every reference
-measured so far and need a smaller adjustable source on CH2.
+CH2's zero is count 128 at offset DAC 512.
+
+**CH2's full ladder, closed 2026-08-18 with a small source on CH2.** The
+obvious symmetry hypothesis - CH1 has fine gain relays, so CH2 must too -
+was tested and refuted twice over:
+
+- Chain positions 16-20, which no sweep had ever written (the 16-bit
+  chain was an assumption; the wire format holds a 24-bit shift), are
+  empty: clearing or setting them changes nothing.
+- With a 100 mVpp square on CH2, no chain bit besides 7/8/9 moves its
+  gain at all.
+
+CH2's fine range is the chain's **default path**: no relay engages it.
+Measured against a 300 mVpp offset-zero square: 1.62 mV/count
+(52 mV/div), zero at count 130 with the offset DAC at 200 - at the
+driver's generic DAC 512 this range's zero sits at count 214, against the
+top rail, which is why it always looked clipped and why the original
+sweep concluded no relay touched CH2. So CH2 has two ranges to CH1's
+three; the missing middle step presumably lives in the settings word's
+volts/div group, like CH1's other six nominal steps.
+
+One interaction matters for offsets: under AC coupling the signal centres
+on the coupling network's bias, which lands at count ~129 at DAC 512 on
+both ranges - the fine range's lowered DAC applies to DC only, or an AC
+signal is dragged into the bottom rail.
 
 Two ordering traps bit this measurement before it worked: the bit-serial
 relay writes undo the enable word (write the enable word after every relay
