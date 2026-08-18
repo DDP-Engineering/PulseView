@@ -275,10 +275,15 @@ approximate.
   Measured calibration (this pod, grounded scope-verified square):
   `dac = 95.2 + 12.47 × volts` — 0.080 V per count, 0 V at DAC 95.
   The DLL's formula (`121.848 − 10.8696 × volts`) has the wrong sign and
-  scale; the vendor corrects it with per-pod EEPROM calibration. The two
-  DACs split the channels **even/odd** by floating-input measurement; the
-  vendor UI labels them Level A = D0–D7 / Level B = D8–D15 — resolution
-  pending driven tests on an odd channel.
+  scale; the vendor corrects it with per-pod EEPROM calibration.
+  **The two DACs split the channels even/odd — CONFIRMED on driven pins**:
+  byte 2 gates the even channels, byte 3 the odd ones (D0 stops toggling
+  exactly as byte 2 crosses the scope-measured signal top; byte 3 has no
+  effect on D0 anywhere in the legal range). The vendor UI's labeling
+  (Level A = D0–D7, Level B = D8–D15) does not match its own hardware.
+  DAC values outside the ±6 V spec (above ~DAC 170) cause cross-channel
+  anomalies; the driver clamps to ±6 V. Floating pod inputs bias to
+  roughly +1.5 V.
 - **The pod needs a real ground return.** Signal fed to a hook without a
   shared ground reads as mush (99 % duty artifacts); with a ground the
   same signal captures perfectly.
