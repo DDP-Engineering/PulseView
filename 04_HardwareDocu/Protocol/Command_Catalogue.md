@@ -575,6 +575,26 @@ distinguish.
 **No bit brought CH2 alive** — it stayed railed at 255 throughout, which
 suggests CH2 needs its own offset DAC write rather than a relay change.
 
+**Superseded 2026-08-18: CH2's relay bits found.** The sweep above was
+structurally blind - CH2's default gain puts any 2 Vpp signal past the
+rail, so every bit looked identical. Re-swept in dual-channel mode with
+the compensation output on CH2 and the offset DAC pulled down:
+
+| bit | function |
+|---|---|
+| 8, 9 | CH2 gain pair, byte-identical, 2 V = 130 counts (15.385 mV/count) |
+| 7 | CH2 AC coupling - comp square's mean fell count 193 -> 129, span kept |
+
+The chain is mirror-symmetric with CH1 (gain pair 11/12, coupling 10).
+CH2's zero is count 128 at offset DAC 512. Its finer gain steps, if any
+(CH1's bits 3/4 analogues - plausibly bits 5/6), clip on every reference
+measured so far and need a smaller adjustable source on CH2.
+
+Two ordering traps bit this measurement before it worked: the bit-serial
+relay writes undo the enable word (write the enable word after every relay
+change, per the vendor's own ordering), and only then does slot 1 carry
+CH2 at all.
+
 **Reproduced through the libsigrok driver, 2026-08-17.** Implementing the
 clear-all-then-set sequence in C and selecting bit 12 gives min 119, max 249 -
 span 130, midpoint 184 - against the 1 kHz probe-compensation reference. That
