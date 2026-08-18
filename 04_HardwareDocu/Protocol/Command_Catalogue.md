@@ -594,8 +594,11 @@ that fills a useful part of the converter - a span of five counts carries a
 | 10 | 1.65 | 0.42 V | span 182 @ 300 mV | **suspect, see below** |
 | 11, 12 | ~15.8 | ~4.0 V | span 30.5 @ 500 mV, 130 @ 2 V | good |
 
-Bits 11 and 12 have produced byte-identical results in every measurement, at
-every amplitude. They are the same relay or a redundant pair, not two steps.
+Bits 11 and 12 produce byte-identical amplitudes at every input level tested.
+That does **not** make them the same relay: `RELAYCONTROL` carries a
+`bCHBWLimit[]` field and no bit has been matched to it, and a 20 MHz bandwidth
+limit is invisible in an amplitude measurement at 1 kHz. One of them may well
+be that limit. See below.
 
 The 11/12 figure is the trustworthy one: 16.4 mV/count from the generator at
 500 mV and 15.4 from the instrument's own 2 Vpp compensation output agree
@@ -605,6 +608,34 @@ Note the ordering is the reverse of the earlier reading. Bit 3 is the
 **highest** gain, not bit 10; the original table was taken at 2 Vpp where
 every step except 11 and 12 saturated, so their spans were the converter's
 limit rather than the instrument's response.
+
+### Bits 11 and 12: indistinguishable, not proven identical
+
+An attempt to separate them by edge rise time, sampling both ADC cores
+interleaved at 200 MS/s - 5 ns per sample - with a 3 V 100 kHz square:
+
+| Bit | Rise, three runs |
+|---|---|
+| 11 | 105, 105, 110 ns |
+| 12 | 110, 105, 105 ns |
+
+Equal within one sample. The test is not sensitive enough to conclude
+anything from that, and the reason is worth recording so nobody repeats it
+with the same equipment.
+
+Rise times add in quadrature. The generator's own edges measured about 105 ns
+at this amplitude, so a path limited to 20 MHz would produce
+`sqrt(105^2 + 17.5^2) = 106.4 ns` against the unlimited path's 105.2 ns - a
+1.2 ns difference, against a resolution of +/-5 ns. The instrument's full
+60 MHz and a 20 MHz limit are both far faster than the source driving them.
+
+Settling it needs an edge source faster than roughly 20 ns: a logic gate
+output, a proper pulse generator, or possibly the instrument's own
+probe-compensation output, which is untested for edge speed.
+
+Until then: **bits 11 and 12 are indistinguishable at 1 kHz to 100 kHz, and
+either could be the bandwidth-limit relay.** Do not record them as the same
+function.
 
 ### Bit 10 is AC coupling - confirmed
 
