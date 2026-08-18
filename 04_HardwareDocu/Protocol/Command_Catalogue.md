@@ -634,9 +634,10 @@ neither is the bandwidth control.
 
 Incidental but worth knowing: the span falls from 134 at 100 kHz to 27 at
 10 MHz, an 80 percent loss identical on both bits. That is not the
-instrument - a 60 MHz front end loses nothing at 10 MHz. A 1x probe is
-typically limited to about 6 MHz, and the generator may also be down at its
-maximum rated frequency.
+instrument - a 60 MHz front end loses nothing at 10 MHz. It is the probe,
+and not by inference: the manual's Appendix B specifies the shipped passive
+probes as **6 MHz bandwidth in the X1 position**, full bandwidth only at X10.
+The generator may also be down at its maximum rated frequency.
 
 Consequence for calibration: every volts-per-count figure in this document
 was measured at 1 kHz and holds only at low frequency. They say nothing about
@@ -722,6 +723,12 @@ unconditionally instead of diffing.
 | `0x34` | `bTrigFilt` |
 | `0x38` | `nALT`, WORD |
 
+`bTrigFilt` is the manual's "HF Rejection" (trigger setup, section under
+3.4): it suppresses trigger frequencies above roughly 20 MHz. A trigger-path
+filter, not a signal-path one — distinct from `bCHBWLimit`, which is the
+per-channel 20 MHz limit on the displayed signal and gets a "B" badge in the
+vendor UI.
+
 ## Data transfer opcodes
 
 `0x13`, `0x17` and `0x1b` appear together with `0x05` across
@@ -784,6 +791,11 @@ one analog channel   200 MHz / (ticks + 1)
 two analog channels  100 MHz / (ticks + 1)
 logic (always)       100 MHz / (ticks + 1)
 ```
+
+The manual's LA spec corroborates the logic line independently: "Max Sample
+Rate 100MHz", alongside 10 MHz LA bandwidth, 200 kΩ / 10 pF inputs, ±60 V
+absolute range, and 10K–68M/CH storage depth (deeper than the analog
+10K–16M — the logic bytes evidently pack more samples into the same ring).
 
 #### Logic rate confirmed, and probe_logic.py corrected
 
@@ -986,6 +998,18 @@ channels and the other the odd, across both bytes:
 That matches `laSetVoltDiv` reading array entries 0 and 8 of its 16-entry
 `WORD*` — two banks, not sixteen independent thresholds.
 
+The user manual (section 4.6) labels the two banks differently: "Level A:
+Logic threshold range of D0-D7", "Level B: D8-D15", adjustable −6 V to +6 V.
+That is a **byte split**, and it contradicts the measured even/odd split
+above — under a byte split, byte 2 at 0 and byte 3 at 240 would read
+`0x00`/`0xff` per byte, not `0b01010101` on every byte. Either the vendor UI's
+labelling doesn't match the hardware, or the channel-to-bit mapping between
+the pod connector and the stream is itself interleaved, which would make both
+descriptions true at once. Only a pod on known pins can separate those. Until
+then the measured behaviour stands: the two DACs land on alternating bits of
+the captured stream. (The spec page claims −8 V to +8 V threshold range; the
+panel says −6 to +6; the DLL clamps to 0–6 V. Three sources, three ranges.)
+
 From the constants at `0x100080d0`, `0x100080d8` and `0x100080e0`:
 
 ```
@@ -1046,8 +1070,19 @@ calls it**. The probe reaches 500 k without it, so it is not the gate.
 
 ## Function generator opcodes
 
-The DSO3062L carries a DDS arbitrary waveform generator, declared in
-`HeadFiles/HTHardDll.h` under its own `-----------DDS--------------` banner:
+**The generator exists only on the DSO3062AL.** The user manual is explicit
+three times over: chapter 4.7 opens with "Caution: This part is only used for
+DSO3062AL", the connector list marks both "OUTPUT: Signal output" and the
+E-TRIG/S sync output as "(DSO3062AL)", and the spec page heads the generator
+table "Arbitrary Waveform Generator Mode (DSO3062AL)". A plain DSO3062L has
+no OUTPUT terminal at all — the DDS exports below are in the shared DLL, but
+on this instrument there is nothing wired to them. That closes the earlier
+PWM question for good: no generator, no PWM output, on the L.
+
+For the record, the AL's generator spec: DC–25 MHz, one channel, 4 KSa
+waveform depth, 12-bit vertical, ±3.5 V max into 50 Ω, plus a square sync
+output at the generated frequency. Declared in `HeadFiles/HTHardDll.h` under
+its own `-----------DDS--------------` banner:
 
 ```c
 ddsSetOnOff(WORD DeviceIndex, short nOnOff);
@@ -1117,7 +1152,10 @@ probing. This is the concrete reason blind opcode sweeps are unsafe.
 7. Whether the logic channels capture real edges. Verified only against
    unconnected inputs and a threshold sweep so far - no pod attached.
 8. The volts/div group, bits 0-7 of the enable word, and how it maps to the
-   instrument's 10 mV/div .. 5 V/div range.
+   instrument's 10 mV/div .. 5 V/div range — nine steps in a 1-2-5 sequence
+   per the spec page, so `nCHVoltDIV` runs 0..8. Three of the nine gains are
+   measured (relay bits 3, 4, 11/12); the remaining six presumably combine
+   those relays with the settings-word group.
 9. Bit 4 of the status byte.
 10. Opcodes for calibration read, and their buffer format. `dsoHTReadCalibrationData`
    is the first call in the SDK demo's `Init()` and its result feeds the
