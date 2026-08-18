@@ -580,6 +580,55 @@ driver's default. The clipping settings **cannot be calibrated from this
 reference** - their spans above are truncated by saturation, not measured.
 Characterising them needs a smaller adjustable source.
 
+### The gain ladder, measured against a variable source
+
+An external generator at 1 kHz square, 1x probes, offset DAC 512, each bit
+applied from a fully cleared relay state. Each step measured at an amplitude
+that fills a useful part of the converter - a span of five counts carries a
+20 percent quantisation error and is worthless.
+
+| Bit | mV/count | Full scale | Measured at | Confidence |
+|---|---|---|---|---|
+| 3 | 0.565 | 0.145 V | span 177 @ 100 mV | good |
+| 4 | 1.117 | 0.286 V | span 89.5 @ 100 mV | good |
+| 10 | 1.65 | 0.42 V | span 182 @ 300 mV | **suspect, see below** |
+| 11, 12 | ~15.8 | ~4.0 V | span 30.5 @ 500 mV, 130 @ 2 V | good |
+
+Bits 11 and 12 have produced byte-identical results in every measurement, at
+every amplitude. They are the same relay or a redundant pair, not two steps.
+
+The 11/12 figure is the trustworthy one: 16.4 mV/count from the generator at
+500 mV and 15.4 from the instrument's own 2 Vpp compensation output agree
+within 6 percent, and those are independent sources.
+
+Note the ordering is the reverse of the earlier reading. Bit 3 is the
+**highest** gain, not bit 10; the original table was taken at 2 Vpp where
+every step except 11 and 12 saturated, so their spans were the converter's
+limit rather than the instrument's response.
+
+### Bit 10 is probably not a gain bit
+
+It does not scale:
+
+| Input | Span | Implied full scale |
+|---|---|---|
+| 100 mV | 36.5 | 0.70 V |
+| 200 mV | 42 | 1.22 V |
+| 300 mV | 182 | 0.42 V |
+| 500 mV | railed 0-255 | under 0.5 V |
+
+Generator drift is ruled out: bit 3 and bit 10 were measured in the *same*
+sweep at 100 mV, and bit 3 scaled correctly while bit 10 did not.
+
+Two properties point away from gain. It is the only bit that centres the
+trace - dc 127.5, exactly mid-scale - which is what removing a DC component
+does, not what an attenuator does. And `RELAYCONTROL` carries coupling and
+bandwidth-limit fields that nothing in the decoded word has been matched to.
+
+The discriminating test is a DC offset on the input: AC coupling rejects it
+and the trace stays centred, DC coupling moves it. A frequency sweep would
+separate a bandwidth limit from coupling. Neither has been run.
+
 ### One calibrated point
 
 At bit 12 with 1x probes: 2 V spans 130 counts, and the waveform's low level -
