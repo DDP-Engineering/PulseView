@@ -668,6 +668,14 @@ That explains every oddity recorded below: why bit 10 "centres the signal",
 and why its apparent span never scaled with input amplitude the way a real
 attenuator step does.
 
+**Composition confirmed on hardware, 2026-08-18.** Relay word bit 12 + bit 10
+together - a gain step with AC coupling on top, the way RELAYCONTROL's
+independent nCHCoupling and nCHVoltDIV fields imply - behaves exactly as the
+two bits do alone: a 10 MHz sine riding a ~+1.25 V DC offset clipped the top
+rail under DC coupling (mean +1.29 V) and came back centred on zero
+(mean +31 mV) with the full waveform inside the converter under AC. Measured
+through the libsigrok driver's SR_CONF_COUPLING path, not a probe script.
+
 ### The evidence that pointed there
 
 It does not scale:
