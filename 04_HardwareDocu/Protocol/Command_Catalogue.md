@@ -627,6 +627,66 @@ requirement are correctly understood.
 It is also the first usable analog capture: at this setting the waveform fits
 inside the converter's range instead of railing at 255.
 
+### THE FRONT-END MODEL — complete, 2026-08-18
+
+Everything below this heading in the gain-ladder sections is the history
+of how the pieces were found; this is the assembled result, confirmed by
+composition tests on both channels.
+
+Per channel, the vertical path is:
+
+```
+gain = attenuator (relay chain) x PGA (enable-word volts/div group)
+```
+
+**Attenuator** - the relay "pairs" are two series /10 stages, not
+redundant twins (nobody had ever set both at once):
+
+| state | CH1 relays | CH2 relays | scale |
+|---|---|---|---|
+| fine | none | none | x1 |
+| /10 | 11 or 12 | 8 or 9 | /10 |
+| /100 | 11 + 12 | 8 + 9 | /100 |
+
+**PGA** - enable-word bits 7,6 (CH1) and 5,4 (CH2); bits 3-0 of the group
+are inert:
+
+| pair | gain (measured, CH2 /10, DAC re-centred) |
+|---|---|
+| 00 | x1 |
+| 10 | x2.544 |
+| 01 | x5.033 |
+| 11 | input disconnected - this is GND coupling |
+
+3 attenuator states x 3 PGA gains = the vendor's nine 1-2-5 steps from
+10 mV/div to 5 V/div. Anchors: CH2 fine+00 = 1.62 mV/count, /10+00 =
+16.7 mV/count (500 mVpp source) vs 15.4 (2 Vpp comp - the ~5 percent
+scatter is source amplitude accuracy), CH1 /100+00 = 133 mV/count.
+
+**The PGA also scales the offset path**: at fixed DAC the midpoint walks
+up with PGA gain (144 -> 174 -> 195 at DAC 512), so each PGA step needs
+its own offset DAC to stay centred (512 / ~400 / ~300 measured on CH2).
+An early x3.98 "PGA factor" was this artifact - the top was silently
+clipping - not a real gain.
+
+**Coupling relays** (bit 10 CH1, bit 7 CH2) sit before all of this, and
+AC changes the offset behaviour: the signal centres on the coupling
+network's bias (~count 129 at DAC 512) rather than the DC zero.
+
+**Corrections this model forces:**
+
+- "CH1 is dead with all relays clear" (recorded below) is WRONG: with
+  the enable word properly written, CH1's no-relay path is alive and is
+  its fine range, symmetric with CH2. The channels have the same
+  architecture, as one would expect of a two-channel instrument.
+- CH1's relay bits 3 and 4 (0.565 / 1.117 mV/count) are real but
+  redundant given the attenuator x PGA model - they appear to be extra
+  gain taps on the fine path and are superseded for driver purposes.
+- The eight "dark" relay bits 0, 1, 2, 5, 6, 13, 14, 15 have no effect
+  on either channel's data path at 1 kHz, DC or AC, at any tested
+  amplitude. Remaining candidates: trigger-path relays (HF reject, EXT
+  routing) and spares. Chain positions 16-20 are empty.
+
 ### Gain ladder swept through the driver
 
 Each bit set from a fully cleared baseline, 1x probes on the 1 kHz 2 Vpp
