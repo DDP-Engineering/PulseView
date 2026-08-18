@@ -115,6 +115,36 @@ forced) → poll `0x06` until ready.
 Verified depths: 10 k … 16 M points, zero sample anomalies, at 100 kHz to
 50 MHz (16 M at 50 MHz is geometrically impossible — window < 6 ms).
 
+### Roll mode — continuous acquisition (VERIFIED on hardware 2026-08-18)
+
+The normal path is one-shot: it reads a completed record once per arm.
+Roll mode reads the **live** ring while the writer free-runs, giving
+unbounded-duration capture — the vendor's `dsoHT*RollMode` /
+`dsoHTStartRoll` / `dsoHTGetRollData` exports, none in the public header.
+
+```
+0x19 00 01 00     dsoHTOpenRollMode  (byte 2 = 1 on / 0 off)
+0x03 ...          start collect
+0x04 ...          start trigger - REQUIRED: the writer does not run
+                  without it, even though roll never waits for a trigger
+0x17              read the live write pointer (tracks the writer;
+                  unlike one-shot mode it does NOT stay zero)
+0x13 / 0x1b       point the read window near the pointer, length 0x800 words
+0x05              read a 0x1000-point (4 KB) chunk of live data
+  ... repeat 0x17 + read, following the writer, indefinitely ...
+0x19 00 00 00     dsoHTCloseRollMode
+```
+
+Stream layout is the SAME four-byte groups as §5 (slot 0 CH1, 1 CH2/core B,
+2 = D0-D7, 3 = D8-D15). Re-reading a fixed window returns fresh data as the
+writer overwrites it. Verified live: a square on D9 reconstructed cleanly
+and gap-free from ~500 chunk reads/s. Sustained ~2 MB/s in this simple
+poll loop; the ceiling is bulk-IN throughput (~4 MB/s ≈ 1 M points/s), so
+roll mode suits rates up to ~1 MHz — faster rates stay on the one-shot
+16 M path. Overrun behaviour (host falling behind the writer, so a window
+straddles the write pointer) is not yet characterised and is the main
+open item for a robust driver implementation.
+
 ## 5. Reading samples
 
 **One continuous stream per armed capture.**
