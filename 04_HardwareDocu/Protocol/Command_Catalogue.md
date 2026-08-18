@@ -1113,11 +1113,19 @@ A segmented reader (fresh `0x13`/`0x1b`/`0x05` per 4 M) got the counts right
 but left variable seams of -54 to +356 samples at every boundary; the
 single-stream reader has no boundaries and no seams.
 
-16 M needs the force-trigger clamp: the driver forces no later than the
-tick at which `trigger + post` would pass the ring limit, which lands the
-trigger inside the sub-million-point window a full-ring record allows. A
-*real* trigger arriving later than that window still makes the record
-unreadable - hardware geometry, reported as an error rather than a hang.
+Deep records need the trigger steered into the readable window
+`[samples/2, ring - samples/2]` (mod the ring). Two facts make that
+possible, both measured 2026-08-18: the **write pointer wraps the ring
+indefinitely** while armed (a 50 MHz capture triggered at
+elapsed × rate mod 2^24 exactly), so where the trigger lands is decided by
+*when* arming happens; and a live trigger source fires the instant 0x04
+arms it. The driver estimates the pointer from the monotonic clock -
+timer ticks drift 30 percent and are useless for this - waits out the
+laps, closes the final stretch with a precise sleep, and re-arms up to
+three times if a sparse real trigger still lands badly. Verified live:
+16 M at 10 MHz and even 16 M at 20 MHz, whose window is 17 ms wide. Only
+16 M at 50 MHz stays out of reach (window under 6 ms); the driver refuses
+it up front with a clear error.
 
 Verification artifact of note: the sigrok-cli **CSV output module displaces
 samples by hundreds of positions** when analog data arrives as multiple
@@ -1126,9 +1134,11 @@ packets (it warns "untested configuration" and means it). Two of the three
 read the `.sr` payloads directly.
 
 `dsoHTSetBufferSize` (`0x0d`) takes a three-bit size code and **the demo
-never calls it**. The probe reaches 500 k without it. It is the obvious
-suspect for making 16 M usable - a code that shrinks or repositions the
-write region would widen the trigger window - but that is untested.
+never calls it**. Tested 2026-08-18 (`diag_wrap_halt.py`): all eight codes
+were swept at 1 MHz and at 50 MHz, and none changed the trigger address,
+the capture state, or any other observable - the suspected write-region
+sizing role did not materialise. Function still unknown, and it was not
+needed: window steering reaches 16 M without it.
 
 ## Function generator opcodes
 
