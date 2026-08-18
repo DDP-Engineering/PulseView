@@ -375,6 +375,20 @@ Two pieces of fine control are **not yet mapped**:
 So: **opcodes decoded, source triggering verified live; polarity and
 pattern control await decoding the arm/threshold multiplexing.**
 
+### Software pattern trigger (implemented, verified 2026-08-18)
+
+Independent of the hardware bus trigger above, the driver provides
+`SR_CONF_TRIGGER_MATCH` - PulseView's native per-channel logic trigger.
+The instrument captures a full-rate record; the driver holds it, finds the
+first sample matching the pattern (level 0/1, rising, falling, or edge,
+ANDed across channels), emits `SR_DF_TRIGGER` there and forwards the data
+aligned to it. Runs at the full logic rate (the hardware did the
+sampling); the only limit is that the pattern must occur within the
+captured window. Verified live: `D9=rising` matched a D9 edge and aligned
+the record to it. (Note: sigrok-cli's CSV output module crashes on the
+trigger packet - an upstream tool bug; PulseView and `.sr` output are
+unaffected.)
+
 ## 10. What is NOT in this device
 
 - **No waveform generator, no PWM output** — the DDS opcodes
