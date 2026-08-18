@@ -150,13 +150,40 @@ on hardware.
 
 | Step | Opcode | Request | Meaning |
 |---|---|---|---|
-| 1 | `0x17` | 2 bytes | read the capture-end address in the ring buffer |
+| 1 | `0x17` | 2 bytes | read the **trigger** address in the ring buffer |
 | 2 | `0x13` | 8 bytes | set the read start address, 512-aligned |
-| 3 | `0x1b` | 8 bytes | set the read length in words |
+| 3 | `0x1b` | 8 bytes | set the read length in words — **advisory** |
 | 4 | `0x05` | 2 bytes | stream the samples off the bulk IN endpoint |
 
 `0x17` returns a 24-bit little-endian address in the first three bytes. The
 ring buffer is 2^24 samples — the constant `16777216.0` at `0x10008098`.
+
+**The transfer model, corrected 2026-08-18.** Four findings from live
+experiments (`diag_wrap.py`, `diag_single_stream.py`), each overturning an
+earlier belief:
+
+1. `0x17` is the **trigger address**, not the capture end. The record
+   physically ends at `trigger + post` (post from the `0x0f` split). Both
+   interpretations produce phase-locked windows, which is why the trigger
+   experiments never caught this.
+2. `0x1b` is **advisory**: a read requesting 202 k words streamed 28.8 MB.
+   Once started, the stream runs from the read start to the record's
+   physical end and stops there on its own. The old "device returns
+   length + 2048 bytes" observation was an artifact of never draining.
+3. **One read session per armed capture.** A second `0x13`/`0x1b`/`0x05`
+   setup after a drain or stall delivers nothing until the next arm.
+   `CONTROLDATA.nAlreadyReadLen` tracks progress through one continuous
+   stream, not independent reads; re-issuing the setup mid-record produced
+   irreproducible seams of tens to hundreds of samples.
+4. A read starting **past the record end** delivers exactly the 2048-byte
+   preamble and stalls, wedging the endpoint until re-arm. This is the
+   signature that was long mistaken for a ~40 k memory-depth limit.
+5. The **write pointer resets on arm** — end addresses repeat to within a
+   few hundred points across identical runs. A record therefore only wraps
+   the ring when the trigger waits long enough for the writer to pass
+   2^24, or when the record simply doesn't fit: at 16 M points the trigger
+   must land within a window under a million points wide, which is
+   presumably what `0x0d`'s buffer-size codes exist to manage. Untested.
 
 `0x13` and `0x1b` share one 8-byte layout:
 
@@ -1061,20 +1088,47 @@ length it returns 100522 and 500534 sample points, state 3, clean data.
 uv run read_capture.py --samples 500000 --buflen 500000 --ticks 999 --force
 ```
 
-Two things are needed together and the driver currently gets only the first
-right. The record length in `0x0f` must match, or the capture never leaves
-state 0. And the bulk read must be issued **one 512-byte packet at a time**,
-which is what the DLL's own loop does - asking for a larger block returns
-`LIBUSB_ERROR_TIMEOUT`, because the device streams a packet at a time and
-never fills a bigger request.
+Two things are needed together. The record length in `0x0f` must match, or
+the capture never leaves state 0. And the bulk read must be issued **one
+512-byte packet at a time**, which is what the DLL's own loop does - asking
+for a larger block returns `LIBUSB_ERROR_TIMEOUT`, because the device
+streams a packet at a time and never fills a bigger request.
 
-With both fixed the driver still stops at about 40 k: a deep capture returns
-2048 bytes and then times out. Unresolved. The remaining difference from the
-working probe run is that the probe forces the trigger while the driver now
-waits for a real one, so post-trigger fill is the first thing to examine.
+**Resolved 2026-08-18.** The "deep capture returns 2048 bytes and times out"
+failure was the record-geometry stall described under the transfer opcodes:
+the read start landed past the record's physical end, because the driver
+treated the `0x17` address as the capture end when it is the trigger. With
+the single-stream read model the driver reaches every depth whose record
+fits the ring:
 
-`dsoHTSetBufferSize` (`0x0d`) takes a three-bit size code and **the demo never
-calls it**. The probe reaches 500 k without it, so it is not the gate.
+| Depth | Result |
+|---|---|
+| 10 k / 40 k | exact, regression |
+| 500 k / 1 M / 4 M | exact |
+| 6 M @ 2 MHz | exact, 2999 comp-square periods, zero anomalies |
+| 8 M @ 10 MHz | exact, 799 periods, zero anomalies |
+| **16 M @ 10 MHz** | **exact, 1599 periods, zero anomalies** |
+
+A segmented reader (fresh `0x13`/`0x1b`/`0x05` per 4 M) got the counts right
+but left variable seams of -54 to +356 samples at every boundary; the
+single-stream reader has no boundaries and no seams.
+
+16 M needs the force-trigger clamp: the driver forces no later than the
+tick at which `trigger + post` would pass the ring limit, which lands the
+trigger inside the sub-million-point window a full-ring record allows. A
+*real* trigger arriving later than that window still makes the record
+unreadable - hardware geometry, reported as an error rather than a hang.
+
+Verification artifact of note: the sigrok-cli **CSV output module displaces
+samples by hundreds of positions** when analog data arrives as multiple
+packets (it warns "untested configuration" and means it). Two of the three
+"seams" first blamed on the driver were this. Deep-capture validation must
+read the `.sr` payloads directly.
+
+`dsoHTSetBufferSize` (`0x0d`) takes a three-bit size code and **the demo
+never calls it**. The probe reaches 500 k without it. It is the obvious
+suspect for making 16 M usable - a code that shrinks or repositions the
+write region would widen the trigger window - but that is untested.
 
 ## Function generator opcodes
 
