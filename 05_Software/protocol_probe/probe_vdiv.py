@@ -72,7 +72,8 @@ def main() -> int:
         for c in (1, 2, 3, 4):
             set_dac(dev, args.dac, c)
 
-        head = f"{'bit':>4} {'min':>5} {'max':>5} {'span':>5} {'mid':>6}"
+        head = (f"{'bit':>4} {'min':>5} {'max':>5} {'span':>5} {'mid':>6}"
+                f" {'mean':>7}")
         if args.amplitude:
             head += f" {'mV/count':>9} {'full scale':>11}"
         print(f"\ninput {args.amplitude} Vpp\n" if args.amplitude else "")
@@ -88,7 +89,9 @@ def main() -> int:
             s = data[0::4]
             lo, hi = min(s), max(s)
             span = hi - lo
-            row = f"{bit:>4} {lo:>5} {hi:>5} {span:>5} {(lo + hi) / 2:>6.1f}"
+            mean = sum(s) / len(s)
+            row = (f"{bit:>4} {lo:>5} {hi:>5} {span:>5} {(lo + hi) / 2:>6.1f}"
+                   f" {mean:>7.1f}")
             if args.amplitude and span > 2:
                 mv = args.amplitude * 1000.0 / span
                 row += f" {mv:>9.2f} {mv * 256 / 1000:>10.2f}V"

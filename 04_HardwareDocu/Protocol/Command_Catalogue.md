@@ -606,7 +606,31 @@ Note the ordering is the reverse of the earlier reading. Bit 3 is the
 every step except 11 and 12 saturated, so their spans were the converter's
 limit rather than the instrument's response.
 
-### Bit 10 is probably not a gain bit
+### Bit 10 is AC coupling - confirmed
+
+Not a gain bit at all. Measured with a generator's full-wave rectified output,
+which is all-positive and so carries a large DC component, against a symmetric
+sine as the zero reference: a sine has zero mean, so its midpoint marks 0 V
+under either coupling.
+
+| | 0 V reference | full-wave min | full-wave mean |
+|---|---|---|---|
+| bit 10 | 122.5 | 64 | **120.5** |
+| bit 12 | 129.5 | **129** | 134.4 |
+
+Bit 10 places the signal's **mean** at zero - the DC component has been
+removed. Bit 12 places its **minimum** at zero - the DC passes through. The
+matching figures are within 2.0 and 0.5 counts; the alternatives miss by 58
+and 5.
+
+`RELAYCONTROL.nCHCoupling[]` takes DC 0, AC 1, GND 2, so a coupling relay is
+expected to exist. This is it, for CH1.
+
+That explains every oddity recorded below: why bit 10 "centres the signal",
+and why its apparent span never scaled with input amplitude the way a real
+attenuator step does.
+
+### The evidence that pointed there
 
 It does not scale:
 
@@ -620,14 +644,14 @@ It does not scale:
 Generator drift is ruled out: bit 3 and bit 10 were measured in the *same*
 sweep at 100 mV, and bit 3 scaled correctly while bit 10 did not.
 
-Two properties point away from gain. It is the only bit that centres the
-trace - dc 127.5, exactly mid-scale - which is what removing a DC component
-does, not what an attenuator does. And `RELAYCONTROL` carries coupling and
-bandwidth-limit fields that nothing in the decoded word has been matched to.
+Two properties pointed away from gain: it is the only bit that centres the
+trace, which is what removing a DC component does rather than what an
+attenuator does, and `RELAYCONTROL` carries a coupling field that nothing in
+the decoded word had been matched to.
 
-The discriminating test is a DC offset on the input: AC coupling rejects it
-and the trace stays centred, DC coupling moves it. A frequency sweep would
-separate a bandwidth limit from coupling. Neither has been run.
+A generator with no DC-offset control can still run the test. A full-wave
+rectified output is all-positive and therefore carries a large DC component,
+and a symmetric sine supplies the zero reference. No offset knob needed.
 
 ### One calibrated point
 
