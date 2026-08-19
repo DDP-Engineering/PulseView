@@ -179,14 +179,21 @@ fi
 # --------------------------------------------------------------------------
 printf '\nUpstream access\n'
 
-# The mirrors are on a private network by design. Probe rather than assume,
-# and never let ssh block on a prompt nobody can answer.
-MIRROR_HOST="$(sed -n 's|.*fork_url = "ssh://git@\([^:]*\):.*|\1|p' "${LOCK}" 2>/dev/null | head -1)"
-MIRROR_PORT="$(sed -n 's|.*fork_url = "ssh://git@[^:]*:\([0-9]*\)/.*|\1|p' "${LOCK}" 2>/dev/null | head -1)"
-MIRROR_URL="$(sed -n 's|.*fork_url = "\(ssh://[^"]*mirror-mxe[^"]*\)".*|\1|p' "${LOCK}" 2>/dev/null | head -1)"
+# Gitea is on a private network by design. Probe rather than assume, and
+# never let ssh block on a prompt nobody can answer.
+#
+# This used to test connectivity against mirror-mxe.git specifically - one
+# of the sigrok upstream mirrors. Those mirrors are gone (2026-08-19: the
+# project moved to a single repo, nothing referenced them anymore), so the
+# probe now targets this repo's own origin instead. That is a strictly
+# better test anyway: it is the one remote every clone of this project
+# actually needs, and it cannot go stale the way a specific mirror name can.
+ORIGIN_URL="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null)"
+MIRROR_HOST="$(printf '%s' "${ORIGIN_URL}" | sed -n 's|ssh://git@\([^:]*\):.*|\1|p')"
+MIRROR_PORT="$(printf '%s' "${ORIGIN_URL}" | sed -n 's|ssh://git@[^:]*:\([0-9]*\)/.*|\1|p')"
 
 if [ -z "${MIRROR_HOST}" ]; then
-    report WARN "mirror host" "no ssh fork_url found in the lock"
+    report WARN "git host" "origin is not an ssh:// remote (got '${ORIGIN_URL}')"
 elif ! command -v git >/dev/null 2>&1; then
     :
 else
@@ -198,14 +205,14 @@ else
         ssh-keygen -t ed25519 -C \"\$(whoami)@\$(hostname)\"   then add the .pub to Gitea"
     fi
 
-    if [ -n "${MIRROR_URL}" ]; then
+    if [ -n "${ORIGIN_URL}" ]; then
         if GIT_TERMINAL_PROMPT=0 \
            GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=8" \
-           git ls-remote --heads "${MIRROR_URL}" >/dev/null 2>&1; then
-            report PASS "mirror access" "${MIRROR_HOST}:${MIRROR_PORT} reachable"
+           git ls-remote --heads "${ORIGIN_URL}" >/dev/null 2>&1; then
+            report PASS "git host" "${MIRROR_HOST}:${MIRROR_PORT} reachable"
         else
-            report FAIL "mirror access" "cannot reach ${MIRROR_HOST}:${MIRROR_PORT}" \
-                "The mirrors are LAN-only. Connect to that network, or pass
+            report FAIL "git host" "cannot reach ${MIRROR_HOST}:${MIRROR_PORT}" \
+                "Gitea is LAN-only. Connect to that network, or pass
         --mxe-src to build_image.sh with a local MXE clone."
         fi
     fi

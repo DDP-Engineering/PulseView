@@ -7,17 +7,26 @@ schema = 1
 policy = "immutable-commits-only"
 reviewed = 2026-08-15
 mirrored = 2026-08-17
+unmirrored = 2026-08-19
 
-# libsigrok was removed from this lock on 2026-08-19. It is no longer a
-# passive vendor dependency: the ATK DL16 and Hantek DSO-3062L drivers are
-# developed directly in 05_Software/libsigrok as part of this repo's own
-# history, not pulled from upstream. Listing it here with clone_enabled
-# would let `--vendor` silently overwrite that work with pristine upstream
-# source. mirror-libsigrok.git on Gitea has been deleted for the same
-# reason - it was a frozen, unmaintained fork that no longer reflected
-# where development actually happens. If libsigrok's upstream is ever
-# worth re-checking for a rebase, treat it as a fresh, deliberate review,
-# not an automated vendor pull.
+# libsigrok was removed from this lock entirely on 2026-08-19. It is no
+# longer a passive vendor dependency: the ATK DL16 and Hantek DSO-3062L
+# drivers are developed directly in 05_Software/libsigrok as part of this
+# repo's own history, not pulled from upstream. Listing it here with
+# clone_enabled would let `--vendor` silently overwrite that work with
+# pristine upstream source. If libsigrok's upstream is ever worth
+# re-checking for a rebase, treat it as a fresh, deliberate review, not an
+# automated vendor pull.
+#
+# All seven mirror-*.git repos on Gitea (the six below, plus mxe) were
+# deleted the same day - a deliberate choice to keep this project to a
+# single repo rather than maintain a set of mirrors nothing referenced
+# anymore. What that costs: `mirror_upstreams.py --vendor` and `--push`
+# no longer have anywhere to push to or extract from, so a future
+# re-vendor of any of these needs `--clone` first (a fresh clone from
+# canonical_url, i.e. GitHub) rather than pulling from an offline cache.
+# The commit/licence data below stays as the provenance record of what
+# is actually vendored into 05_Software/<name> right now.
 
 [[source]]
 name = "pulseview"
@@ -29,8 +38,8 @@ licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/pulseview/blob/af02198741b4e57c9f9b796bd5e6c0f2ae9f2f2b/COPYING"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-pulseview.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "libsigrokdecode"
@@ -42,8 +51,8 @@ licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libsigrokdecode/blob/71f451443029322d57376214c330b518efd84f88/COPYING"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrokdecode.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "sigrok-cli"
@@ -55,8 +64,8 @@ licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/sigrok-cli/blob/f44dd91347e7ac797cefc23162b9fcf0b7329f1f/COPYING"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-cli.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "libserialport"
@@ -68,8 +77,8 @@ licence = "LGPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libserialport/blob/21b3dfe5f68c205be4086469335fd2fc2ce11ed2/COPYING"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libserialport.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "sigrok-util"
@@ -81,8 +90,8 @@ licence = "GPL-2.0 top-level repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/sigrok-util/blob/249b79d0a94e9ac4ec96533bf3108e2a50e6b38d/COPYING.v2"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-sigrok-util.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "libusb"
@@ -94,8 +103,8 @@ licence = "LGPL-2.1 repository licence; per-file terms govern"
 licence_url = "https://github.com/libusb/libusb/blob/c75357cd70393b24e0416f664a09f0e97aced934/COPYING"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libusb.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 [[source]]
 name = "mxe"
@@ -107,8 +116,8 @@ licence = "MIT for MXE core; downloaded packages retain their own licences"
 licence_url = "https://github.com/mxe/mxe/blob/bfff609d0301534f06a4fda080ba4e0c5b501e78/LICENSE.md"
 reviewed = 2026-08-15
 fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-mxe.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+fork_status = "mirror-deleted-2026-08-19"
+clone_enabled = false
 
 # Added 2026-08-17 after reading sigrok-util's own MSYS2 build script, which
 # needs two sources the original eight did not cover.
@@ -143,7 +152,9 @@ mirrored = false
 #    upstream script cannot run as written. Mainline libusb, already pinned
 #    above, is the replacement.
 # 2. The same script uses git://sigrok.org and git://github.com. The git://
-#    protocol is disabled on GitHub; sigrok.org still serves it. Both are moot
-#    once the Gitea mirrors are used.
+#    protocol is disabled on GitHub; sigrok.org still serves it. Both were
+#    moot while the Gitea mirrors existed; now that they are gone (see the
+#    note above the source list), a re-vendor talks to GitHub over https,
+#    same as everything else that clones from canonical_url.
 # 3. git://sigrok.org/libsigrok HEAD equals the pinned commit 0bc2487778e6, so
 #    sigrok.org is the canonical origin and GitHub is itself a mirror.

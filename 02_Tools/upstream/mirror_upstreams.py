@@ -138,6 +138,15 @@ def main() -> int:
     srcs = sources()
     if args.only:
         srcs = [s for s in srcs if s["name"] == args.only]
+    else:
+        # clone_enabled = false means "no mirror to push to or vendor from
+        # right now" (see the note in upstreams.lock.toml) - skip it in a
+        # bulk run, but --only still lets you name it explicitly if you
+        # really do want to re-clone straight from canonical_url.
+        disabled = [s["name"] for s in srcs if not s.get("clone_enabled", True)]
+        srcs = [s for s in srcs if s.get("clone_enabled", True)]
+        if disabled:
+            print(f"skipping (clone_enabled = false): {', '.join(disabled)}")
 
     failures = []
     for src in srcs:
