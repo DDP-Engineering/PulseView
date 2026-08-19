@@ -48,9 +48,9 @@ Consequences worth stating explicitly, because they are easy to get wrong:
 - Scripts take explicit paths and never assume a working directory. Anything
   that must locate the repository derives it from its own location.
 
-`00_Planning/Codex/06_Build_Deployment_and_Release.md` holds the detailed
-layout inside each of these, along with the output-root and manifest
-conventions.
+`02_Tools/build/STATUS.md` holds the detailed layout inside each of these,
+along with the output-root and manifest conventions, and records which build
+scripts are verified.
 
 <!-- AEGIS:BEGIN (managed by .agentic/aegis.py init) -->
 

@@ -98,8 +98,10 @@ The tools must never infer authority to:
 - publish an artifact or vendor material.
 
 Host checks report missing prerequisites and exact operator commands but do not
-run installers. Driver and hardware work follows
-`06_SoftwareDocu/Research_Security.md`.
+run installers. The rule driver and hardware work follows is simply that
+nothing writes persistent device state - no calibration, flash or EEPROM
+opcodes - which the protocol references in `04_HardwareDocu/<device>/` record
+per opcode.
 
 ## Idempotence and result record
 

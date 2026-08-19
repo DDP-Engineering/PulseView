@@ -7,26 +7,41 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Build automation status ledger
 
-Required by `00_Planning/Codex/06_Build_Deployment_and_Release.md`. A script
-named in the plan is not available until this table and an execution record
-both say it is implemented and verified.
+Current state, and the findings behind it. Most of this file is a record of
+what the toolchain investigation actually cost - the dead patch, the glibmm
+gap, the two traps that burned three bisections. That part is still the
+reason the build works and is kept verbatim; the status around it is
+updated as the build changes.
 
-The Windows toolchain image is **built and verified**, and **unmodified sigrok
-compiles with it end to end**: libserialport, libsigrok with its C++ bindings,
-libsigrokdecode with all 132 decoders, `sigrok-cli.exe` and `pulseview.exe`.
-Neither binary has been run yet, and no driver code of ours has been added.
+**All three deliveries build and are verified against hardware.**
+
+| Target | Script | Result |
+|---|---|---|
+| Windows x86_64 | `build_windows_mxe.sh` | `sigrok-cli.exe`, `pulseview.exe`, statically linked |
+| Linux x86_64 (thin) | `build_linux.sh` | tarball; needs runtime libs from the distro |
+| Linux x86_64 (portable) | `build_appimage.sh` | self-contained AppImage, no host packages |
 
 | Component | Result |
 |---|---|
 | libserialport | built |
-| libsigrok | built, C++ bindings enabled, 82 of 87 drivers |
+| libsigrok | built, C++ bindings enabled, 84 drivers |
 | libsigrokdecode | built, 132 of 132 decoders |
 | `sigrok-cli.exe` | 15 MB, PE32+ console x86-64 |
-| `pulseview.exe` | 32 MB, PE32+ GUI x86-64 |
+| `pulseview.exe` | 33 MB, PE32+ GUI x86-64 |
+| `PulseView-x86_64.AppImage` | 36 MB, self-contained |
 
-Both link statically. Their only non-system import is `python34.dll`, which
-upstream's installer also ships; everything else resolves against stock
-Windows DLLs.
+The Windows binaries link statically. Their only non-system import is
+`python34.dll`, which upstream's installer also ships; everything else
+resolves against stock Windows DLLs.
+
+Driver count is 84, not the 82 an earlier revision of this file recorded:
+the two additions are ours, `hantek-dso3062l` and `atk-dl16`. Both have been
+run against the physical instruments, not merely compiled - see
+`04_HardwareDocu/<device>/` for what was verified and how.
+
+This project no longer tracks upstream sigrok. `05_Software/` holds the
+whole stack as ordinary files in this repository, so a clone carries the
+sources and `02_Tools/` carries everything needed to build them.
 
 **Both run on Windows**, verified 2026-08-17 by executing the staged binaries
 directly from `07_Delivery/staging/`:
@@ -44,7 +59,10 @@ One benign message appears on every PulseView start: `asix-omega-rtm-cli:
 Cannot execute RTM CLI process`. That driver shells out to a helper binary
 that is not shipped; it affects nothing else.
 
-The GUI has not been opened, and no hardware has been attached.
+(That was written of the initial stock-sigrok probe, when the GUI had not
+been opened and no hardware attached. Both have since happened: PulseView
+runs, and both drivers have been exercised against the physical
+instruments.)
 
 Not built by this probe, and needed for a real package: `sigrok-firmware`,
 `sigrok-firmware-fx2lafw`, `sigrok-dumps`, the NSIS installers, and Zadig.
@@ -52,14 +70,15 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 | Path | Status | Host | Last verified | Verification command | Known limitation |
 |---|---|---|---|---|---|
 | `images/Dockerfile.mingw` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Builds a 7.28 GB image. `check` excluded, glib held at 2.89.1 - see deviations below. |
-| `images/Dockerfile.appimage` | implemented | WSL2 Ubuntu 24.04 + Docker | never | `./build_image.sh --image appimage` | Blocked: needs an `[[artifact]]` named `appimagetool` in the lock, with `version` and `sha256`. Verified to fail closed. |
+| `images/Dockerfile.appimage` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-19 | `./build_image.sh --image appimage` | The `appimagetool` and `linuxdeployqt` artifacts it needed were finally added to the lock; it had indeed been failing closed until then. Also pre-creates `/build` - without that the volume mounts root-owned and the build cannot write to it. |
 | `build_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Full path exercised: clone, pin check, patch check, base-digest pinning, build, provenance record. `--save` is still untested. |
 | `run_in_builder.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./run_in_builder.sh --image mingw -- bash /work/.work/probe-verify.sh` | Drove the whole stock-sigrok build. Its first run failed on a root-owned `/build`; fixed in the image, not the script. |
 | `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-17 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 82 drivers, 132 decoders, both executables. Does not build firmware, dumps, or the NSIS installers. |
 | `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. |
 | `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. Windows host equivalent not written. |
-| `build_linux.sh` | planned | WSL2 container | n/a | n/a | Not written. Same dependency on the AppImage image. |
-| `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written. |
+| `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-19 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. |
+| `build_appimage.sh` | verified | appimage builder image | 2026-08-19 | `./build_appimage.sh` | Self-contained AppImage, both binaries behind one AppRun (`--cli` selects sigrok-cli). Verified on a bare ubuntu:22.04 with zero packages installed. PulseView still needs the host's libGL and display - deliberate; graphics libraries must match the kernel driver. |
+| `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written, and no longer obviously needed - the three per-target scripts cover the deliveries. |
 
 ## What the first dry run found
 
@@ -179,25 +198,29 @@ a3b3ea1e583c3565cb422af954acc7efa3c3d8031afd1e55921962e6736650d4  python34_x86_6
 These belong in `upstreams.lock.toml` as pinned artifacts, and the files
 should be mirrored, before any of this is called reproducible.
 
-## Why the stage-2 scripts are not written yet
+## How the stage-2 scripts were arrived at
 
-They would be guesses. `sigrok-cross-mingw` has hard-coded prefixes, an
-expectation of MXE at `$HOME/mxe-git`, and legacy Python download logic that
-planning doc 06 flags for refresh. Writing a wrapper around behaviour nobody
-has observed produces a script that has to be rewritten after the first real
-run.
+They exist now: `build_windows_mxe.sh`, `build_linux.sh`, `build_appimage.sh`.
 
-The order that avoids that, per planning doc 09 Q-15:
+They were deliberately not written up front, because they would have been
+guesses. `sigrok-cross-mingw` has hard-coded prefixes, an expectation of MXE
+at `$HOME/mxe-git`, and legacy Python download logic. Wrapping behaviour
+nobody had observed would have produced a script needing a rewrite after the
+first real run.
+
+The order actually followed:
 
 1. Build the mingw image.
 2. Get a shell in it and run the upstream script by hand against
    **unmodified** sigrok. Record what it needs, what it breaks on, and where
    it puts things.
 3. Turn the working invocation into `build_windows_mxe.sh`.
-4. Only then add the `hantek-dso3062l` driver.
+4. Only then add the drivers.
 
-Step 2 is the one worth not skipping. If the driver goes in first and the
-build fails, the cause is ambiguous between our code and the toolchain.
+Step 2 was the one worth not skipping. Had the driver gone in first and the
+build failed, the cause would have been ambiguous between our code and the
+toolchain - and the toolchain turned out to have three separate faults
+(below), any of which would have been blamed on the driver.
 
 ## Deviations from upstream sigrok's release toolchain
 
@@ -320,10 +343,24 @@ from outside it.
 ```sh
 git clone ssh://git@192.168.1.15:2222/dpasare/2026_Hantek_DSO3062L.git
 cd 2026_Hantek_DSO3062L
-git submodule update --init --recursive
+git lfs pull                              # the 2.2 GB toolchain image
 02_Tools/bootstrap/check_host.sh          # reports what is missing
 02_Tools/build/load_image.sh --image mingw
 02_Tools/build/build_windows_mxe.sh --stage
+```
+
+No `git submodule update` step: the sigrok stack was folded into this
+repository as plain files in August 2026, so the clone above already carries
+every source it builds. `git lfs pull` replaces the step that used to matter
+- without it the toolchain archive is a ~130-byte pointer file and
+`load_image.sh` says so rather than failing obscurely.
+
+For Linux:
+
+```sh
+02_Tools/build/build_linux.sh             # thin tarball, needs distro libs
+02_Tools/build/build_image.sh --image appimage
+02_Tools/build/build_appimage.sh          # self-contained AppImage
 ```
 
 `check_host.sh` is read-only by contract: it names the missing prerequisite
@@ -357,13 +394,19 @@ LFS. That is what makes the rest of this list short.
 | MXE's upstream tarballs, from **117 distinct hosts** | **Retired.** Baked into the image; a load never reaches them |
 | Python 3.4.4 from `sigrok.org` over plaintext HTTP | **Retired.** Baked into the image at `/opt/sigrok-deps`, checksum-verified at build time |
 | Debian base image and apt packages | Baked in. Only a from-source image rebuild re-fetches them |
-| The 7 pinned submodules | LAN mirror. Immutable commits, so content cannot drift |
+| The 7 sigrok sources | **Retired.** Vendored into `05_Software/` as plain files; a clone carries them |
 | `sigrok-firmware`, `fx2lafw` tarball | **Still exposed.** Not mirrored, not yet needed - no build so far uses them |
-| `appimagetool` | **Still exposed.** Blocks the Linux image, which has never been built |
+| `appimagetool`, `linuxdeployqt` | **Still exposed.** Pinned by version and SHA-256 in the lock, but fetched from GitHub when the appimage image is built |
 
-Two of those are unresolved, and both belong to work that has not started: the
-firmware components and the Linux AppImage. Nothing in the Windows path
-depends on a third-party host any more.
+Nothing in the Windows path depends on a third-party host any more, and the
+sigrok sources cannot expire at all now that they live in this repository.
+
+The Linux AppImage image is the remaining exposure: building it downloads two
+packaging tools from GitHub. Both are checksum-verified, so they cannot change
+underneath us - but they could disappear. That only affects rebuilding the
+appimage *builder image*; once built, `build_appimage.sh` needs no network.
+Saving that image to `07_Delivery/toolchain/` the way the mingw one is would
+close it, at the cost of another multi-gigabyte LFS object.
 
 ### What is deliberately not solved
 

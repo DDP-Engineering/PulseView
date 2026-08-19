@@ -7,9 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Build
 
-Container definitions and build drivers for the sigrok stack. The full
-rationale is in `00_Planning/Codex/06_Build_Deployment_and_Release.md`; this
-page is how to actually run it.
+Container definitions and build drivers for the sigrok stack. This page is
+how to run it; `STATUS.md` beside it records what is verified and the
+findings behind each choice.
 
 ## Why a container at all
 
