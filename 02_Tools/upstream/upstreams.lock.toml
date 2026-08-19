@@ -144,6 +144,41 @@ role = "build-dependency"
 reviewed = 2026-08-17
 mirrored = false
 
+# Added 2026-08-19 for the Linux AppImage: Dockerfile.appimage and
+# build_image.sh already expected these two artifacts, but neither was ever
+# actually pinned here - `--image appimage` would have failed at
+# `lock_get artifact appimagetool ...` on the very first run. The tag
+# "continuous" on both projects' GitHub releases floats, so the version
+# pinned is the newest STABLE numbered tag, not "continuous"; the sha256 is
+# what was actually downloaded and verified against that tag on this date.
+[[artifact]]
+name = "appimagetool"
+version = "1.9.1"
+url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+sha256 = "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/AppImage/appimagetool/blob/master/LICENSE"
+reviewed = 2026-08-19
+mirrored = false
+
+[[artifact]]
+name = "linuxdeployqt"
+version = "11"
+url = "https://github.com/probonopd/linuxdeployqt/releases/download/11/linuxdeployqt-continuous-x86_64.AppImage"
+sha256 = "65192b29bee5f8da8820672aeee91f217896b08ca6236c84d996813129fb3510"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/probonopd/linuxdeployqt/blob/master/LICENSE.txt"
+reviewed = 2026-08-19
+mirrored = false
+# Does the part appimagetool does not: walks the Qt platform plugin tree
+# (libqxcb.so and everything IT dynamically loads - libxcb, libX11,
+# libxkbcommon, fontconfig, freetype...) which plain ldd never sees because
+# Qt loads plugins at runtime, not via the ELF dynamic linker. Without this,
+# a "self-contained" Linux build launches fine headless and then fails the
+# moment it needs a real display.
+
 # Findings that affect the offline build, recorded 2026-08-17:
 #
 # 1. sigrok-util/cross-compile/msys2/sigrok-native-msys2 clones

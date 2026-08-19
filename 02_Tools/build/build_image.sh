@@ -263,11 +263,16 @@ EOF
 else
     AIT_VERSION="$(lock_get artifact appimagetool version)"
     AIT_SHA256="$(lock_get artifact appimagetool sha256)"
+    LDQT_VERSION="$(lock_get artifact linuxdeployqt version)"
+    LDQT_SHA256="$(lock_get artifact linuxdeployqt sha256)"
     note "appimagetool ${AIT_VERSION} sha256 ${AIT_SHA256:0:12}..."
+    note "linuxdeployqt ${LDQT_VERSION} sha256 ${LDQT_SHA256:0:12}..."
     BASE_IMAGE="ubuntu:22.04"
     BUILD_ARGS+=(
         --build-arg "APPIMAGETOOL_VERSION=${AIT_VERSION}"
         --build-arg "APPIMAGETOOL_SHA256=${AIT_SHA256}"
+        --build-arg "LINUXDEPLOYQT_VERSION=${LDQT_VERSION}"
+        --build-arg "LINUXDEPLOYQT_SHA256=${LDQT_SHA256}"
     )
 fi
 

@@ -146,7 +146,7 @@ cat > "${STAGE}/60-hantek-dso3062l.rules" <<'UDEV'
 SUBSYSTEM=="usb", ATTRS{idVendor}=="04b5", ATTRS{idProduct}=="3062", MODE="0660", GROUP="plugdev", TAG+="uaccess"
 UDEV
 
-cat > "${STAGE}/README-DSO3062L.txt" <<'RM'
+cat > "${STAGE}/README.txt" <<'RM'
 PulseView / sigrok-cli for the Hantek DSO-3062L (Linux x86_64)
 ==============================================================
 
@@ -177,7 +177,7 @@ RM
 # --------------------------------------------------------------------------
 note "packaging tarball"
 REV="${HDRIVER_REV:-unknown}"
-TAR="/work/07_Delivery/pulseview-hantek-dso3062l-$(date +%Y%m%d)-${REV}-linux-x64.tar.gz"
+TAR="/work/07_Delivery/pulseview-$(date +%Y%m%d)-${REV}-linux-x64.tar.gz"
 ( cd "${STAGE}/.." && tar czf "${TAR}" "${STAGE_NAME}" )
 ( cd "${STAGE}" && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS )
 

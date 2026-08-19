@@ -1,0 +1,4 @@
+# Hantek DSO-3062L - accessible to the plugdev group.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04b5", ATTRS{idProduct}=="3062", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# ALIENTEK ATK DL16 logic analyzer.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="ffcc", MODE="0660", GROUP="plugdev", TAG+="uaccess"
