@@ -1,0 +1,498 @@
+#!/bin/bash
+##
+## This file is part of the sigrok-util project.
+##
+## Copyright (C) 2013-2015 Uwe Hermann <uwe@hermann-uwe.de>
+## Copyright (C) 2013-2015 Marcus Comstedt <marcus@mc.pp.se>
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, see <http://www.gnu.org/licenses/>.
+##
+
+set -e
+
+# The path where the NDK, SDK, and toolchains are located.
+ANDROID_PATH=$HOME/android
+
+# The path where the Android NDK is located.
+ANDROID_NDK=$ANDROID_PATH/android-ndk-r10e
+
+# The path where the Android SDK is located.
+ANDROID_SDK=$ANDROID_PATH/android-sdk-linux
+
+# The path where your Android toolchain directory is located.
+TOOLCHAIN=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86
+# TOOLCHAIN=$ANDROID_NDK/toolchains/x86-4.9/prebuilt/linux-x86
+
+# Select which Android toolchain to use.
+# Don't forget to also adapt TOOLCHAIN above if you change TOOLCHAIN_TRIPLET!
+TOOLCHAIN_TRIPLET=arm-linux-androideabi
+# TOOLCHAIN_TRIPLET=i686-linux-android
+
+# The path where the cross-compiled packages will be installed.
+PREFIX=$HOME/sr_android
+
+# The path where to download files to and where to build packages.
+BUILDDIR=./build
+
+# Edit this to control verbose build output.
+# V="V=1 VERBOSE=1"
+
+# Edit this to enable/disable/modify parallel compiles.
+PARALLEL="-j 2"
+
+# You usually don't need to change anything below this line.
+
+# -----------------------------------------------------------------------------
+
+VER_LIBICONV=1.14
+VER_GETTEXT=0.19.7
+VER_ZLIB=1.2.11
+VER_PCRE=8.38
+VER_LIBFFI=3.2.1
+VER_GLIB=2.48.1
+VER_GLIB_SHORT=2.48
+VER_GLIBMM=2.48.1
+VER_GLIBMM_SHORT=2.48
+VER_LIBSIGCXX=2.9.2
+VER_LIBSIGCXX_SHORT=2.9
+VER_LIBZIP=1.1
+VER_LIBFTDI1=1.2
+VER_LIBUSB=1.0.19
+VER_PYTHON=3.3.3
+VER_BOOST=1.58.0
+VER_QT=5.6.0
+VER_QT_SHORT=5.6
+VER_SIGROK_FIRMWARE_FX2LAFW=0.1.6
+VER_NDK=10e
+VER_SDK=24.4.1
+VER_AND_BT=23.0.2 # Android build tools version
+VER_AND_API=16    # Target Android API version
+
+SF_MIRROR=download.sourceforge.net
+
+WGET="wget -c --quiet"
+GIT_CLONE="git clone --depth=1"
+
+REPO_BASE="git://sigrok.org"
+
+case "$TOOLCHAIN_TRIPLET" in
+  arm*) TARGET_ARCH=armeabi;;
+  i686*) TARGET_ARCH=x86;;
+  *) echo >&2 "Unknown prefix for TOOLCHAIN_TRIPLET."; exit 1;;
+esac
+
+# -----------------------------------------------------------------------------
+
+# Get the Android NDK and SDK, install required packages and toolchains.
+if [ "x$1" = "xprepare" ]; then
+  mkdir -p $ANDROID_PATH
+  cd $ANDROID_PATH
+
+  # NDK
+  $WGET http://dl.google.com/android/ndk/android-ndk-r$VER_NDK-linux-x86.bin
+  chmod 700 android-ndk-r$VER_NDK-linux-x86.bin
+  ./android-ndk-r$VER_NDK-linux-x86.bin -y
+  cd android-ndk-r$VER_NDK
+  ./build/tools/make-standalone-toolchain.sh --platform=android-$VER_AND_API \
+    --toolchain=arm-linux-androideabi-4.9 \
+    --install-dir=$ANDROID_PATH/android-arm-toolchain
+  ./build/tools/make-standalone-toolchain.sh --platform=android-$VER_AND_API \
+    --toolchain=x86-4.9 \
+    --install-dir=$ANDROID_PATH/android-i686-toolchain
+  cd ..
+
+  # SDK
+  $WGET http://dl.google.com/android/android-sdk_r$VER_SDK-linux.tgz
+  tar xfz android-sdk_r$VER_SDK-linux.tgz
+  cd android-sdk-linux
+  echo y | ./tools/android update sdk --no-ui --all --filter platform-tools,build-tools-$VER_AND_BT,android-$VER_AND_API
+  cd ..
+
+  exit
+fi
+
+# -----------------------------------------------------------------------------
+
+# Remove build directory contents (if any) and create a new build dir.
+rm -rf $BUILDDIR
+mkdir $BUILDDIR
+cd $BUILDDIR
+
+# -----------------------------------------------------------------------------
+
+# Build host Python before we start messing with the environment.
+# Don't do parallel builds, this doesn't seem to work well.
+$WGET http://python.org/ftp/python/$VER_PYTHON/Python-$VER_PYTHON.tar.xz
+tar xfJ Python-$VER_PYTHON.tar.xz
+cd Python-$VER_PYTHON
+./configure
+make python $V
+mv python hostpython
+cd ..
+
+# -----------------------------------------------------------------------------
+
+# We need to find tools in the toolchain.
+export PATH=$TOOLCHAIN/bin:$PATH
+
+# Tell pkg-config to only look for our cross-built stuff.
+export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
+export -n PKG_CONFIG_PATH
+
+# Check toolchain
+if test -d "$TOOLCHAIN"/sysroot; then
+  echo "Toolchain is standalone"
+  STANDALONE_TOOLCHAIN=$TOOLCHAIN
+  SYSROOT=
+else
+  STANDALONE_TOOLCHAIN=
+  NATIVE_API_LEVEL=$VER_AND_API
+  SYSROOT_DIR=${ANDROID_NDK}/platforms/android-${NATIVE_API_LEVEL}/arch-${TARGET_ARCH%eabi*}
+  if [ ! -d "$SYSROOT_DIR" ]; then
+    echo >&2 "Can't build with NDK toolchain; sysroot $SYSROOT_DIR is missing"
+    exit 1
+  fi
+  SYSROOT="--sysroot $SYSROOT_DIR"
+  CC="$TOOLCHAIN_TRIPLET-gcc $SYSROOT"
+  CXX="$TOOLCHAIN_TRIPLET-g++ $SYSROOT"
+  export CC CXX
+fi
+NDK_TOOLCHAIN_VERSION=`${TOOLCHAIN_TRIPLET}-gcc --version | head -1 | sed -e 's/.* \([0-9]\+\.[0-9.]\+\)\( \|.*\)$/\1/'`
+
+# Define some helper variables.
+C="--host=$TOOLCHAIN_TRIPLET --prefix=$PREFIX"
+CM="-Wno-dev -DCMAKE_TOOLCHAIN_FILE=../android.toolchain.cmake -DANDROID_ABI=${TARGET_ARCH} -DCMAKE_INSTALL_PREFIX=${PREFIX}"
+if [ -n "$STANDALONE_TOOLCHAIN" ]; then
+  CM="$CM -DANDROID_STANDALONE_TOOLCHAIN=${STANDALONE_TOOLCHAIN}"
+  if [ -d "${ANDROID_NDK}/sources/cxx-stl" ]; then
+    CM="$CM -DANDROID_STL_PATH=${ANDROID_NDK}/sources/cxx-stl"
+  fi
+else
+  CM="$CM -DANDROID_NDK=${ANDROID_NDK}"
+  CM="$CM -DANDROID_NATIVE_API_LEVEL=${NATIVE_API_LEVEL}"
+  CM="$CM -DANDROID_TOOLCHAIN_NAME=${TOOLCHAIN_TRIPLET}-${NDK_TOOLCHAIN_VERSION}"
+  CM="$CM -DCMAKE_MAKE_PROGRAM=${ANDROID_NDK}/prebuilt/linux-x86/bin/make"
+fi
+
+# Look for STL, needed to build bindings
+STL_BASE="${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/${NDK_TOOLCHAIN_VERSION}"
+if [ -d ${STL_BASE}/include ]; then
+  CPPFLAGS_STL="-I${STL_BASE}/include -I${STL_BASE}/libs/${TARGET_ARCH}/include"
+  LDFLAGS_STL="-L${STL_BASE}/libs/${TARGET_ARCH} -Wl,-rpath=${STL_BASE}/libs/${TARGET_ARCH}"
+  BINDINGS_CONFIG="--enable-bindings"
+else
+  echo "Warning: STL unavailable, libsigrok bindings will not be built."
+  CPPFLAGS_STL=
+  LDFLAGS_STL=
+  BINDINGS_CONFIG="--disable-bindings"
+fi
+
+# -----------------------------------------------------------------------------
+
+# Get the latest versions of config.guess/config.sub that know about Android.
+$GIT_CLONE http://git.savannah.gnu.org/r/config.git
+
+# Get a toolchain for cmake that knows about Android.
+$WGET https://raw.githubusercontent.com/arithran/android-cmake/master/toolchain/android.toolchain.cmake
+patch < ../android.toolchain.cmake.patch android.toolchain.cmake
+
+# -----------------------------------------------------------------------------
+
+# Python (needed for libsigrokdecode)
+# Don't do parallel Python builds, this doesn't seem to work well.
+cd Python-$VER_PYTHON
+make distclean $V
+autoreconf
+patch -p1 < ../../Python-$VER_PYTHON.patch
+ac_cv_file__dev_ptmx=no ac_cv_file__dev_ptc=no ac_cv_func_pipe2=no ac_cv_func_fdatasync=no ac_cv_func_killpg=no ac_cv_func_waitid=no ac_cv_func_sigaltstack=no ./configure $C --build=x86_64-linux-gnu --disable-ipv6
+sed -i "s/^#zlib/zlib/g" Modules/Setup
+sed -i "s/^#math/math/g" Modules/Setup
+sed -i "s/^#time/time/g" Modules/Setup
+sed -i "s/^#_struct/_struct/g" Modules/Setup
+make PYTHON_FOR_BUILD='_PYTHON_HOST_PLATFORM=$(_PYTHON_HOST_PLATFORM) ./hostpython' install $V
+cd ..
+
+# libiconv (needed for glib)
+$WGET http://ftp.gnu.org/pub/gnu/libiconv/libiconv-$VER_LIBICONV.tar.gz
+tar xfz libiconv-$VER_LIBICONV.tar.gz
+cd libiconv-$VER_LIBICONV
+cp -f ../config/config.guess build-aux
+cp -f ../config/config.sub build-aux
+cp -f ../config/config.guess libcharset/build-aux
+cp -f ../config/config.sub libcharset/build-aux
+./configure $C --enable-shared
+make lib/localcharset.h $V
+cd libcharset
+make $PARALLEL $V
+make install $V
+cd ../lib
+make $PARALLEL $V
+make install $V
+cd ..
+test -d $PREFIX/include || mkdir $PREFIX/include
+cp include/iconv.h.inst $PREFIX/include/iconv.h
+cd ..
+
+# gettext (needed for glib)
+$WGET http://ftp.gnu.org/pub/gnu/gettext/gettext-$VER_GETTEXT.tar.gz
+tar xfz gettext-$VER_GETTEXT.tar.gz
+cd gettext-$VER_GETTEXT
+./configure $C --enable-shared --disable-libasprintf
+cd gettext-runtime
+make $PARALLEL $V
+make install $V
+cd ../..
+
+# zlib (needed for glib and libzip)
+$WGET http://zlib.net/zlib-$VER_ZLIB.tar.gz
+tar xfz zlib-$VER_ZLIB.tar.gz
+cd zlib-$VER_ZLIB
+# Note: zlib's configure doesn't understand --host, we need to pass $CC.
+CC="$TOOLCHAIN_TRIPLET-gcc $SYSROOT" ./configure --prefix=$PREFIX
+make $PARALLEL $V
+make install $V
+cd ..
+
+# pcre (needed for glib)
+$WGET https://ftp.pcre.org/pub/pcre/pcre-$VER_PCRE.tar.gz
+tar xfz pcre-$VER_PCRE.tar.gz
+cd pcre-$VER_PCRE
+./configure $C --disable-cpp --enable-utf --enable-unicode-properties
+make $PARALLEL $V
+make install $V
+cd ..
+
+# libffi (needed for glib)
+$WGET ftp://sourceware.org/pub/libffi/libffi-$VER_LIBFFI.tar.gz
+tar xfz libffi-$VER_LIBFFI.tar.gz
+cd libffi-$VER_LIBFFI
+./configure $C
+make $PARALLEL $V
+make install $V
+cd ..
+
+# glib (needed for libsigrok)
+$WGET http://ftp.gnome.org/pub/gnome/sources/glib/$VER_GLIB_SHORT/glib-$VER_GLIB.tar.xz
+tar xfJ glib-$VER_GLIB.tar.xz
+cd glib-$VER_GLIB
+NOCONFIGURE=yes ./autogen.sh
+# Note: Manual LDFLAGS/CPPFLAGS needed for libiconv, rest uses pkg-config.
+LDFLAGS=-L$PREFIX/lib CPPFLAGS=-I$PREFIX/include glib_cv_stack_grows=no glib_cv_uscore=no ac_cv_func_posix_getpwuid_r=no ac_cv_func_posix_getgrgid_r=no ./configure --disable-compile-warnings $C
+make $PARALLEL $V
+make install $V
+cd ..
+
+# libzip (needed for libsigrok)
+$WGET http://www.nih.at/libzip/libzip-$VER_LIBZIP.tar.gz
+tar xfz libzip-$VER_LIBZIP.tar.gz
+cd libzip-$VER_LIBZIP
+cp -f ../config/config.guess .
+cp -f ../config/config.sub .
+./configure $C
+make $PARALLEL $V
+make install $V
+cd ..
+
+# libusb-1.0 (needed for libsigrok)
+$WGET http://$SF_MIRROR/project/libusb/libusb-1.0/libusb-$VER_LIBUSB/libusb-$VER_LIBUSB.tar.bz2
+tar xfj libusb-$VER_LIBUSB.tar.bz2
+cd libusb-$VER_LIBUSB
+patch -p1 < ../../libusb-1.0.patch
+./configure $C --disable-udev
+make $PARALLEL $V
+make install $V
+cd ..
+
+# libftdi1 (needed for libsigrok)
+$WGET http://www.intra2net.com/en/developer/libftdi/download/libftdi1-$VER_LIBFTDI1.tar.bz2
+tar xfj libftdi1-$VER_LIBFTDI1.tar.bz2
+cd libftdi1-$VER_LIBFTDI1
+cmake $CM -DFTDIPP=no -DDOCUMENTATION=no -DEXAMPLES=no -DFTDI_EEPROM=no -DPYTHON_BINDINGS=no -DBUILD_TESTS=n .
+make $PARALLEL $V
+make install $V
+cd ..
+
+# libserialport
+$GIT_CLONE $REPO_BASE/libserialport
+cd libserialport
+./autogen.sh
+mkdir build
+cd build
+../configure $C
+make $PARALLEL $V
+make install $V
+cd ../..
+
+# Build dependencies for libsigrok bindings if needed
+
+if [ x"$CPPFLAGS_STL" != x ]; then
+
+  # libsigc++ (needed for glibmm)
+  $WGET http://ftp.gnome.org/pub/gnome/sources/libsigc++/$VER_LIBSIGCXX_SHORT/libsigc++-$VER_LIBSIGCXX.tar.xz
+  tar xfJ libsigc++-$VER_LIBSIGCXX.tar.xz
+  cd libsigc++-$VER_LIBSIGCXX
+  cp -f ../config/config.guess build
+  cp -f ../config/config.sub build
+  CPPFLAGS="$CPPFLAGS_STL" LDFLAGS="$LDFLAGS_STL -lgnustl_shared" ./configure --disable-documentation $C
+  make $PARALLEL $V
+  make install $V
+  cd ..
+
+  # glibmm (needed for libsigrok bindings)
+  $WGET http://ftp.gnome.org/pub/gnome/sources/glibmm/$VER_GLIBMM_SHORT/glibmm-$VER_GLIBMM.tar.xz
+  tar xfJ glibmm-$VER_GLIBMM.tar.xz
+  cd glibmm-$VER_GLIBMM
+  CPPFLAGS="$CPPFLAGS_STL" LDFLAGS="$LDFLAGS_STL -lgnustl_shared" ./configure --disable-documentation $C
+  make $PARALLEL $V
+  make install $V
+  cd ..
+
+fi
+
+# libsigrok
+$GIT_CLONE $REPO_BASE/libsigrok
+cd libsigrok
+./autogen.sh
+mkdir build
+cd build
+CPPFLAGS="$CPPFLAGS_STL" LDFLAGS="$LDFLAGS_STL" JAVAC="javac -source 1.6 -target 1.6" ../configure $C $BINDINGS_CONFIG --datadir=/sdcard
+make $PARALLEL $V
+make datadir='$(datarootdir)' install $V
+cd ../..
+
+# libsigrokdecode
+$GIT_CLONE $REPO_BASE/libsigrokdecode
+cd libsigrokdecode
+./autogen.sh
+mkdir build
+cd build
+../configure $C
+make $PARALLEL $V
+make install $V
+cd ../..
+
+# sigrok-firmware
+$GIT_CLONE $REPO_BASE/sigrok-firmware
+cd sigrok-firmware
+./autogen.sh
+mkdir build
+cd build
+../configure $C
+make $PARALLEL $V
+make install $V
+cd ../..
+
+# sigrok-firmware-fx2lafw
+$WGET http://sigrok.org/download/binary/sigrok-firmware-fx2lafw/sigrok-firmware-fx2lafw-bin-$VER_SIGROK_FIRMWARE_FX2LAFW.tar.gz
+tar xfz sigrok-firmware-fx2lafw-bin-$VER_SIGROK_FIRMWARE_FX2LAFW.tar.gz
+cd sigrok-firmware-fx2lafw-bin-$VER_SIGROK_FIRMWARE_FX2LAFW
+cp *.fw $PREFIX/share/sigrok-firmware/
+cd ..
+
+# sigrok-cli
+$GIT_CLONE $REPO_BASE/sigrok-cli
+cd sigrok-cli
+./autogen.sh
+mkdir build
+cd build
+../configure $C
+make $PARALLEL $V
+make install $V
+cd ../..
+
+# Check if we have all requirements to build PulseView:
+
+if [ -z "$ANDROID_NDK" -o ! -d "$ANDROID_NDK" ]; then
+  echo "Android NDK not available, not building PulseView."
+  exit 0
+fi
+
+if [ -z "$ANDROID_SDK" -o ! -d "$ANDROID_SDK"/platforms/android-$VER_AND_API ]; then
+  echo "Android SDK with platform $VER_AND_API not available, not building PulseView."
+  exit 0
+fi
+
+if [ ! -e "${ANDROID_SDK}/tools/android" ]; then
+  echo "Essential Android build tools not available, not building PulseView."
+  exit 0
+fi
+
+NDK_HOST=`"$ANDROID_NDK/ndk-build" -p 2>/dev/null | awk '$1 == "HOST_TAG" { print $3 }'`
+
+# Boost (needed for PulseView)
+$WGET http://$SF_MIRROR/project/boost/boost/$VER_BOOST/boost_${VER_BOOST//./_}.tar.bz2
+tar xfj boost_${VER_BOOST//./_}.tar.bz2
+cd boost_${VER_BOOST//./_}
+patch -p0 < ../../boost_wchar.patch
+CC= ./bootstrap.sh --with-toolset=gcc --with-libraries=filesystem,system,serialization,test --without-icu
+echo "using gcc : $NDK_TOOLCHAIN_VERSION : \"${TOOLCHAIN_TRIPLET}-g++\" : <cxxflags>\"$SYSROOT -I$PREFIX/include $CPPFLAGS_STL\" <linkflags>\"$SYSROOT -L$PREFIX/lib $LDFLAGS_STL -lgnustl_shared\" ;" > user-config.jam
+./b2 -q -d+2 --ignore-site-config --user-config=user-config.jam toolset=gcc variant=release link=shared threading=multi runtime-link=shared target-os=android --prefix=$PREFIX --layout=system install $PARALLEL
+cd ..
+
+# Qt (needed for PulseView)
+$WGET https://download.qt.io/new_archive/qt/${VER_QT_SHORT}/${VER_QT}/single/qt-everywhere-opensource-src-${VER_QT}.tar.xz
+tar xfi qt-everywhere-opensource-src-${VER_QT}.tar.xz
+cd qt-everywhere-opensource-src-${VER_QT}
+patch -p1 < ../../android-qt.patch
+CC= CXX= ./configure \
+	--prefix="$PREFIX" \
+	-developer-build \
+	-xplatform android-g++ \
+	-nomake tests \
+	-nomake examples \
+	-android-sdk "$ANDROID_SDK" \
+	-android-ndk "$ANDROID_NDK" \
+	-android-ndk-host "$NDK_HOST" \
+	-android-arch "$TARGET_ARCH" \
+	-android-toolchain-version "$NDK_TOOLCHAIN_VERSION" \
+	-skip qtconnectivity \
+	-skip qtlocation \
+	-skip qtmultimedia \
+	-skip qtscript \
+	-skip qtsensors \
+	-skip qtserialport \
+	-skip qtwebchannel \
+	-skip qtwebsockets \
+	-skip qtxmlpatterns \
+	-opensource -confirm-license -silent -no-warnings-are-errors
+export ANDROID_API_VERSION=android-$VER_AND_API
+export ANDROID_BUILD_TOOLS_REVISION=$VER_AND_BT
+make module-qtbase module-qtandroidextras module-qtsvg module-qtimageformats module-qttranslations $PARALLEL $V
+make install $V
+cd ..
+
+# sigrok-androidutils
+$GIT_CLONE $REPO_BASE/sigrok-androidutils
+cd sigrok-androidutils
+./autogen.sh
+./configure $C --with-android-sdk="${ANDROID_SDK}" --with-android-platform=android-$VER_AND_API
+make $PARALLEL $V
+make install $V
+cd ..
+
+# Strip all shared libs to reduce size.
+find $PREFIX -iname "*.so" -exec ${TOOLCHAIN_TRIPLET}-strip -S {} \;
+
+# PulseView
+$GIT_CLONE $REPO_BASE/pulseview
+cd pulseview
+patch -p1 < ../../pv_cmake_pkgconfig_fix.patch
+sed -i -e "s,\t\tandroid:versionName=.*$,\t\tandroid:versionName=\"`date -Iseconds`\"," android/AndroidManifest.xml
+cmake $CM -DENABLE_TESTS=y .
+make $PARALLEL $V
+${TOOLCHAIN_TRIPLET}-strip -S libs/$TARGET_ARCH/libpulseview.so
+cd android
+"${ANDROID_SDK}/tools/android" update project -p . -t android-$VER_AND_API -n PulseView
+ant debug
+cd ../..

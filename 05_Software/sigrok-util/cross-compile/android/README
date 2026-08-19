@@ -1,0 +1,60 @@
+-------------------------------------------------------------------------------
+README
+-------------------------------------------------------------------------------
+
+This is a small script for cross-compiling sigrok and its dependencies
+for Android systems.
+
+
+Status
+------
+
+Working.
+
+
+Requirements
+------------
+
+ - bash
+ - gawk
+ - gcc
+ - make
+ - git
+ - pkg-config (>= 0.22)
+ - gettext
+ - ant
+ - Android NDK (tested: r10e)
+   - Android cross-compile toolchain (tested: arm-linux-androideabi-4.9)
+ - Android SDK (tested: r24.4.1)
+ - On 64bit hosts, you also need some i386 packages. E.g. on Debian/Ubuntu:
+     $ dpkg --add-architecture i386
+     $ apt-get update
+     $ apt-get install libstdc++6:i386 zlib1g:i386
+
+
+Toolchain setup
+---------------
+
+You can use the script to install and setup the Android NDK,
+SDK, and the respective standalone toolchain:
+
+ $ ./sigrok-cross-android prepare
+
+This will install everything into $HOME/android.
+
+
+Building
+--------
+
+ $ ./sigrok-cross-android
+
+Per default it expects the Android cross toolchain in:
+
+ $HOME/android/android-arm-toolchain
+
+Per default it will install the cross-compiled packages in:
+
+ $HOME/sr_android
+
+Please edit the script if you want to change any settings.
+

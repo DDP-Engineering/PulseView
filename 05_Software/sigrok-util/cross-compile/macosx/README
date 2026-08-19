@@ -1,0 +1,48 @@
+-------------------------------------------------------------------------------
+README
+-------------------------------------------------------------------------------
+
+This is a small script for compiling sigrok and its dependencies
+on Mac OS X.
+
+
+Status
+------
+
+Working.
+
+
+Requirements
+------------
+
+ - All requirements of the individual sigrok subprojects.
+ - Homebrew (http://brew.sh)
+   - Currently the script assumes that Homebrew is used and hardcodes certain
+     package versions and paths.
+   - You probably need to "brew link --force" certain packages that may be
+     available on your system (from Apple) but are required in newer versions
+     built by Homebrew: autoconf, automake, libtool, libffi (maybe others).
+     Without linking "libffi" for example, the check for pygobject3 will fail.
+   - We currently hardcode the build to use Qt 5.5 (not the latest available
+     version) in order to remain compatible with some older Mac OS X versions.
+
+
+Building
+--------
+
+ $ ./sigrok-native-macosx
+
+Per default it will install the compiled packages in:
+
+ $HOME/sr_macosx
+
+Please edit the script if you want to change any settings.
+
+
+Creating a DMG file
+-------------------
+
+ $ ./create_dmg pulseview
+
+ $ ./create_dmg sigrok-cli
+

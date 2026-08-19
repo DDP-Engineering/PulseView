@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+##
+## This file is part of the sigrok-util project.
+##
+## Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+##
+
+import os
+import sys
+import tempfile
+from subprocess import Popen, PIPE, check_output
+import shutil
+import re
+import socket
+import datetime
+
+TMPL_AUTOCONF_DRIVER = "SR_DRIVER([{name}], [{short}])\n"
+
+TMPL_FILES = ('protocol.h', 'protocol.c', 'api.c')
+
+TMPL_HWMAKE_DRIVERLIB = """if HW_{upper}
+src_libdrivers_la_SOURCES +="""
+for tmpl_file in TMPL_FILES:
+    TMPL_HWMAKE_DRIVERLIB += " \\\n\tsrc/hardware/{short}/" + tmpl_file
+TMPL_HWMAKE_DRIVERLIB += "\nendif\n"
+
+
+def tmpl(template, names):
+    return template.format(**names)
+
+
+def tmpl_file(filename, tmpldir, names):
+    with open(os.path.join(tmpldir, filename)) as template:
+        return tmpl(template.read(), names)
+
+
+def new_driver(srcurl, tmpldir, names):
+    tmp = tempfile.mkdtemp()
+    try:
+        process = Popen(['git', 'clone', '--depth=1', srcurl, tmp],
+                        stdout=PIPE, stderr=PIPE)
+        out, err = process.communicate()
+        if process.returncode:
+            raise Exception(err.decode())
+        gitdir = tmp
+        do_autoconf(gitdir, names)
+        do_automake(gitdir, names)
+        do_driverskel(gitdir, tmpldir, names)
+        make_patch(gitdir, names)
+    except Exception as e:
+        raise
+        print(e)
+    finally:
+        shutil.rmtree(tmp)
+
+
+# add DRIVER entry to configure.ac
+def do_autoconf(gitdir, names):
+    cacpath = os.path.join(gitdir, 'configure.ac')
+    configure_ac = open(cacpath).read()
+
+    out = ''
+    state = 'driver'
+    active = False
+    for line in configure_ac.split('\n')[:-1]:
+        if state == 'driver':
+            m = re.match(r'SR_DRIVER\(\[([^\]]+)', line)
+            if m:
+                active = True
+            if active:
+                if (m and m.group(1).upper() > names['name'].upper()) or m is None:
+                    out += tmpl(TMPL_AUTOCONF_DRIVER, names)
+                    state = 'done'
+                    active = False
+        out += line + '\n'
+    if state != 'done':
+        raise Exception('No SR_DRIVER entries found in configure.ac')
+    open(cacpath, 'w').write(out)
+
+
+# add HW_ entry to Makefile.am
+def do_automake(gitdir, names):
+    path = os.path.join(gitdir, 'Makefile.am')
+    hwmake = open(path).read()
+
+    out = ''
+    state = 'copy'
+    for line in hwmake.split('\n')[:-1]:
+        if state == 'copy' and re.match(r'if\s+HW_\w+$', line):
+            state = 'drivers'
+        if state == 'drivers':
+            m = re.match(r'if\s+HW_(\w+)$', line)
+            if m:
+                drv_short = m.group(1)
+                if drv_short > names['upper']:
+                    out += tmpl(TMPL_HWMAKE_DRIVERLIB, names)
+                    state = 'done'
+            elif not re.match(r'\s*src_libdrivers_la_SOURCES\b|\s*src/hardware/|endif\b', line):
+                print("[%s]" % line.strip())
+                # we passed the last entry
+                out += tmpl(TMPL_HWMAKE_DRIVERLIB, names)
+                state = 'done'
+        out += line + '\n'
+    if state != 'done':
+        raise Exception('No "if HW_" markers found in Makefile.am')
+    open(path, 'w').write(out)
+
+
+def do_driverskel(gitdir, tmpldir, names):
+    drvdir = os.path.join(gitdir, 'src', 'hardware', names['short'])
+    os.mkdir(drvdir)
+    for fname in TMPL_FILES:
+        with open(os.path.join(drvdir, fname), 'w') as outf:
+            outf.write(tmpl_file('drv-{0}'.format(fname), tmpldir, names))
+
+
+def make_patch(gitdir, names):
+    cwd = os.getcwd()
+    try:
+        os.chdir(gitdir)
+        command(['git', 'add', os.path.join('src', 'hardware', names['short'])])
+        cmd = ['git', 'commit',
+               '-m', '%s: Initial driver skeleton.' % names['short'],
+               'configure.ac', 'Makefile.am',
+               os.path.join('src', 'hardware', names['short'])]
+        command(cmd)
+        cmd = ['git', 'format-patch', 'HEAD~1']
+        out, err = Popen(cmd, stdout=PIPE, stderr=PIPE).communicate()
+        if err:
+            raise Exception(err.decode())
+        patch = out.decode().strip()
+        shutil.move(os.path.join(gitdir, patch), cwd)
+        print("Patch {0} has been generated in {1}".format(patch, cwd))
+    finally:
+        os.chdir(cwd)
+
+
+def command(cmd):
+    out, err = Popen(cmd, stderr=PIPE).communicate()
+    if err:
+        raise Exception(err.decode())
+
+
+def parse_gitconfig():
+    try:
+        author = check_output(["git", "config", "user.name"]).decode().strip();
+    except:
+        author = None
+    try:
+        email = check_output(["git", "config", "user.email"]).decode().strip();
+    except:
+        email = None
+    return author, email
+
+
+#
+# main
+#
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+
+    defaulturl = 'git://sigrok.org/libsigrok'
+    defaultdir = os.path.abspath(os.path.dirname(__file__))
+    author, email = parse_gitconfig()
+
+    parser = ArgumentParser(description='Bootstrap a new sigrok hardware driver')
+    parser.add_argument('name', nargs='*', default=[], help='new driver name')
+    parser.add_argument('--giturl', '-u', default=defaulturl,
+                        help='URL of the libsigrok git repository '
+                        '(defaults to {0})'.format(defaulturl))
+    parser.add_argument('--tmpl-dir', '-t', default=defaultdir,
+                        help='Directory in which the templates are stored '
+                        '(defaults to {0})'.format(defaultdir))
+    parser.add_argument('--author', '-a', default=author, required=not author,
+                        help='User name to write the Copyright lines')
+    parser.add_argument('--email', '-e', default=email, required=not email,
+                        help='Email address to write the Copyright lines')
+    opts = parser.parse_args()
+
+    if not opts.author or not opts.email:
+        parser.error('Please provide your username and email address, '
+                     'or set your git configuration up.')
+    name = ' '.join(opts.name)
+    if not name:
+        parser.error('Please provide a driver name.')
+    names = {
+        'name': name,
+        'short': re.sub('[^a-z0-9]', '-', name.lower()),
+        'lib': re.sub('[^a-z0-9]', '_', name.lower()),
+        'upper': re.sub('[^A-Z0-9]', '_', name.upper()),
+        'year': datetime.datetime.now().year,
+        'author': opts.author,
+        'email': opts.email,
+    }
+    new_driver(opts.giturl, opts.tmpl_dir, names)
+
