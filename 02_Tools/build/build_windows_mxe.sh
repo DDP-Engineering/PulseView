@@ -372,13 +372,18 @@ DECODERS=0
 # log directory - otherwise the record reports a flat 0 drivers and looks
 # like the catastrophe R-19 exists to catch.
 DRIVER_LOG="${LOG_DIR}/libsigrok-configure.log"
-[ -f "${DRIVER_LOG}" ] || DRIVER_LOG="$(ls -t "${REPO}"/.work/logs/*/libsigrok-configure.log 2>/dev/null | head -1)"
-[ -n "${DRIVER_LOG}" ] && [ -f "${DRIVER_LOG}" ] && DRIVERS="$(sed -n \
-    '/Enabled hardware drivers/,/Enabled serial/p' \
-    "${DRIVER_LOG}" | grep -cE '\.\.\.+ yes' || true)"
-[ -d "${PREFIX}/share/libsigrokdecode/decoders" ] && DECODERS="$(find \
-    "${PREFIX}/share/libsigrokdecode/decoders" -maxdepth 1 -mindepth 1 \
-    -type d | wc -l)"
+# `|| true` is load-bearing: with `set -euo pipefail`, a glob that matches
+# nothing makes ls exit 2, pipefail propagates that through `| head`, and the
+# whole build dies here - after a successful compile, silently, taking the
+# staging step with it. Which is exactly what happened once .work/logs was
+# cleaned out and there was no previous configure log to find.
+[ -f "${DRIVER_LOG}" ] || DRIVER_LOG="$(ls -t "${REPO}"/.work/logs/*/libsigrok-configure.log 2>/dev/null | head -1 || true)"
+if [ -n "${DRIVER_LOG}" ] && [ -f "${DRIVER_LOG}" ]; then
+    DRIVERS="$(sed -n '/Enabled hardware drivers/,/Enabled serial/p'         "${DRIVER_LOG}" | grep -cE '\.\.\.+ yes' || true)"
+fi
+if [ -d "${PREFIX}/share/libsigrokdecode/decoders" ]; then
+    DECODERS="$(find "${PREFIX}/share/libsigrokdecode/decoders"         -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l || true)"
+fi
 
 {
     printf 'build_id     %s\n' "${BUILD_ID}"
@@ -396,7 +401,7 @@ DRIVER_LOG="${LOG_DIR}/libsigrok-configure.log"
         printf '  %-18s %s\n' "${c}" \
             "$(git -C "${SRC}/${c}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
     done
-} > "${LOG_DIR}/record.txt"
+} > "${LOG_DIR}/record.txt" || true
 
 printf '\n'
 cat "${LOG_DIR}/record.txt"

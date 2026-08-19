@@ -383,13 +383,46 @@ SR_PRIV int atk_dl16_pwm(const struct sr_dev_inst *sdi, int index,
 	period = (uint32_t)((ATK_DL16_PWM_BASE_HZ + hz / 2) / hz);
 	if (!period)
 		period = 1;
-	high = (uint32_t)((uint64_t)period * duty / 100);
+	/* Round, as the vendor does (round(period * duty / 100)); truncating
+	 * here shifts the duty by up to one tick on non-even divisions. */
+	high = (uint32_t)(((uint64_t)period * duty + 50) / 100);
 
 	d[0] = index ? ATK_DL16_PWM1_START : ATK_DL16_PWM0_START;
 	put_le(&d[1], period, 4);
 	put_le(&d[5], high, 4);
 
 	return atk_dl16_send_frame(sdi, ATK_DL16_CMD_PWM, d, sizeof(d), FALSE);
+}
+
+/*
+ * Push one generator's stored settings to the device.
+ *
+ * Wakes the FPGA first when enabling. The vendor application leaves the FPGA
+ * asleep whenever it is not capturing, and a sleeping FPGA drives no output -
+ * so without this a PWM configured while idle appears to be accepted and
+ * produces nothing. It is left awake afterwards, since that is the only state
+ * in which the generator keeps running.
+ */
+SR_PRIV int atk_dl16_pwm_apply(const struct sr_dev_inst *sdi, size_t index)
+{
+	struct dev_context *devc = sdi->priv;
+	const struct atk_dl16_pwm *pwm;
+	int duty;
+
+	if (!devc || index >= ATK_DL16_NUM_PWM)
+		return SR_ERR_ARG;
+	if (!sdi->conn || sdi->status != SR_ST_ACTIVE)
+		return SR_OK;	/* Stored; applied when the device is opened. */
+
+	pwm = &devc->pwm[index];
+	if (!pwm->enabled)
+		return atk_dl16_pwm(sdi, (int)index, FALSE, 0, 0);
+
+	if (atk_dl16_set_reset(sdi, TRUE) != SR_OK)
+		return SR_ERR;
+
+	duty = (int)(pwm->duty + 0.5);
+	return atk_dl16_pwm(sdi, (int)index, TRUE, (uint64_t)pwm->freq, duty);
 }
 
 static void send_samples(const struct sr_dev_inst *sdi, const uint8_t *data,

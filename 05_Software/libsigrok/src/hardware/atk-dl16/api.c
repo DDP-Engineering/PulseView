@@ -49,6 +49,21 @@ static const uint32_t devopts[] = {
 	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
 };
 
+/*
+ * Per-channel-group options. The logic group carries nothing of its own -
+ * everything meaningful for capture is a device-level option - but it has to
+ * exist so the group can be listed alongside the PWM ones.
+ */
+static const uint32_t devopts_cg_logic[] = {
+	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
+};
+
+static const uint32_t devopts_cg_pwm[] = {
+	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_DUTY_CYCLE | SR_CONF_GET | SR_CONF_SET,
+};
+
 /* The device evaluates all of these in hardware, per channel. */
 static const int32_t trigger_matches[] = {
 	SR_TRIGGER_ZERO,
@@ -84,6 +99,8 @@ static double threshold_ranges[ATK_DL16_NUM_THRESHOLDS][2];
 #define ATK_DL16_DEFAULT_SAMPLERATE	SR_MHZ(10)
 #define ATK_DL16_DEFAULT_SAMPLES	1000000
 #define ATK_DL16_DEFAULT_THRESHOLD	1.6	/* the 3.3 V CMOS preset */
+#define ATK_DL16_DEFAULT_PWM_HZ		1000.0
+#define ATK_DL16_DEFAULT_PWM_DUTY	50.0
 
 static struct sr_dev_driver atk_dl16_driver_info;
 
@@ -93,6 +110,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	struct dev_context *devc;
 	struct sr_dev_inst *sdi;
 	struct sr_config *src;
+	struct sr_channel *ch;
+	struct sr_channel_group *cg;
 	struct sr_usb_dev_inst *usb;
 	struct libusb_device_descriptor des;
 	libusb_device **devlist;
@@ -149,10 +168,26 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 		/* A logic channel's index is its bit position in the packed
 		 * sample word, so D0 must be index 0. */
+		cg = sr_channel_group_new(sdi, "Logic", NULL);
 		for (j = 0; j < ATK_DL16_NUM_CHANNELS; j++) {
 			g_snprintf(channel_name, sizeof(channel_name), "D%d", j);
-			sr_channel_new(sdi, j, SR_CHANNEL_LOGIC, TRUE,
+			ch = sr_channel_new(sdi, j, SR_CHANNEL_LOGIC, TRUE,
 				channel_name);
+			cg->channels = g_slist_append(cg->channels, ch);
+		}
+
+		/*
+		 * The two PWM generators. Named for what the vendor UI calls
+		 * them, so "PWM0" here is the pin labelled PWM0 on the device.
+		 * Their channels are analog and disabled by default: they are
+		 * outputs, and nothing about them is ever captured.
+		 */
+		for (j = 0; j < ATK_DL16_NUM_PWM; j++) {
+			g_snprintf(channel_name, sizeof(channel_name), "PWM%d", j);
+			cg = sr_channel_group_new(sdi, channel_name, NULL);
+			ch = sr_channel_new(sdi, ATK_DL16_NUM_CHANNELS + j,
+				SR_CHANNEL_ANALOG, FALSE, channel_name);
+			cg->channels = g_slist_append(cg->channels, ch);
 		}
 
 		devc = g_malloc0(sizeof(struct dev_context));
@@ -162,6 +197,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devc->threshold = ATK_DL16_DEFAULT_THRESHOLD;
 		devc->continuous = FALSE;
 		devc->rle = FALSE;
+		for (j = 0; j < ATK_DL16_NUM_PWM; j++) {
+			devc->pwm[j].enabled = FALSE;
+			devc->pwm[j].freq = ATK_DL16_DEFAULT_PWM_HZ;
+			devc->pwm[j].duty = ATK_DL16_DEFAULT_PWM_DUTY;
+		}
 		sdi->priv = devc;
 
 		devices = g_slist_append(devices, sdi);
@@ -177,6 +217,8 @@ static int dev_open(struct sr_dev_inst *sdi)
 	struct sr_dev_driver *di = sdi->driver;
 	struct drv_context *drvc = di->context;
 	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct dev_context *devc;
+	size_t i;
 	int ret;
 
 	ret = sr_usb_open(drvc->sr_ctx->libusb_ctx, usb);
@@ -200,6 +242,18 @@ static int dev_open(struct sr_dev_inst *sdi)
 		return SR_ERR;
 	}
 
+	/*
+	 * Push any PWM settings made before the device was opened. config_set
+	 * stores them and returns early when there is no connection yet, which
+	 * is the normal order for `sigrok-cli --config`.
+	 */
+	sdi->status = SR_ST_ACTIVE;
+	for (i = 0; i < ATK_DL16_NUM_PWM; i++) {
+		devc = sdi->priv;
+		if (devc && devc->pwm[i].enabled)
+			atk_dl16_pwm_apply(sdi, i);
+	}
+
 	return SR_OK;
 }
 
@@ -216,17 +270,74 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return SR_OK;
 }
 
+/*
+ * Which channel group is this? Returns the PWM index in *pwm_idx when the
+ * group is one of the generators.
+ *
+ * Groups are created in a fixed order in scan(): "Logic" first, then "PWM0"
+ * and "PWM1". Matching on position rather than on the name avoids depending
+ * on string comparison for something that is structural.
+ */
+enum atk_dl16_cg_type {
+	ATK_DL16_CG_NONE = 0,	/* no group given: a device-level option */
+	ATK_DL16_CG_LOGIC,
+	ATK_DL16_CG_PWM,
+};
+
+static enum atk_dl16_cg_type cg_kind(const struct sr_dev_inst *sdi,
+	const struct sr_channel_group *cg, size_t *pwm_idx)
+{
+	GSList *l;
+	size_t i;
+
+	if (pwm_idx)
+		*pwm_idx = 0;
+	if (!cg)
+		return ATK_DL16_CG_NONE;
+
+	l = sdi->channel_groups;
+	if (l && cg == l->data)
+		return ATK_DL16_CG_LOGIC;
+
+	for (i = 0; i < ATK_DL16_NUM_PWM; i++) {
+		if (!l || !(l = l->next))
+			break;
+		if (cg == l->data) {
+			if (pwm_idx)
+				*pwm_idx = i;
+			return ATK_DL16_CG_PWM;
+		}
+	}
+
+	return ATK_DL16_CG_NONE;
+}
+
 static int config_get(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct sr_usb_dev_inst *usb;
-
-	(void)cg;
+	size_t pwm_idx;
 
 	if (!sdi)
 		return SR_ERR_ARG;
 	devc = sdi->priv;
+
+	if (cg_kind(sdi, cg, &pwm_idx) == ATK_DL16_CG_PWM) {
+		switch (key) {
+		case SR_CONF_ENABLED:
+			*data = g_variant_new_boolean(devc->pwm[pwm_idx].enabled);
+			return SR_OK;
+		case SR_CONF_OUTPUT_FREQUENCY:
+			*data = g_variant_new_double(devc->pwm[pwm_idx].freq);
+			return SR_OK;
+		case SR_CONF_DUTY_CYCLE:
+			*data = g_variant_new_double(devc->pwm[pwm_idx].duty);
+			return SR_OK;
+		default:
+			return SR_ERR_NA;
+		}
+	}
 
 	switch (key) {
 	case SR_CONF_CONN:
@@ -268,13 +379,49 @@ static int config_set(uint32_t key, GVariant *data,
 {
 	struct dev_context *devc;
 	uint64_t v;
+	double d;
+	size_t pwm_idx;
 	int idx;
-
-	(void)cg;
 
 	if (!sdi)
 		return SR_ERR_ARG;
 	devc = sdi->priv;
+
+	/*
+	 * PWM settings take effect immediately when the device is open, so the
+	 * generator responds to a config change without waiting for a capture
+	 * that may never be started - these are outputs, and driving a signal
+	 * is often the only thing the user wants from them.
+	 */
+	if (cg_kind(sdi, cg, &pwm_idx) == ATK_DL16_CG_PWM) {
+		switch (key) {
+		case SR_CONF_ENABLED:
+			devc->pwm[pwm_idx].enabled = g_variant_get_boolean(data);
+			break;
+		case SR_CONF_OUTPUT_FREQUENCY:
+			d = g_variant_get_double(data);
+			if (d <= 0.0 || d > (double)ATK_DL16_PWM_MAX_HZ) {
+				sr_err("PWM frequency must be above 0 and at most "
+					"%" PRIu64 " Hz.",
+					(uint64_t)ATK_DL16_PWM_MAX_HZ);
+				return SR_ERR_ARG;
+			}
+			devc->pwm[pwm_idx].freq = d;
+			break;
+		case SR_CONF_DUTY_CYCLE:
+			d = g_variant_get_double(data);
+			if (d <= 0.0 || d >= 100.0) {
+				sr_err("PWM duty cycle must be between 0 and 100 "
+					"percent, exclusive.");
+				return SR_ERR_ARG;
+			}
+			devc->pwm[pwm_idx].duty = d;
+			break;
+		default:
+			return SR_ERR_NA;
+		}
+		return atk_dl16_pwm_apply(sdi, pwm_idx);
+	}
 
 	switch (key) {
 	case SR_CONF_SAMPLERATE:
@@ -334,6 +481,29 @@ static int config_set(uint32_t key, GVariant *data,
 static int config_list(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
+	enum atk_dl16_cg_type kind;
+
+	kind = sdi ? cg_kind(sdi, cg, NULL) : ATK_DL16_CG_NONE;
+
+	if (kind == ATK_DL16_CG_PWM) {
+		if (key != SR_CONF_DEVICE_OPTIONS)
+			return SR_ERR_NA;
+		*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_pwm));
+		return SR_OK;
+	}
+	if (kind == ATK_DL16_CG_LOGIC) {
+		switch (key) {
+		case SR_CONF_DEVICE_OPTIONS:
+			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_logic));
+			return SR_OK;
+		case SR_CONF_TRIGGER_MATCH:
+			*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
+			return SR_OK;
+		default:
+			return SR_ERR_NA;
+		}
+	}
+
 	switch (key) {
 	case SR_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(atk_dl16_samplerates,
@@ -397,17 +567,32 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
+	gboolean pwm_busy;
+	size_t i;
 
 	sr_session_source_remove(sdi->session, -1);
 
-	/* Halt the capture and let the FPGA sleep again. Best effort: the
-	 * session is ending either way. */
+	/* Halt the capture. Best effort: the session is ending either way. */
 	atk_dl16_stop(sdi);
 	/* Drain before sleeping the FPGA: the device is very likely still
 	 * pushing a backlog, and leaving it queued wedges the endpoint for
 	 * the next run. Mirrors the vendor application's own teardown. */
 	atk_dl16_drain(sdi);
-	atk_dl16_set_reset(sdi, FALSE);
+
+	/*
+	 * Only sleep the FPGA if nothing still needs it. A running PWM does:
+	 * sleeping here would stop the generator the moment a capture ended,
+	 * which is not what "enabled" means for an output.
+	 */
+	pwm_busy = FALSE;
+	for (i = 0; i < ATK_DL16_NUM_PWM; i++) {
+		if (devc->pwm[i].enabled)
+			pwm_busy = TRUE;
+	}
+	if (!pwm_busy)
+		atk_dl16_set_reset(sdi, FALSE);
+	else
+		sr_dbg("Leaving the FPGA awake: a PWM output is still running.");
 
 	g_free(devc->rxbuf);
 	g_free(devc->pcbuf);

@@ -189,6 +189,22 @@
 #define ATK_DL16_PWM0_STOP		0x10
 #define ATK_DL16_PWM1_STOP		0x20
 
+/* Two independent generators, exposed as the "PWM0"/"PWM1" channel groups. */
+#define ATK_DL16_NUM_PWM		2
+/*
+ * The vendor UI stops at 20 MHz. That is not a hardware ceiling: the period
+ * is a 200 MHz tick count, so 20 MHz is where only ten ticks remain and the
+ * duty cycle can no longer be set meaningfully. Allow up to that and reject
+ * beyond it rather than silently emitting a wrong duty.
+ */
+#define ATK_DL16_PWM_MAX_HZ		SR_MHZ(20)
+
+struct atk_dl16_pwm {
+	gboolean enabled;
+	double freq;
+	double duty;
+};
+
 /*
  * The device accepts only these discrete rates - the wire carries an index
  * into this table, not a frequency. Note the floor of 1 MHz: there is no
@@ -250,6 +266,9 @@ struct dev_context {
 	 */
 	uint8_t rle_count[ATK_DL16_NUM_CHANNELS];
 	gboolean rle_pending[ATK_DL16_NUM_CHANNELS];
+	/* PWM generators, one per "PWMx" channel group. */
+	struct atk_dl16_pwm pwm[ATK_DL16_NUM_PWM];
+
 	uint64_t trigger_pos;
 	gboolean trigger_pos_known;
 	gboolean done_seen;
@@ -274,6 +293,7 @@ SR_PRIV int atk_dl16_send_param(const struct sr_dev_inst *sdi);
 SR_PRIV int atk_dl16_send_trigger(const struct sr_dev_inst *sdi);
 SR_PRIV int atk_dl16_stop(const struct sr_dev_inst *sdi);
 SR_PRIV void atk_dl16_drain(const struct sr_dev_inst *sdi);
+SR_PRIV int atk_dl16_pwm_apply(const struct sr_dev_inst *sdi, size_t index);
 SR_PRIV int atk_dl16_pwm(const struct sr_dev_inst *sdi, int index,
 	gboolean enable, uint64_t hz, int duty);
 
