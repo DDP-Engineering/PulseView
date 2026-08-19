@@ -8,18 +8,16 @@ policy = "immutable-commits-only"
 reviewed = 2026-08-15
 mirrored = 2026-08-17
 
-[[source]]
-name = "libsigrok"
-canonical_url = "https://github.com/sigrokproject/libsigrok.git"
-commit = "0bc2487778e660f4d3116729b6f4aee2b1996bb0"
-head_observed = "0bc2487778e660f4d3116729b6f4aee2b1996bb0"
-role = "modified-submodule"
-licence = "GPL-3.0 repository licence; per-file terms govern"
-licence_url = "https://github.com/sigrokproject/libsigrok/blob/0bc2487778e660f4d3116729b6f4aee2b1996bb0/COPYING"
-reviewed = 2026-08-15
-fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-libsigrok.git"
-fork_status = "mirrored-verified"
-clone_enabled = true
+# libsigrok was removed from this lock on 2026-08-19. It is no longer a
+# passive vendor dependency: the ATK DL16 and Hantek DSO-3062L drivers are
+# developed directly in 05_Software/libsigrok as part of this repo's own
+# history, not pulled from upstream. Listing it here with clone_enabled
+# would let `--vendor` silently overwrite that work with pristine upstream
+# source. mirror-libsigrok.git on Gitea has been deleted for the same
+# reason - it was a frozen, unmaintained fork that no longer reflected
+# where development actually happens. If libsigrok's upstream is ever
+# worth re-checking for a rebase, treat it as a fresh, deliberate review,
+# not an automated vendor pull.
 
 [[source]]
 name = "pulseview"
