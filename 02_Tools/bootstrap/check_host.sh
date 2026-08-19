@@ -153,25 +153,24 @@ else
 fi
 
 if [ -d "${REPO_ROOT}/.git" ]; then
+    # The sigrok stack used to live under 05_Software as git submodules,
+    # each with its own pinned commit to verify. It is now vendored as plain
+    # files in this repo - a normal clone brings everything, so all that is
+    # left to check is that the vendored trees are actually present and not
+    # some leftover empty directory from an interrupted checkout.
     missing=""
-    dirty=""
-    while read -r flag sha path _; do
-        [ -z "${path}" ] && continue
-        case "${flag}${sha}" in
-            -*) missing="${missing} ${path}" ;;
-            +*) dirty="${dirty} ${path}" ;;
-        esac
-    done < <(git -C "${REPO_ROOT}" submodule status 2>/dev/null \
-             | sed 's/^\(.\)/\1 /')
+    for name in libsigrok libsigrokdecode sigrok-cli sigrok-util pulseview \
+                libserialport libusb; do
+        dir="${REPO_ROOT}/05_Software/${name}"
+        [ -d "${dir}" ] && [ -n "$(ls -A "${dir}" 2>/dev/null)" ] && continue
+        missing="${missing} ${name}"
+    done
 
     if [ -n "${missing# }" ]; then
-        report FAIL "submodules" "not initialized:${missing}" \
-            "git submodule update --init --recursive"
-    elif [ -n "${dirty# }" ]; then
-        # Not fatal: a driver under development lives in libsigrok.
-        report WARN "submodules" "not at locked commit:${dirty}"
+        report FAIL "vendored sources" "missing or empty:${missing}" \
+            "git checkout -- 05_Software"
     else
-        report PASS "submodules" "all present at locked commits"
+        report PASS "vendored sources" "all present"
     fi
 else
     report FAIL "git repository" "not a git checkout"

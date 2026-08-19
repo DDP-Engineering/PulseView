@@ -11,7 +11,7 @@
 # actually does, with the parts that no longer work replaced. The differences,
 # all deliberate:
 #
-#   - Builds the pinned submodules under 05_Software instead of cloning from
+#   - Builds the vendored sources under 05_Software instead of cloning from
 #     git://sigrok.org, which is a retired protocol (planning doc 09, R-20).
 #   - Targets x86_64 rather than i686, and does not freeze Qt to 5.7. That
 #     freeze exists for Windows XP, which this project does not claim.
@@ -165,13 +165,13 @@ run() {
 #
 # The tree is copied rather than built in place because autotools writes
 # configure, Makefiles and config.h into the source directory, and these are
-# git submodules pinned to upstream revisions - building in place would leave
-# every one of them dirty. `cp -au` copies only files newer than their
+# vendored, plain-tracked files - building in place would dirty the working
+# tree of the main repo itself. `cp -au` copies only files newer than their
 # counterpart, so an edited driver rebuilds and nothing else does. rsync would
 # be the obvious tool and is not in the image.
 sync_source() {
     local name="$1"
-    [ -d "${SRC}/${name}" ] || die "submodule not checked out: ${SRC}/${name}"
+    [ -d "${SRC}/${name}" ] || die "not checked out: ${SRC}/${name}"
     if [ -d "${BUILD}/${name}" ]; then
         cp -au "${SRC}/${name}/." "${BUILD}/${name}/"
     else

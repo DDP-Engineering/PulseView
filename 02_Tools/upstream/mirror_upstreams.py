@@ -17,22 +17,35 @@ the commit we build from is worthless.
 
 The bare clones under .work/ are only a transport staging area and can be
 deleted once pushed. The repositories you actually build from live in
-05_Software/ as submodules whose remote is Gitea, never github.com, so a
-fresh checkout of this project needs no internet.
+05_Software/<name> as plain vendored files, committed directly into this
+repo - not git submodules. That used to be a submodule wired to the Gitea
+mirror, but the submodule mechanism cost far more than it bought for a
+personal, agent-driven project: every change needed two commits kept in
+sync by hand, a stale gitlink pointer was a silent failure mode, and history
+surgery on the parent repo meant remapping every gitlink by hand. See
+04_HardwareDocu (or ask) for the full account.
+
+--vendor replaces 05_Software/<name> with the tree at the pinned commit,
+extracted straight from the mirror via `git archive` - no nested .git, no
+submodule, just files. It does not commit; review the diff and commit it
+yourself, same as you would review any other vendor bump.
 
 Usage:
-    uv run mirror_upstreams.py --check       # verify pins, clone nothing
-    uv run mirror_upstreams.py --clone       # clone/update local bare mirrors
-    uv run mirror_upstreams.py --push        # create Gitea repos and push
-    uv run mirror_upstreams.py --submodules  # wire 05_Software/<name>
+    uv run mirror_upstreams.py --check    # verify pins, clone nothing
+    uv run mirror_upstreams.py --clone    # clone/update local bare mirrors
+    uv run mirror_upstreams.py --push     # create Gitea repos and push
+    uv run mirror_upstreams.py --vendor   # replace 05_Software/<name>
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import tomllib
 from pathlib import Path
 
@@ -81,19 +94,32 @@ def has_commit(bare: Path, commit: str) -> bool:
     return out.strip() == "commit"
 
 
-def add_submodule(src: dict) -> None:
-    """Wire 05_Software/<name> to the Gitea mirror at the pinned commit."""
+def vendor_source(src: dict, bare: Path) -> None:
+    """Replace 05_Software/<name> with the tree at the pinned commit.
+
+    Extracted directly from the bare mirror via `git archive` - no clone, no
+    working checkout, no nested .git. The result is indistinguishable from
+    files added by hand: plain tracked content, reviewed and committed like
+    anything else. `bare` must already have the pin (checked by the caller).
+    """
     rel = f"05_Software/{src['name']}"
     path = REPO_ROOT / rel
-    url = f"{GITEA_SSH}/{mirror_name(src)}.git"
-    if not path.exists():
-        print(f"  adding submodule {rel}")
-        run(["git", "submodule", "add", "--force", url, rel], cwd=REPO_ROOT)
-    run(["git", "fetch", "origin"], cwd=path, check=False)
-    # Detach at the pin. Submodules record a commit, so a branch would let the
-    # build drift the next time anyone runs `git submodule update --remote`.
-    run(["git", "checkout", "--detach", src["commit"]], cwd=path)
-    print(f"  {rel} at {src['commit'][:12]}")
+    with tempfile.TemporaryDirectory() as tmp:
+        proc = subprocess.run(
+            ["git", "archive", "--format=tar", src["commit"]],
+            cwd=bare, capture_output=True, check=True)
+        tar_path = Path(tmp) / "tree.tar"
+        tar_path.write_bytes(proc.stdout)
+        extract_dir = Path(tmp) / "tree"
+        extract_dir.mkdir()
+        with tarfile.open(tar_path) as tf:
+            tf.extractall(extract_dir, filter="data")
+
+        if path.exists():
+            shutil.rmtree(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(extract_dir), str(path))
+    print(f"  {rel} replaced at {src['commit'][:12]} - review and commit")
 
 
 def main() -> int:
@@ -101,10 +127,11 @@ def main() -> int:
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--clone", action="store_true")
     ap.add_argument("--push", action="store_true")
-    ap.add_argument("--submodules", action="store_true")
+    ap.add_argument("--vendor", action="store_true",
+                     help="replace 05_Software/<name> with the pinned tree")
     ap.add_argument("--only", help="restrict to one source name")
     args = ap.parse_args()
-    if not (args.check or args.clone or args.push or args.submodules):
+    if not (args.check or args.clone or args.push or args.vendor):
         print(__doc__)
         return 2
 
@@ -117,11 +144,10 @@ def main() -> int:
         name, commit = src["name"], src["commit"]
         print(f"\n=== {name}  {commit[:12]}")
 
-        if args.submodules and not (args.clone or args.push or args.check):
-            add_submodule(src)
-            continue
-
-        if args.clone or args.push:
+        # --vendor needs a real git object store to run `git archive`
+        # against, same as --push needs one to push from - so it clones
+        # (or reuses) the bare mirror just like --clone/--push do.
+        if args.clone or args.push or args.vendor:
             bare = clone(src)
         else:
             bare = MIRRORS / f"{name}.git"
@@ -155,8 +181,8 @@ def main() -> int:
                 cwd=bare)
             print("  pushed")
 
-        if args.submodules:
-            add_submodule(src)
+        if args.vendor:
+            vendor_source(src, bare)
 
     if failures:
         print(f"\nFAILED pin verification: {', '.join(failures)}", file=sys.stderr)

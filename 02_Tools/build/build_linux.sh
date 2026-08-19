@@ -30,10 +30,10 @@ REPO="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 # --------------------------------------------------------------------------
 if [ ! -f /.dockerenv ]; then
     echo "==> launching ubuntu:24.04 build container"
-    # Resolve the driver revision on the host; git inside the container
-    # cannot read the submodule's gitdir link reliably.
-    HOST_REV="$(git -C "${REPO}/05_Software/libsigrok" rev-parse --short \
-        HEAD 2>/dev/null || echo unknown)"
+    # Resolve the build revision on the host. libsigrok used to be its own
+    # submodule checkout with its own HEAD; now it is plain files in this
+    # repo, so the repo's own revision IS the driver revision.
+    HOST_REV="$(git -C "${REPO}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
     exec docker run --rm -i \
         -e "HDRIVER_REV=${HOST_REV}" \
         -v "${REPO}:/work" \
