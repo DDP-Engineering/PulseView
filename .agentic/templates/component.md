@@ -31,6 +31,32 @@ classes, commands, input and output formats. Not the internals.
 - `REQ-FUNC-0000` — one line describing the behavior.
 - One line per behavior that has no requirement yet, marked `(no req)`.
 
+## Architecture
+
+How this component works inside, as a Mermaid diagram. Scope it to this
+component: the parts a reader has to hold in their head to change it
+safely, and the boundaries where it meets everything else. Not the whole
+system, and not every function — if it does not change how someone would
+edit this code, leave it out. Ten to fifteen nodes is usually the honest
+size; past twenty, the component is probably two.
+
+Arrows carry direction, so only draw one where you can say which way it
+points: calls, data flow, ownership. Name each node after the thing in the
+code, so a reader can search for it, and mark the boundary nodes — entry
+points, storage, anything outside this component — differently from the
+internals.
+
+```mermaid
+flowchart TD
+    entry(["<entry point>"])
+    entry --> step["<the work it delegates to>"]
+    step --> store[("<what it reads or writes>")]
+```
+
+One or two sentences under the diagram for what it does not show, or for
+the constraint that explains an odd shape. Keep this drawn as the code is
+now; a task that changes the shape updates it in the same task.
+
 ## Files
 
 - `src/<component>/<file>.py` — one line on its role.

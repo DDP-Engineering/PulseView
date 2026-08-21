@@ -29,7 +29,11 @@ changing what was proved.
 3. **Stop and present in both interaction modes:** validation commands and
    results, accepted warnings and pre-existing failures, the exact diff
    summary, what will be committed, exclusions, and the intended outcome.
-   Wait for the human's approval.
+   Wait for the human's approval. Any deviation notices you gave along the
+   way were notifications, not approvals: notices supplement this
+   presentation and never shorten it, so repeat every deviation here even
+   where you already said it, and state it as a deviation notice if this
+   stage turns up a new one.
 4. After approval, tick every checklist item except close-out, keep
    `stage: deliver`, log the decision, and run
    `python .agentic/aegis.py report TASK-<id>`. Read the appended report.

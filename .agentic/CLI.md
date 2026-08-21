@@ -37,6 +37,8 @@ network.
 | `check` | Run the heuristic governance catalog. | During work for feedback; with `--strict --run` at the validation or CI boundary. |
 | `test` | Run a command configured in `.agentic/aegis.toml`. | During build and validation, optionally recording the result in a journal. |
 | `report` | Append a delivery summary to a task journal. | After validation and before the delivery commit or pull request. |
+| `diagram` | Draw the requirement register as a Mermaid coverage map. | In review or handover, when the question is where verification is thin. |
+| `explain` | Show which requirements and tasks govern one path. | Reading unfamiliar code, or before changing a file you did not write. |
 
 ## General help and version
 
@@ -431,11 +433,91 @@ python .agentic/aegis.py report TASK-8b12
 python .agentic/aegis.py report 8b12
 ```
 
+## `diagram`
+
+```text
+python .agentic/aegis.py diagram [--component NAME] [--task TASK-id] [--out PATH]
+```
+
+**Description:** Draw the requirement register as a Mermaid flowchart. Each
+requirement becomes a node grouped under the component whose knowledge page
+lists it in `## Key behaviors`, colored by how the behavior is verified:
+`tested` where `linked_tests` is non-empty, `manual` where `verification`
+names a `Manual:` or `Inspection:` method, `uncovered` where it has neither,
+and `retired` for a withdrawn behavior. Requirements no page claims are
+grouped last under `(no knowledge page)` rather than dropped.
+
+Everything in the drawing is read from files already in the repository, so
+the command needs no model, no network, and no renderer — the output is text
+that Git diffs and that Markdown viewers draw for themselves. It writes no
+repository state.
+
+**When to use:** In review, when handing a component to someone else, or
+whenever the question is where verification is thin rather than what one
+requirement says. `check` remains the authority on findings; this is the same
+data arranged to be looked at.
+
+**Options:**
+
+| Option | Effect |
+|---|---|
+| `--component NAME` | Restrict to one knowledge page, named by file stem or by heading. |
+| `--task TASK-id` | Restrict to the requirements listed in that journal's header. |
+| `--out PATH` | Write the diagram to a file as UTF-8, creating parent folders, instead of printing it. |
+
+A whole-register diagram stops being readable somewhere past a few dozen
+requirements. Narrow it before that point rather than after. An unknown
+component or task is an error, not an empty diagram.
+
+`--out` exists because printing is not portable: a console under a legacy
+code page mangles the characters on the way out, and a diagram that renders
+differently per platform is not a durable artifact. Redirecting stdout to a
+file inherits the same problem; `--out` does not.
+
+**Examples:**
+
+```text
+python .agentic/aegis.py diagram
+python .agentic/aegis.py diagram --component core-cli-lifecycle
+python .agentic/aegis.py diagram --task TASK-8b12
+python .agentic/aegis.py diagram --out docs/coverage.mmd
+```
+
+## `explain`
+
+```text
+python .agentic/aegis.py explain <path>
+```
+
+**Description:** Report what governs one repository path. Lists every
+requirement whose `affected_paths` cover it — a directory entry covers the
+files beneath it, and a glob is matched case-sensitively so Windows and Linux
+agree — grouped under the component whose knowledge page claims each
+requirement, with its status, how it is verified, and its spec where it has
+one. Then the task journals whose `requirements:` header lists any of them.
+
+The path may be repo-relative or absolute, with native or forward separators.
+A path no requirement covers is reported plainly, and said to be a finding
+when it sits inside the configured `source` or `tests` globs — ungoverned
+code in a governed area is worth knowing about.
+
+**When to use:** Reading unfamiliar code and asking "why is this here, and
+what am I allowed to change?". It is the register read backwards: `req` and
+`check` write the traceability, this is how a human spends it.
+
+**Examples:**
+
+```text
+python .agentic/aegis.py explain src/export/m3u.py
+python .agentic/aegis.py explain src/export/
+python .agentic/aegis.py explain C:epo\src\export\m3u.py
+```
+
 ## Exit behavior and machine-readable output
 
 | Situation | Exit behavior |
 |---|---|
-| `init`, `task`, `req`, `anchor`, `evolution`, `status`, or `report` succeeds | Exit 0. |
+| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `report`, `diagram`, or `explain` succeeds | Exit 0. |
 | Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |

@@ -71,7 +71,10 @@ requirement links current so that set stays correct.
     `python .agentic/aegis.py evolution --task TASK-<id>`. Review every added,
     modified, and removed path, then run `python .agentic/aegis.py check`.
    Fix what it flags, or record in one log line which warning you accept
-   and why.
+   and why — and state it as a deviation notice in the conversation at the
+   same time, per `AGENTS.md`. An `evolution` report that does not match
+   what you expected — no changed files, or a file set the design note
+   never named — is itself a deviation: say so rather than moving on.
 11. Tick the checklist, set `stage: validate`, and **replace
     `## Done checklist`** with the validate stage's "Done when" list from
     `5_validate.md` — the checklist always shows the current stage's items.

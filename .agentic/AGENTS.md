@@ -114,6 +114,28 @@ sandbox prompts your host already applies. Autopilot loses no
 auditability: the journal still shows the scope decision, the red-test
 line, the check findings, and the ticked checklists after the fact.
 
+**Deviation notices.** A third thing, and not a stop. The moment you record
+a deviation, say it in the conversation too, as one line:
+
+```
+DEVIATION <stage>: <what> — <why accepted, or what it costs>
+```
+
+Then carry on: stating one never pauses the work and never waits for a
+reply. Autopilot does not suppress them either — the mode that removes the
+frame stop is exactly the one where silence costs most. Say one when you
+accept a `check` warning, when a command exits non-zero or you skip or
+cannot run a verification you owed, when `anchor` or `evolution` reports
+something other than what you expected, when a `Manual:`/`Inspection:`
+method stands in for a test that could have been automated, when you retire
+a requirement, and when diff review turns up work nobody asked for.
+
+The journal line you would have written anyway is still written. The notice
+is its twin, not its replacement — a journal is read afterwards, and by then
+the human has already paid for not knowing. `DEVIATION` is deliberately not
+`WARNING`: `check` prints `WARN` and `NOTE` for its own findings, and your
+judgement should not be mistaken for the tool's.
+
 ## Prompt cheatsheet
 
 Starting work is one line:
@@ -153,4 +175,6 @@ python .agentic/aegis.py check                  # advisory report, always exits 
 python .agentic/aegis.py test --impacted --base HEAD   # fast loop in build
 python .agentic/aegis.py test                   # full suite, used at validate
 python .agentic/aegis.py report TASK-<id>       # delivery summary into the journal
+python .agentic/aegis.py diagram --component <name>    # coverage map, for a human
+python .agentic/aegis.py explain <path>         # what governs this file
 ```

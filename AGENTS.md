@@ -77,4 +77,12 @@ Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/knowledge/`. `python .agentic/aegis.py check` is advisory - read
 its findings and self-correct; nothing here blocks you mid-flight.
 
+Say a deviation out loud when you record one, as one line -
+`DEVIATION <stage>: <what> - <why accepted, or what it costs>` - then carry
+on. It never pauses the work and autopilot never suppresses it. You owe one
+for an accepted `check` warning, a non-zero exit or a verification you
+skipped, an unexpected `anchor`/`evolution` report, a manual method standing
+in for an automatable test, a retired requirement, and unrequested work found
+in review.
+
 <!-- AEGIS:END -->

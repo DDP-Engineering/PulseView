@@ -34,16 +34,28 @@ the shape was chosen.
    requirement. `build` starts from these.
 6. List the files you expect to create or modify, and update each
    requirement's `affected_paths` to match.
-7. Keep requirement-specific detail in the spec instead of the journal
+7. For each component whose internal shape this task changes, open its
+   `.agentic/knowledge/<component>.md` and revise the `## Architecture`
+   diagram to the shape it will have **after the change** — new nodes and
+   arrows drawn as intended, removed ones taken out. Say in one line under
+   the diagram that it is the intended shape and name this task, so a
+   reader between design and delivery is not misled by a picture of code
+   that does not exist yet; drop that line at `validate`, once the code
+   matches. A component with no page yet, or a task that only changes
+   behavior inside an existing shape, owes nothing here — say which in
+   the log and move on.
+8. Keep requirement-specific detail in the spec instead of the journal
    when it belongs to the behavior rather than to this task.
-8. Run `python .agentic/aegis.py check`; fix errors.
-9. Tick the checklist, set `stage: build`, and **replace
-   `## Done checklist`** with the build stage's "Done when" list from
-   `4_build.md` — the checklist always shows the current stage's items.
+9. Run `python .agentic/aegis.py check`; fix errors.
+10. Tick the checklist, set `stage: build`, and **replace
+    `## Done checklist`** with the build stage's "Done when" list from
+    `4_build.md` — the checklist always shows the current stage's items.
 
 **Outputs:**
 
 - `## Design` section in the task journal.
+- Revised `## Architecture` diagrams on the knowledge pages of components
+  whose shape this task changes, drawn as they will be afterwards.
 - Updated `affected_paths` on the linked requirements.
 - Updated spec sections where the detail belongs to the behavior.
 
@@ -54,6 +66,9 @@ the shape was chosen.
 - [ ] each decision cites a requirement ID
 - [ ] test seams named for every requirement
 - [ ] `affected_paths` match the expected file list
+- [ ] `## Architecture` revised to the shape it will have after the change,
+      for every component whose structure this task changes — or logged as
+      owing nothing
 - [ ] `stage: build`
 
 **Skip when:** The quick path; or the work is a single-file change with no

@@ -30,13 +30,19 @@ prove the final tree before it is presented for publication.
 3. Update component knowledge. For every component whose behavior, interface,
    or file set materially changed, update or create
    `.agentic/knowledge/<component>.md` from the template. Keep **Purpose**,
-   **Public interface**, **Key behaviors**, and **Files** true.
+   **Public interface**, **Key behaviors**, **Architecture**, and **Files**
+   true. Where `design` drew the architecture as it was going to be, check
+   the built code against it now: reconcile any difference in the diagram's
+   favor only if the code is right, and delete the line naming it an intended
+   shape — from here the page describes what exists.
 4. Re-read each requirement. Confirm its status and prose describe the built
    behavior, its verification matches the observation, and all affected paths
    and linked tests are current. Correct them now.
 5. Complete and record every `Manual:` or `Inspection:` verification. Name the
    method, action, and observed result; never substitute a manual label for an
-   automatable test that is merely missing.
+   automatable test that is merely missing. Where a manual method stands in for
+   a test that could have been written, state it as a deviation notice in the
+   conversation, per `AGENTS.md`.
 6. If steps 1-5 changed source, tests, requirements, specs, or knowledge, rerun
    the impacted set and resolve the result before proving the repository.
 7. If validation changed any repository file outside `.agentic/`, rerun
@@ -53,7 +59,11 @@ prove the final tree before it is presented for publication.
    and remaining warnings with their accepted reasons. Never write "green"
    over a non-zero exit. A failure introduced by this task returns to the
    appropriate earlier stage. A pre-existing base-branch failure is named and
-   kept out of scope, with its effect on CI stated honestly.
+   kept out of scope, with its effect on CI stated honestly. A non-zero exit, a
+   warning you accept, and a verification you skipped or could not run are each
+   a deviation: state it as a deviation notice when you record it, per
+   `AGENTS.md`, rather than letting `deliver` be the first the human hears of
+   it.
 10. Tick the checklist, set `stage: deliver`, and replace it with the delivery
    stage's "Done when" list from `6_deliver.md`. The task now means
    "validated, not yet published."
