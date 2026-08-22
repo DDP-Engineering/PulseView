@@ -50,7 +50,7 @@ intermediate stays in `.work/`, which is ignored and safe to delete.
 ## Running it
 
 Run these **inside WSL** (`wsl -d Ubuntu-24.04`), not Git Bash - the container
-engine lives there. The repository is visible at `/mnt/f/2026_Hantek_DSO3062L`.
+engine lives there. The repository is visible at `/mnt/f/2026_PulseView`.
 
 ### One-time prerequisite: SSH access from WSL
 

@@ -1,4 +1,5 @@
-# Project-owned AEGIS configuration for the DSO3062L PulseView integration.
+# Project-owned AEGIS configuration for the 2026 PulseView project (Hantek
+# DSO3062L / ATK DL16 integration).
 # AEGIS is advisory; this file does not grant Git, driver, hardware, or
 # publication authority.
 

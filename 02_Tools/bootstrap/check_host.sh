@@ -13,7 +13,7 @@
 #
 # Run it inside the Linux build host - on Windows that means WSL:
 #
-#   wsl -d Ubuntu-24.04 -- /mnt/f/2026_Hantek_DSO3062L/02_Tools/bootstrap/check_host.sh
+#   wsl -d Ubuntu-24.04 -- /mnt/f/2026_PulseView/02_Tools/bootstrap/check_host.sh
 
 set -uo pipefail
 
