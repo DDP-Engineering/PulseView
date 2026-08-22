@@ -39,7 +39,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -1571,6 +1571,50 @@ def manual_method(verification: str) -> str:
     return ""
 
 
+def link_failure(entry: str) -> str:
+    """
+    @brief Why one `linked_tests` entry does not resolve, or "" when it does.
+    @details The single place a linked test is judged to exist, so a finding
+             and a coverage class can never disagree about one. An entry with
+             no file part at all - a bare `::name` - is nobody's evidence of
+             anything, but it is also not a broken path, so it is passed over
+             rather than reported.
+    """
+    file = entry.split("::", 1)[0]
+    if not file:
+        return ""
+    if not repo_relative_ok(file):
+        return f"{file} escapes the repository"
+    if not (ROOT / file).is_file():
+        return f"{file} does not exist"
+    return ""
+
+
+def coverage_class(record: dict) -> str:
+    """
+    @brief Which coverage class one requirement record belongs to.
+    @details The single place the precedence lives, so that every reader of a
+             record - `check`, the diagram, `explain` - reaches the same
+             verdict. The ladder is `check`'s own: a withdrawn behavior first,
+             then one still in draft, which `check` deliberately says nothing
+             about; then, among active records, a linked test that does not
+             resolve, which is a warning and not evidence, then a declared
+             by-hand method where nothing is linked, then nothing at all.
+             A broken link outranks a `Manual:` method beside it, because the
+             record claims a test that is not there - the claim is the finding.
+    """
+    status = str(record.get("status", "") or "")
+    if status == "retired":
+        return "retired"
+    if status != "active":
+        return "draft"
+    linked = str_list(record.get("linked_tests"))
+    if not linked:
+        return "manual" if manual_method(
+            str(record.get("verification", "") or "")) else "uncovered"
+    return "broken" if any(link_failure(entry) for entry in linked) else "tested"
+
+
 def check_requirement_links(add, records) -> None:
     """@brief Per-requirement checks 4, 6, 7, 10 and 19 over the parsed records."""
     for relpath, _path, data in records:
@@ -1581,21 +1625,20 @@ def check_requirement_links(add, records) -> None:
             add("ERROR", "spec-missing", relpath, f"{spec_ref} does not resolve")
         status = str(data.get("status", "") or "")
         if status == "active":
-            linked = str_list(data.get("linked_tests"))
-            method = manual_method(str(data.get("verification", "") or ""))
-            if not linked and method:  # 19: manual-verification
+            # one class, one finding: `manual` is the NOTE, `uncovered` and
+            # `broken` are the warning, `tested` is the silence. The diagram
+            # labels the same verdict, which is what keeps the picture honest
+            klass = coverage_class(data)
+            if klass == "manual":  # 19: manual-verification
+                method = manual_method(str(data.get("verification", "") or ""))
                 add("NOTE", "manual-verification", relpath,
                     "by hand: " + method[:60])
-            elif not linked:
+            elif klass == "uncovered":
                 add("WARN", "no-linked-tests", relpath, "empty linked_tests")
-            for entry in linked:
-                file = entry.split("::", 1)[0]
-                if file and not repo_relative_ok(file):
-                    add("WARN", "no-linked-tests", relpath,
-                        f"{file} escapes the repository")
-                elif file and not (ROOT / file).is_file():
-                    add("WARN", "no-linked-tests", relpath,
-                        f"{file} does not exist")
+            for entry in str_list(data.get("linked_tests")):
+                reason = link_failure(entry)
+                if reason:
+                    add("WARN", "no-linked-tests", relpath, reason)
         if status != "retired":
             for entry in str_list(data.get("affected_paths")):
                 if not repo_relative_ok(entry):
@@ -2358,37 +2401,20 @@ def cmd_test(args: argparse.Namespace) -> int:
     return code
 
 
-#: Mermaid class per requirement, and what each one means in the register.
+#: One fill and stroke per `coverage_class`, in the order a reader scans for
+#: trouble. Green and blue are settled, amber and red are the two shapes of
+#: `check`'s warning, and the two greys are the records it stays silent about.
 COVERAGE_CLASSES = (
     ("tested", "#2f8f5b", "#1c6640"),
     ("manual", "#3a6ea8", "#254a73"),
+    ("broken", "#c07a2c", "#8a5316"),
     ("uncovered", "#b03a3a", "#7d2626"),
+    ("draft", "#6a6f7a", "#474b53"),
     ("retired", "#8a8a8a", "#5c5c5c"),
 )
 
 #: how wide a requirement title may be before the node label truncates it.
 LABEL_WIDTH = 38
-
-
-def coverage_class(record: dict) -> str:
-    """
-    @brief Which coverage class one requirement record belongs to.
-    @details Read straight off the fields `check` already judges by, so the
-             picture and the findings can never disagree: a linked test whose
-             file still exists in the tree - the same existence judgement
-             `check` makes - or else a `Manual:`/`Inspection:` method that
-             names how, or else nothing yet. Retired wins over all three - a
-             behavior that was deliberately removed is not an uncovered one.
-    """
-    if str(record.get("status", "") or "") == "retired":
-        return "retired"
-    for entry in str_list(record.get("linked_tests")):
-        file = entry.split("::", 1)[0]
-        if file and repo_relative_ok(file) and (ROOT / file).is_file():
-            return "tested"
-    if manual_method(str(record.get("verification", "") or "")):
-        return "manual"
-    return "uncovered"
 
 
 def mermaid_label(text: str) -> str:
@@ -2537,12 +2563,17 @@ def cmd_diagram(args: argparse.Namespace) -> int:
 
 #: the token an agent writes into the journal when it records a judgement call.
 DEVIATION_TOKEN = "DEVIATION"
-#: the token as a marker, not a mention: the standalone word, followed by an
-#: optional stage word and the `:` or ` - ` that introduces the recorded text.
-#: A sentence that merely talks about a DEVIATION (or DEVIATIONS) never has
-#: that shape, so it is not harvested into the delivery report.
+#: the token as a marker, not a mention: the standalone word, a stage this
+#: workflow knows, and the `:` or ` - ` introducing the recorded text - which
+#: is exactly the shape AGENTS.md prints and nothing else. The stage is what
+#: does the work: any word at all is a shape ordinary prose reaches by
+#: accident ("the DEVIATION policy: one line"), and so is no word at all, as
+#: soon as a journal quotes the marker itself. Requiring a real stage also
+#: rejects the literal `DEVIATION <stage>:` of the contract line, so a journal
+#: explaining the rule does not report itself as having broken it.
 DEVIATION_RE = re.compile(
-    rf"\b{DEVIATION_TOKEN}\b(?=(?:[ \t]+\w+)?(?::|[ \t]+[-–—][ \t]))")
+    rf"(?<![\w-]){DEVIATION_TOKEN}[ \t]+"
+    rf"(?=(?:{'|'.join(KNOWN_STAGES)})\b[ \t]*(?::|[ \t][-–—][ \t]))")
 
 
 def recorded_deviations(text: str) -> list[str]:
@@ -2551,12 +2582,14 @@ def recorded_deviations(text: str) -> list[str]:
     @details Reads the whole journal rather than only its `## Log` section: a
              deviation filed under the wrong heading is still one the approver
              has to see, and a delivery report that quietly dropped it would
-             be worse than no report. Wrapped lines are rejoined, so a
-             deviation is carried whole rather than cut at the margin. Only
-             the marker shape is harvested - `DEVIATION <stage> - ...` or
-             `DEVIATION: ...` - never a sentence that merely mentions the
-             word, and the token is stripped from what is returned, which is
-             also what stops a second report from re-listing the first one's.
+             be worse than no report. A bare line counts as much as a bullet,
+             because that is the shape AGENTS.md prints. Wrapped lines are
+             rejoined, so a deviation is carried whole rather than cut at the
+             margin. Only the contract's own shape is harvested -
+             `DEVIATION <stage>: ...` or its ` - ` spelling - never a sentence
+             that merely mentions the word, and the token is stripped from
+             what is returned, which is also what stops a second report from
+             re-listing the first one's.
     """
     entries: list[str] = []
     current = ""
@@ -2568,8 +2601,11 @@ def recorded_deviations(text: str) -> list[str]:
         elif current and stripped and raw[:1].isspace():
             current += " " + stripped
         else:
+            # a non-bullet line opens an entry of its own rather than being
+            # dropped: the contract's own example is an unbulleted line, and
+            # its indented continuations still join it through the branch above
             entries.append(current)
-            current = ""
+            current = stripped
     entries.append(current)
     found = []
     for entry in entries:

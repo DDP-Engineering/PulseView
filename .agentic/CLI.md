@@ -441,11 +441,24 @@ python .agentic/aegis.py diagram [--component NAME] [--task TASK-id] [--out PATH
 
 **Description:** Draw the requirement register as a Mermaid flowchart. Each
 requirement becomes a node grouped under the component whose knowledge page
-lists it in `## Key behaviors`, colored by how the behavior is verified:
-`tested` where `linked_tests` is non-empty, `manual` where `verification`
-names a `Manual:` or `Inspection:` method, `uncovered` where it has neither,
-and `retired` for a withdrawn behavior. Requirements no page claims are
-grouped last under `(no knowledge page)` rather than dropped.
+lists it in `## Key behaviors`, colored by the outcome `check` reaches for
+that same record:
+
+| Class | An active requirement where | `check` reports |
+|---|---|---|
+| `tested` | every entry in `linked_tests` resolves to a file | nothing |
+| `manual` | nothing is linked and `verification` names a `Manual:` or `Inspection:` method | NOTE `manual-verification` |
+| `broken` | something is linked but at least one entry does not resolve | WARN `no-linked-tests` |
+| `uncovered` | nothing is linked and no method is named | WARN `no-linked-tests` |
+| `draft` | — the requirement is still `status = "draft"` | nothing |
+| `retired` | — the behavior was withdrawn | nothing |
+
+`broken` outranks `manual`: a record that claims a test which is not there is
+making a claim, and the claim is the finding. `draft` and `retired` are the
+two `check` is deliberately silent about, and they are drawn apart from
+`uncovered` so a behavior nobody has written yet is not read as one nobody
+verifies. Requirements no page claims are grouped last under
+`(no knowledge page)` rather than dropped.
 
 Everything in the drawing is read from files already in the repository, so
 the command needs no model, no network, and no renderer — the output is text
@@ -455,7 +468,8 @@ repository state.
 **When to use:** In review, when handing a component to someone else, or
 whenever the question is where verification is thin rather than what one
 requirement says. `check` remains the authority on findings; this is the same
-data arranged to be looked at.
+data arranged to be looked at, and every class above maps onto one of its
+outcomes rather than reaching a second opinion.
 
 **Options:**
 
