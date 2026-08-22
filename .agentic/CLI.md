@@ -510,7 +510,7 @@ what am I allowed to change?". It is the register read backwards: `req` and
 ```text
 python .agentic/aegis.py explain src/export/m3u.py
 python .agentic/aegis.py explain src/export/
-python .agentic/aegis.py explain C:epo\src\export\m3u.py
+python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 ```
 
 ## Exit behavior and machine-readable output

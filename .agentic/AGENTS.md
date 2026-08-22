@@ -19,6 +19,15 @@ requirement per file, one journal per task, one page per component. You
 can skip a step; the journal is what a reviewer reads to see that you
 did. Do the steps honestly and keep the journal true.
 
+## Scope
+
+AEGIS applies only to software development operations: work that changes,
+tests, or documents the software product. Do not use the workflow for
+repository operations or package and delivery operations, including version
+assignment, release-package construction, publication, and repository
+maintenance. Those operations follow the repository's own procedures; the
+software implementation they carry remains subject to AEGIS.
+
 ## Stages
 
 | # | Stage | Step file | Purpose |

@@ -39,7 +39,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -142,6 +142,10 @@ POINTER_DIGEST = """\
 
 The full contract is `.agentic/AGENTS.md` - read it before starting work.
 This digest is enough to act on if you read nothing else.
+
+AEGIS applies only to software development operations. Do not use it for
+repository operations or package and delivery operations; follow the
+repository's own procedures for those instead.
 
 Stages, one step file each in `.agentic/steps/`: **frame** (agree scope,
 open the task journal) -> **specify** (write the requirement, and a spec
@@ -395,9 +399,14 @@ def parse_journal(text: str) -> dict:
             continue
         if section.startswith("done checklist"):
             match = CHECK_RE.match(line)
+            stripped = line.lstrip()
             if match:
                 result["checklist"].append(
                     (match.group(1).lower() == "x", match.group(2)))
+            elif stripped and result["checklist"] and line[:1].isspace():
+                # a wrapped line belongs to the item above it, not to nothing
+                done, item = result["checklist"][-1]
+                result["checklist"][-1] = (done, item + " " + stripped)
         elif section.startswith("components"):  # adoption progress
             match = CHECK_RE.match(line)
             if match:
@@ -1307,7 +1316,8 @@ def match_path(path: str, pattern: str) -> bool:
              case-sensitive variant, so Windows and Linux agree; else exact.
     """
     if pattern.endswith("/"):
-        return path.startswith(pattern)
+        # the directory itself is inside its own entry, not just its children
+        return path.startswith(pattern) or path == pattern.rstrip("/")
     if any(char in pattern for char in "*?["):
         return fnmatch.fnmatchcase(path, pattern)
     return path == pattern or path.startswith(pattern + "/")
@@ -2364,15 +2374,18 @@ def coverage_class(record: dict) -> str:
     """
     @brief Which coverage class one requirement record belongs to.
     @details Read straight off the fields `check` already judges by, so the
-             picture and the findings can never disagree: a linked test, or
-             else a `Manual:`/`Inspection:` method that names how, or else
-             nothing yet. Retired wins over all three - a behavior that was
-             deliberately removed is not an uncovered one.
+             picture and the findings can never disagree: a linked test whose
+             file still exists in the tree - the same existence judgement
+             `check` makes - or else a `Manual:`/`Inspection:` method that
+             names how, or else nothing yet. Retired wins over all three - a
+             behavior that was deliberately removed is not an uncovered one.
     """
     if str(record.get("status", "") or "") == "retired":
         return "retired"
-    if str_list(record.get("linked_tests")):
-        return "tested"
+    for entry in str_list(record.get("linked_tests")):
+        file = entry.split("::", 1)[0]
+        if file and repo_relative_ok(file) and (ROOT / file).is_file():
+            return "tested"
     if manual_method(str(record.get("verification", "") or "")):
         return "manual"
     return "uncovered"
@@ -2426,9 +2439,14 @@ def diagram_scope(args: argparse.Namespace,
                   components: list[tuple[str, str, list[str]]]) -> set[str] | None:
     """
     @brief The requirement ids the diagram is restricted to, or None for all.
-    @raises UserError when the named component or task does not exist, so an
-            unknown scope reads as a mistake instead of an empty register.
+    @raises UserError when both scopes are named at once, or when the named
+            component or task does not exist, so an unknown scope reads as a
+            mistake instead of an empty register.
     """
+    if args.component and args.task:
+        # one scope at a time: silently honoring one and dropping the other
+        # would answer a question the operator did not ask
+        raise UserError("--component and --task cannot be combined")
     if args.component:
         wanted = args.component.removesuffix(".md")
         for stem, name, claimed in components:
@@ -2458,13 +2476,20 @@ def render_diagram(records: list[tuple[str, Path, dict]],
                 if rid and (scope is None or rid in scope)}
     lines = ["flowchart LR"]
     grouped: set[str] = set()
+    # ids must stay unique: Mermaid silently merges same-id subgraphs, so two
+    # stems that sanitize alike (io-utils, io.utils) would share one group
+    used_ids = {"unclaimed"}
 
     for stem, name, claimed in components:
         members = [rid for rid in claimed if rid in in_scope and rid not in grouped]
         if not members:
             continue
         grouped.update(members)
-        lines.append(f'    subgraph {mermaid_id(stem)}["{mermaid_label(name)}"]')
+        sid = mermaid_id(stem)
+        while sid in used_ids:
+            sid += "_"
+        used_ids.add(sid)
+        lines.append(f'    subgraph {sid}["{mermaid_label(name)}"]')
         lines.append("        direction TB")
         for rid in members:
             label = mermaid_label(in_scope[rid].get("title", ""))
@@ -2512,6 +2537,12 @@ def cmd_diagram(args: argparse.Namespace) -> int:
 
 #: the token an agent writes into the journal when it records a judgement call.
 DEVIATION_TOKEN = "DEVIATION"
+#: the token as a marker, not a mention: the standalone word, followed by an
+#: optional stage word and the `:` or ` - ` that introduces the recorded text.
+#: A sentence that merely talks about a DEVIATION (or DEVIATIONS) never has
+#: that shape, so it is not harvested into the delivery report.
+DEVIATION_RE = re.compile(
+    rf"\b{DEVIATION_TOKEN}\b(?=(?:[ \t]+\w+)?(?::|[ \t]+[-–—][ \t]))")
 
 
 def recorded_deviations(text: str) -> list[str]:
@@ -2521,8 +2552,10 @@ def recorded_deviations(text: str) -> list[str]:
              deviation filed under the wrong heading is still one the approver
              has to see, and a delivery report that quietly dropped it would
              be worse than no report. Wrapped lines are rejoined, so a
-             deviation is carried whole rather than cut at the margin. The
-             `DEVIATION` token is stripped from what is returned, which is
+             deviation is carried whole rather than cut at the margin. Only
+             the marker shape is harvested - `DEVIATION <stage> - ...` or
+             `DEVIATION: ...` - never a sentence that merely mentions the
+             word, and the token is stripped from what is returned, which is
              also what stops a second report from re-listing the first one's.
     """
     entries: list[str] = []
@@ -2540,9 +2573,9 @@ def recorded_deviations(text: str) -> list[str]:
     entries.append(current)
     found = []
     for entry in entries:
-        index = entry.find(DEVIATION_TOKEN)
-        if index >= 0:
-            found.append(" ".join(entry[index + len(DEVIATION_TOKEN):].split()))
+        match = DEVIATION_RE.search(entry)
+        if match:
+            found.append(" ".join(entry[match.end():].split()))
     return found
 
 
@@ -2563,12 +2596,26 @@ def repo_path_arg(value: str) -> str:
         except ValueError:
             raise UserError(f"{value} is outside this repository") from None
     text = raw.as_posix()
-    while text.startswith("./"):
-        text = text[2:]
-    text = text.strip("/")
-    if not text or text == "." or text.split("/")[0] == "..":
+    if re.match(r"[A-Za-z]:", text):
+        # a drive-letter path that did not read as absolute here - a POSIX
+        # host, or a drive-relative `C:name` - is never inside this repo
         raise UserError(f"{value} is outside this repository")
-    return text
+    # normalize `.` and `..` segment by segment, so equivalent spellings of
+    # one file match the same globs, and an escaping `..` is an error rather
+    # than a string no requirement happens to cover
+    parts: list[str] = []
+    for part in text.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not parts:
+                raise UserError(f"{value} is outside this repository")
+            parts.pop()
+        else:
+            parts.append(part)
+    if not parts:
+        raise UserError(f"{value} is outside this repository")
+    return "/".join(parts)
 
 
 def cmd_explain(args: argparse.Namespace) -> int:
@@ -2790,12 +2837,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     diagram = subs.add_parser(
         "diagram", help="draw the requirement register as a Mermaid coverage map")
-    # one scope at a time: silently honoring one and dropping the other would
-    # answer a question the operator did not ask
-    scope = diagram.add_mutually_exclusive_group()
-    scope.add_argument("--component",
-                       help="restrict to one knowledge page, by file stem or name")
-    scope.add_argument("--task", help="restrict to one journal's requirements")
+    # the one-scope-at-a-time conflict is judged in diagram_scope, not by an
+    # argparse group, so it exits 1 with one line like every expected error
+    diagram.add_argument("--component",
+                         help="restrict to one knowledge page, by file stem or name")
+    diagram.add_argument("--task", help="restrict to one journal's requirements")
     diagram.add_argument("--out", help="write UTF-8 to this path instead of stdout")
     diagram.set_defaults(func=cmd_diagram)
 

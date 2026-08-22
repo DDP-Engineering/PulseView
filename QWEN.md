@@ -7,6 +7,10 @@
 The full contract is `.agentic/AGENTS.md` - read it before starting work.
 This digest is enough to act on if you read nothing else.
 
+AEGIS applies only to software development operations. Do not use it for
+repository operations or package and delivery operations; follow the
+repository's own procedures for those instead.
+
 Stages, one step file each in `.agentic/steps/`: **frame** (agree scope,
 open the task journal) -> **specify** (write the requirement, and a spec
 when useful) -> **design** (a short note for non-trivial work) -> **build**
