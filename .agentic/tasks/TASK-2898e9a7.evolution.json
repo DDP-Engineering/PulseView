@@ -1,0 +1,120 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-23T13:13:34.224641Z",
+      "anchor_head": "bcc91e9b7a8e58f285ba80792fc6e9f23f757856",
+      "anchor_id": "94b82e4b128a0ebb",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "db2bafaedca7bfbb57fd8ca3a262324ff7c26fa7dce5f2aad65f48446157062c"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "902316d646ccdcaa4c93f352808a4025bb7d139deecaa792cee89e5134f037ae"
+          },
+          "path": "02_Tools/build/STATUS.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "a1bd39dce0d664ff27b20ad15cb5f6e6eabb4f05ea6e85acf6d3a0247de7b0d4"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "f126d6996931663ca942d0d2e5489d53a7d2779183c7a40c7e4bb6bb200577cc"
+          },
+          "path": "02_Tools/build/build_image.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "487b928b3fdc3f929ac393f2a3851a2ca045536591c5650539e6ce591658cac6"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "c9b3f90c1527c3bd1c13e2ce3a649ac35d0ab00e3e2df3e75216df93e08ccccf"
+          },
+          "path": "02_Tools/build/build_windows_mxe.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "33efd7ddf5bafeff1000c40b727f79273339ba8ad3cc01ff73e017640dea9100"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "1f05ec9066a40c23656f7e8c211367550f8fae9a76e964c443eeb97a3bb9c8f0"
+          },
+          "path": "02_Tools/build/images/Dockerfile.mingw",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "83aabe6ae40da6ad800573d4337ecf884bf41bdce79dc15974320d6d14b48f71"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/run_tests.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "abdc121aec61c06720cc6ed173d86732bafe97a2b6742b5396d8fa0cf7d54175"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "d33de661cd461b1984eeb8a619ad9f37609a9b8093fc703cdcd991ba3f03625d"
+          },
+          "path": "02_Tools/upstream/upstreams.lock.toml",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 83
+          },
+          "source": {
+            "added": 0,
+            "modified": 5,
+            "removed": 0,
+            "unchanged": 1492
+          },
+          "tests": {
+            "added": 1,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 52
+          }
+        },
+        "status": {
+          "added": 1,
+          "modified": 5,
+          "removed": 0,
+          "unchanged": 1627
+        }
+      },
+      "current_head": "bcc91e9b7a8e58f285ba80792fc6e9f23f757856",
+      "evolution_stage": "validate",
+      "evolved_at": "2026-08-23T18:53:58.339273Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-2898e9a7"
+}

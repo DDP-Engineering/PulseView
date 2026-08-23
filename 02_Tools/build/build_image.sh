@@ -247,6 +247,23 @@ EOF
     done
     note "MXE patches to apply: ${MXE_PATCHES:-none}"
 
+    # The Windows Python that libsigrokdecode embeds. Taken from the lock so
+    # the version, URL and digest live in exactly one place; the Dockerfile
+    # bakes these into /opt/sigrok-deps and build_windows_mxe.sh consumes
+    # them from there without touching the network.
+    PY_VERSION="$(lock_get artifact cpython-windows-embed version)"
+    PY_EMBED_URL="$(lock_get artifact cpython-windows-embed url)"
+    PY_EMBED_SHA256="$(lock_get artifact cpython-windows-embed sha256)"
+    PY_SRC_URL="$(lock_get artifact cpython-source url)"
+    PY_SRC_SHA256="$(lock_get artifact cpython-source sha256)"
+    PY_SRC_VERSION="$(lock_get artifact cpython-source version)"
+    [ "${PY_VERSION}" = "${PY_SRC_VERSION}" ] || die \
+        "lock mismatch: cpython-windows-embed is ${PY_VERSION} but
+  cpython-source is ${PY_SRC_VERSION}. The headers must come from the same
+  release as the runtime, or libsigrokdecode compiles against one CPython
+  and links against another."
+    note "windows python ${PY_VERSION} sha256 ${PY_EMBED_SHA256:0:12}..."
+
     BASE_IMAGE="debian:bookworm-slim"
     BUILD_ARGS+=(
         --build-arg "MXE_COMMIT=${MXE_COMMIT}"
@@ -254,6 +271,11 @@ EOF
         --build-arg "MXE_PATCHES=${MXE_PATCHES}"
         --build-arg "PKG_JOBS=${PKG_JOBS}"
         --build-arg "SUB_JOBS=${SUB_JOBS}"
+        --build-arg "PY_VERSION=${PY_VERSION}"
+        --build-arg "PY_EMBED_URL=${PY_EMBED_URL}"
+        --build-arg "PY_EMBED_SHA256=${PY_EMBED_SHA256}"
+        --build-arg "PY_SRC_URL=${PY_SRC_URL}"
+        --build-arg "PY_SRC_SHA256=${PY_SRC_SHA256}"
     )
     if [ -n "${GLIB_VERSION}" ]; then
         BUILD_ARGS+=(--build-arg "MXE_GLIB_VERSION=${GLIB_VERSION}")
@@ -334,6 +356,8 @@ IMAGE_ID="$("${ENGINE}" image inspect --format '{{.Id}}' "${TAG}")"
         printf 'qt5_freeze   %s\n' "${QT5_FREEZE}"
         printf 'mxe_patches  %s\n' "${MXE_PATCHES:-none}"
         printf 'glib_hold    %s\n' "${GLIB_VERSION:-2.89.1 (Dockerfile default)}"
+        printf 'python       %s\n' "${PY_VERSION}"
+        printf 'python_sha   %s\n' "${PY_EMBED_SHA256}"
     else
         printf 'appimagetool %s\n' "${AIT_VERSION}"
     fi

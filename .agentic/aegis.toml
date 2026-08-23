@@ -6,10 +6,16 @@
 schema = 1
 
 [commands]
-# Intentionally empty while the repository contains planning and vendor
-# reference material only. Add owner-relative commands when the corresponding
-# scripts exist, for example after 02_Tools/test and the upstream submodules
-# have been implemented. Do not use placeholder commands as test evidence.
+# 02_Tools/test now exists, so this is a real command rather than a
+# placeholder. It runs every test in that directory and reports pass, fail
+# and skip separately.
+#
+# Skips are load-bearing here and are not treated as passes: these tests drive
+# built artifacts, so windows_python_smoke.sh needs a staged Windows tree and
+# either a Windows host or Wine. On a host with neither it exits 77 and the
+# runner reports it as skipped; a run in which nothing at all executed exits
+# 77 itself rather than claiming a green suite.
+test = "bash 02_Tools/test/run_tests.sh"
 
 [timeouts]
 # Add limits together with real commands. A stopped command proves nothing.

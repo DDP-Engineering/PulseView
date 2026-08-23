@@ -25,14 +25,15 @@ updated as the build changes.
 |---|---|
 | libserialport | built |
 | libsigrok | built, C++ bindings enabled, 84 drivers |
-| libsigrokdecode | built, 132 of 132 decoders |
+| libsigrokdecode | built against CPython 3.13.15; 131 decoders, all loading |
 | `sigrok-cli.exe` | 15 MB, PE32+ console x86-64 |
 | `pulseview.exe` | 33 MB, PE32+ GUI x86-64 |
 | `PulseView-x86_64.AppImage` | 36 MB, self-contained |
 
 The Windows binaries link statically. Their only non-system import is
-`python34.dll`, which upstream's installer also ships; everything else
-resolves against stock Windows DLLs.
+`python313.dll`; everything else resolves against stock Windows DLLs. The
+Python runtime beside them is python.org's official Windows embeddable
+package, shipped whole - see "The Windows Python problem" below.
 
 Driver count is 84, not the 82 an earlier revision of this file recorded:
 the two additions are ours, `hantek-dso3062l` and `atk-dl16`. Both have been
@@ -47,7 +48,8 @@ sources and `02_Tools/` carries everything needed to build them.
 directly from `07_Delivery/staging/`:
 
 - `sigrok-cli --version` reports libsigrok 0.6.0, glib 2.89.1 (the held
-  version), Python 3.4.4, libusb 1.0.27, hidapi, libftdi.
+  version), Python 3.13.15 (3.4.4 until 2026-08-23), libusb 1.0.27, hidapi,
+  libftdi.
 - `pulseview --version` reports PulseView 0.5.0, Qt 5.15.19, glibmm 2.66.2,
   Boost 1_92.
 - `sigrok-cli -P uart --show` loads and executes a Python decoder.
@@ -73,7 +75,8 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 | `images/Dockerfile.appimage` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-19 | `./build_image.sh --image appimage` | The `appimagetool` and `linuxdeployqt` artifacts it needed were finally added to the lock; it had indeed been failing closed until then. Also pre-creates `/build` - without that the volume mounts root-owned and the build cannot write to it. |
 | `build_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Full path exercised: clone, pin check, patch check, base-digest pinning, build, provenance record. `--save` is still untested. |
 | `run_in_builder.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./run_in_builder.sh --image mingw -- bash /work/.work/probe-verify.sh` | Drove the whole stock-sigrok build. Its first run failed on a root-owned `/build`; fixed in the image, not the script. |
-| `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-17 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 82 drivers, 132 decoders, both executables. Does not build firmware, dumps, or the NSIS installers. |
+| `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-23 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 84 drivers, 132 decoder directories, both executables, CPython 3.13.15. Does not build firmware, dumps, or the NSIS installers. |
+| `02_Tools/test/windows_python_smoke.sh` | verified | Windows 11 host | 2026-08-23 | `02_Tools/test/windows_python_smoke.sh` | Host-side, not a build step: it runs `sigrok-cli.exe`, which the MXE image cannot do (no Wine). Runs on Windows directly or on Linux with wine; exits 77 where it can run neither. |
 | `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. |
 | `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. Windows host equivalent not written. |
 | `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-19 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. |
@@ -170,33 +173,90 @@ drivers disable themselves, and four are legitimately unavailable there:
 | `mooshimeter-dmm` | `bluetooth_comm` | No - no Bluetooth in this build |
 | `rdtech-tc` | `libnettle` | **Yes** - add `nettle` to the MXE package set |
 
-All 132 decoders build.
+All decoders build.
 
-### The Windows Python problem is real but already solved upstream
+**A note on that figure: 131 decoders, not 132.** The build record's `decoders`
+line counts directories under `share/libsigrokdecode/decoders`, and one of
+those directories is `common` - the shared helper package the decoders import
+(`common.srdhelper` and friends), which is not itself a decoder and correctly
+never appears in `sigrok-cli -L`. So the record has always said 132 where the
+listing says 131. The record is left counting directories so old and new
+records stay comparable; `02_Tools/test/windows_python_smoke.sh` checks the
+invariant that actually matters, which is that every directory except `common`
+produces a listed decoder - and it names the ones that do not, rather than
+only counting them.
+
+### The Windows Python problem, and how it was closed
 
 libsigrokdecode embeds CPython, and MXE has no Python for the Windows target -
-only host-side helpers (`python-mako`, `python-setuptools`). The earlier note
-in `Dockerfile.mingw` claiming MXE builds one as a dependency was wrong.
+only host-side helpers. Verified in the built image: `/opt/mxe/src` carries
+`python-conf.mk`, `python-mako.mk`, `python-markupsafe.mk` and
+`python-setuptools.mk`, and nothing else. The earlier note in
+`Dockerfile.mingw` claiming MXE builds one as a dependency was wrong, and has
+been corrected.
 
-Upstream avoids cross-compiling CPython by downloading a repackaged **Python
-3.4.4** from `sigrok.org/tmp` and hand-writing a `python3.pc` that points at
-it. Those URLs are still alive and the process still works, including the
-`gendef`/`dlltool` step that manufactures the `libpython34.a` that the 64-bit
-Python installer never shipped.
+**Until 2026-08-23 this was upstream's workaround, carried as debt.** Upstream
+avoids cross-compiling CPython by downloading a repackaged **Python 3.4.4**
+from `sigrok.org/tmp` over plaintext HTTP and hand-writing a `python3.pc` that
+points at it. It worked, and it was what sigrok's own installers shipped, so
+the decoders were known to run against it.
 
-This is debt, not a solution: Python 3.4 has been end-of-life since March 2019
-and the download is plaintext HTTP. It is accepted for now because it is what
-sigrok's own Windows installers ship, so the decoders are known to run against
-it. Checksums observed:
+It was not merely untidy. Python 3.4 cannot parse f-strings, variable
+annotations, `enum.IntFlag` or dataclasses, and
+`srd_decoder_load_all_path()` discards the error from every decoder that
+fails to load - so such a decoder was simply **absent from the list, with no
+diagnostic anywhere**, on Windows only, while working on Linux where the build
+uses the distribution's python3. That platform split blocked importing
+decoders from other sigrok derivatives, and would have been expensive to
+diagnose later.
 
-```
-b50cb8e2f4297ef362d5dad0d516a10f58b74e95a10dc03760f4512e9ceffd86  Python34_x86_64.tar.gz
-a3b3ea1e583c3565cb422af954acc7efa3c3d8031afd1e55921962e6736650d4  python34_x86_64.dll
-56d95f69220c068e92617a92f80571314a1b16c02a6d5cb2a0b2613c5b15f3a3  python34_x86_64.zip
-```
+**Now: CPython 3.13.15 from python.org, two artifacts, both pinned.**
 
-These belong in `upstreams.lock.toml` as pinned artifacts, and the files
-should be mirrored, before any of this is called reproducible.
+| | |
+|---|---|
+| `python-3.13.15-embed-amd64.zip` | the official Windows embeddable package - the runtime that ships |
+| `Python-3.13.15.tar.xz` | headers only; nothing here is compiled |
+
+Both are fetched over HTTPS from the canonical python.org release directory,
+pinned by version and SHA-256 in `upstreams.lock.toml` as `cpython-windows-embed`
+and `cpython-source`, and baked into the builder image at `/opt/sigrok-deps`.
+A build reaches no network; `build_windows_mxe.sh --offline` proves it.
+`gendef`/`dlltool` still manufactures the import library the official 64-bit
+package does not ship, exactly as upstream does - that part of the workaround
+was sound and was kept.
+
+Four things worth knowing, each of which was checked rather than assumed:
+
+**`pyconfig.patch` is no longer applied, and no longer needed.** It existed
+for upstream bug #1195: the 3.4 header left `MS_WIN64` undefined under mingw,
+so `Py_ssize_t` came out 4 bytes wide on 64-bit Windows and *no* decoder
+worked. CPython carries that `__MINGW32__` block itself now. Rather than trust
+that, `build_windows_mxe.sh` compiles a probe on every build that asserts
+`MS_WIN64`, `sizeof(Py_ssize_t) == 8` and `PY_VERSION_HEX >= 0x030900F0`. It
+appears in the build output as `abi-check`.
+
+**3.13, not 3.12.** Python 3.12 is in its security-only phase and those
+releases are source-only - `python-3.12.11-embed-amd64.zip` is a 404 - so
+pinning 3.12 would have meant pinning the much older 3.12.10. 3.14 was avoided
+to limit C-API churn against the pinned libsigrokdecode.
+
+**The package ships whole, not hand-picked.** An import-table walk shows it is
+exactly self-closed: `_ctypes.pyd` needs `libffi-8.dll`, `_hashlib.pyd` needs
+`libcrypto-3.dll`, and every other import is an `api-ms-win-*` UCRT stub
+present on any supported Windows. Dropping a `.pyd` to save space would come
+back as a decoder that silently fails to import. The staging step now walks
+those import tables and fails if any PE needs a DLL the tree does not carry;
+it appears in the build output as `imports`. The tree costs about 21 MB of
+Python against the old 7 MB.
+
+**`configure.ac` did not need touching.** It probes `python-3.12-embed` and
+friends by module name and then falls back to `python3 >= 3.2`; the
+hand-written `python3.pc` satisfies that last alternative, and the configure
+log confirms it: `checking for glib-2.0 python3 >= 3.2... yes`.
+
+Windows now runs a *newer* Python than either Linux delivery - the AppImage
+builder has 3.10 and the thin Linux build takes the distribution's 3.12 - so
+3.10 is the floor across platforms, rather than 3.4.
 
 ## How the stage-2 scripts were arrived at
 
@@ -392,7 +452,7 @@ LFS. That is what makes the rest of this list short.
 | Dependency | State |
 |---|---|
 | MXE's upstream tarballs, from **117 distinct hosts** | **Retired.** Baked into the image; a load never reaches them |
-| Python 3.4.4 from `sigrok.org` over plaintext HTTP | **Retired.** Baked into the image at `/opt/sigrok-deps`, checksum-verified at build time |
+| CPython 3.13.15 from `python.org` over HTTPS | **Retired.** Pinned in the lock, baked into the image at `/opt/sigrok-deps`, checksum-verified at bake time and again at build time. Replaced the plaintext-HTTP Python 3.4.4 from `sigrok.org` on 2026-08-23 |
 | Debian base image and apt packages | Baked in. Only a from-source image rebuild re-fetches them |
 | The 7 sigrok sources | **Retired.** Vendored into `05_Software/` as plain files; a clone carries them |
 | `sigrok-firmware`, `fx2lafw` tarball | **Still exposed.** Not mirrored, not yet needed - no build so far uses them |
@@ -430,7 +490,7 @@ is a substantially larger job than making the build repeatable.
 |---|---|---|
 | An SSH key for the WSL user, registered in Gitea | cloning MXE inside WSL | the Windows artifact, unless `--mxe-src` is used |
 | `appimagetool` version and SHA-256 in `upstreams.lock.toml` | `Dockerfile.appimage` | the Linux artifact |
-| The three Python 3.4.4 artifacts pinned and mirrored | `libsigrokdecode` on Windows | not blocking a build; blocking any claim of reproducibility |
+| The two CPython artifacts mirrored | `libsigrokdecode` on Windows | not blocking. They are pinned by SHA-256 and carried in the image, so they cannot change underneath us and a build does not fetch them; only a from-source image rebuild would, and only python.org can serve them |
 | A recorded base-image digest for both Dockerfiles | reproducibility | not blocking; the first build records one |
 
 The SSH key is an operator action. Generating one inside WSL and adding the

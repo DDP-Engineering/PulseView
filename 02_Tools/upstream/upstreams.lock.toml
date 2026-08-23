@@ -179,6 +179,64 @@ mirrored = false
 # a "self-contained" Linux build launches fine headless and then fails the
 # moment it needs a real display.
 
+# Added 2026-08-23. The Python that libsigrokdecode embeds for the Windows
+# target. MXE has no python3 for the Windows target - verified in the built
+# image, where /opt/mxe/src carries only python-conf.mk, python-mako.mk,
+# python-markupsafe.mk and python-setuptools.mk, all host-side helpers - so
+# the interpreter has to come from outside the toolchain.
+#
+# These two replace the three Python 3.4.4 files that build_windows_mxe.sh
+# used to pull from http://www.sigrok.org/tmp: end-of-life since March 2019,
+# plaintext HTTP, one third-party host, and never pinned here. Both are
+# fetched over HTTPS from the canonical python.org release directory and
+# baked into the mingw builder image, so the build itself reaches no network.
+#
+# Version choice: 3.13 rather than 3.12 because 3.12 is in its security-only
+# phase and those releases are source-only - python-3.12.11-embed-amd64.zip
+# is a 404 - so pinning 3.12 would mean pinning the much older 3.12.10.
+# Rather than 3.14 to limit C-API churn against the pinned libsigrokdecode.
+
+[[artifact]]
+name = "cpython-windows-embed"
+version = "3.13.15"
+url = "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip"
+sha256 = "d1f04d990aee1253d8569e8e5104e30fa9f5fa830899f14843448872d936a2cf"
+role = "windows-embedded-runtime"
+licence = "PSF-2.0"
+licence_url = "https://docs.python.org/3/license.html"
+reviewed = 2026-08-23
+mirrored = false
+# The official Windows embeddable package: python313.dll, the stdlib as
+# python313.zip, the loose .pyd extension modules, vcruntime140.dll and
+# vcruntime140_1.dll, and python313._pth. That _pth is what pins sys.path to
+# [python313.zip, .] at runtime, so the staged tree needs no PYTHONPATH and
+# consults no registry. Shipped whole rather than hand-picked: an import-table
+# walk shows the package is exactly self-closed - _ctypes.pyd needs
+# libffi-8.dll, _hashlib.pyd needs libcrypto-3.dll - and every other import is
+# an api-ms-win-* UCRT stub present on the target. A missing module would show
+# up as a decoder that silently fails to load, which is the failure this whole
+# dependency exists to avoid.
+
+[[artifact]]
+name = "cpython-source"
+version = "3.13.15"
+url = "https://www.python.org/ftp/python/3.13.15/Python-3.13.15.tar.xz"
+sha256 = "1e66a7945a48390ee4c2a4268a0e4185884059a13c4aab6d148aa208deea4a76"
+role = "windows-embedded-headers"
+licence = "PSF-2.0"
+licence_url = "https://docs.python.org/3/license.html"
+reviewed = 2026-08-23
+mirrored = false
+# Headers only; nothing here is compiled. The embeddable package above ships
+# no Include/ tree, so the cross-build takes Include/** from this tarball and
+# copies PC/pyconfig.h.in to pyconfig.h. From 3.13 CPython generates the
+# Windows pyconfig.h at build time instead of shipping a static PC/pyconfig.h,
+# so that .in file is the source of it; verified 2026-08-23 to be identical,
+# modulo CRLF, to the include/pyconfig.h in the official python.3.13.15 nuget
+# binary package, i.e. it is exactly the header the shipped DLL was built
+# with. Taking it from here rather than from nuget keeps the trust set to one
+# host.
+
 # Findings that affect the offline build, recorded 2026-08-17:
 #
 # 1. sigrok-util/cross-compile/msys2/sigrok-native-msys2 clones

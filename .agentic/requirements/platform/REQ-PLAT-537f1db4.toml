@@ -1,0 +1,77 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-PLAT-537f1db4"
+
+title = "Resolve the Windows Python runtime from pinned offline artifacts"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+The Windows cross-build shall take the Python runtime and headers it embeds only from artifacts carried inside the builder image and verified, immediately before use, against SHA-256 digests recorded in the project's upstream lock alongside the HTTPS URL each artifact was fetched from.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Run 02_Tools/build/build_windows_mxe.sh --offline --clean, which gives the container no network interface at all, and confirm libsigrokdecode configures and links against the embedded Python; a fetch that reached outside the image cannot succeed under that condition. Then inspect 02_Tools/upstream/upstreams.lock.toml and confirm each Python artifact the build consumed is listed there with an https:// url and the same sha256 the image verified at bake time."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+    "02_Tools/build/build_image.sh",
+    "02_Tools/build/build_windows_mxe.sh",
+    "02_Tools/build/images/Dockerfile.mingw",
+    "02_Tools/upstream/upstreams.lock.toml",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = [
+    "02_Tools/build/build_windows_mxe.sh::offline_clean_build",
+]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "high"   # low | normal | high
+rationale = "An unpinned artifact fetched over plaintext HTTP from a single third-party host is both an availability risk and a tampering risk, and it is the one input that would let the contents of the Windows delivery change without any change in this repository. Recording the digest in the lock and carrying the bytes in the image makes the build repeatable without that host, and makes any substitution fail loudly rather than silently."
+
+created = 2026-08-23
+updated = 2026-08-23

@@ -174,9 +174,14 @@ RUN mxe-build ${MXE_PKGS_TOOLCHAIN}
 # mxe-deps - the libraries libsigrok links
 #
 # libusb1 carries our RAW_IO patch, so a failure here matters more than a Qt
-# failure does. libsigrokdecode embeds CPython, so a Windows python3 has to
-# exist in the toolchain too; MXE builds it as a dependency rather than being
-# listed here. If decoders come out missing, check that first (doc 09, R-19).
+# failure does.
+#
+# There is deliberately no python here. An earlier revision of this comment
+# claimed MXE builds a Windows python3 as a dependency; it does not, and there
+# is no such target package. The interpreter libsigrokdecode embeds is baked
+# into the `final` stage from python.org instead. `gendef` is in this list for
+# that job: it reads the export table of the shipped python DLL so dlltool can
+# manufacture the import library the official package does not include.
 # --------------------------------------------------------------------------
 FROM mxe-gcc AS mxe-deps
 # `check` is deliberately absent. libcheck 0.15.2 ships its own
@@ -268,34 +273,55 @@ RUN set -eux; \
 
 # The Windows Python that libsigrokdecode links against.
 #
-# MXE has no python3 for the Windows target, so upstream sidesteps
-# cross-compiling CPython by downloading a repackaged Python 3.4.4 from
-# sigrok.org. That is the only proven route, but it is a single third-party
-# host, serving plaintext HTTP, for a runtime that has been end-of-life since
-# March 2019 - the most fragile external dependency in the whole build.
+# MXE has no python3 for the Windows target - /opt/mxe/src carries only
+# python-conf.mk, python-mako.mk, python-markupsafe.mk and
+# python-setuptools.mk, every one of them a host-side helper - so the
+# interpreter has to come from outside the toolchain.
 #
-# Baking it into the image retires that risk the same way the image retires
+# Two artifacts, both from python.org over HTTPS, both pinned by version and
+# sha256 in 02_Tools/upstream/upstreams.lock.toml, which is where these build
+# arguments come from. There are no defaults on purpose: an unset value must
+# fail this layer rather than quietly bake an unpinned runtime.
+#
+#   embed zip    the official Windows embeddable package - python313.dll, the
+#                stdlib as python313.zip, the .pyd extension modules,
+#                vcruntime140*.dll and python313._pth. This is the runtime
+#                that ships to users.
+#   source tar   headers only, nothing compiled. The embeddable package has no
+#                Include/ tree, and from 3.13 CPython generates the Windows
+#                pyconfig.h at build time from PC/pyconfig.h.in rather than
+#                shipping a static one, so both come from here.
+#
+# This replaces a repackaged Python 3.4.4 fetched over plaintext HTTP from a
+# single third-party host - end-of-life since March 2019, and the reason any
+# decoder using post-3.4 syntax silently failed to load on Windows while
+# working on Linux.
+#
+# Baking them in retires the availability risk the same way the image retires
 # MXE's 117 download hosts: fetched once, checksum-verified, then carried in
 # the archive forever. build_windows_mxe.sh prefers these copies and only
 # falls back to the network if they are absent.
-#
-# Checksums observed 2026-08-17. A mismatch fails the build rather than
-# silently accepting whatever that host serves next.
-ARG PY34_SHA_TARGZ=b50cb8e2f4297ef362d5dad0d516a10f58b74e95a10dc03760f4512e9ceffd86
-ARG PY34_SHA_DLL=a3b3ea1e583c3565cb422af954acc7efa3c3d8031afd1e55921962e6736650d4
-ARG PY34_SHA_ZIP=56d95f69220c068e92617a92f80571314a1b16c02a6d5cb2a0b2613c5b15f3a3
+ARG PY_VERSION
+ARG PY_EMBED_URL
+ARG PY_EMBED_SHA256
+ARG PY_SRC_URL
+ARG PY_SRC_SHA256
 RUN set -eux; \
+    for v in PY_VERSION PY_EMBED_URL PY_EMBED_SHA256 PY_SRC_URL PY_SRC_SHA256; do \
+        eval "test -n \"\${$v:-}\"" \
+            || { echo "build-arg $v is required; build this image with build_image.sh, which reads it from upstreams.lock.toml" >&2; exit 1; }; \
+    done; \
     d=/opt/sigrok-deps; mkdir -p "$d"; \
-    base=http://www.sigrok.org/tmp; \
-    wget -q -O "$d/Python34_x86_64.tar.gz" "$base/Python34_x86_64.tar.gz"; \
-    wget -q -O "$d/python34_x86_64.dll"    "$base/python34_x86_64.dll"; \
-    wget -q -O "$d/python34_x86_64.zip"    "$base/python34_x86_64.zip"; \
+    embed="python-${PY_VERSION}-embed-amd64.zip"; \
+    src="Python-${PY_VERSION}.tar.xz"; \
+    wget -q -O "$d/$embed" "${PY_EMBED_URL}"; \
+    wget -q -O "$d/$src"   "${PY_SRC_URL}"; \
     printf '%s  %s\n' \
-        "${PY34_SHA_TARGZ}" "$d/Python34_x86_64.tar.gz" \
-        "${PY34_SHA_DLL}"   "$d/python34_x86_64.dll" \
-        "${PY34_SHA_ZIP}"   "$d/python34_x86_64.zip" \
+        "${PY_EMBED_SHA256}" "$d/$embed" \
+        "${PY_SRC_SHA256}"   "$d/$src" \
         > "$d/SHA256SUMS"; \
     sha256sum --check --strict "$d/SHA256SUMS"; \
+    printf '%s\n' "${PY_VERSION}" > "$d/PY_VERSION"; \
     chmod -R a+rX "$d"
 
 # /build is where run_in_builder.sh mounts a named volume for out-of-tree
@@ -327,7 +353,8 @@ LABEL org.opencontainers.image.title="sigrok Windows cross-builder" \
       io.ddp.mxe.commit="${MXE_COMMIT}" \
       io.ddp.mxe.target="${MXE_TARGET}" \
       io.ddp.mxe.qt5_freeze="${MXE_QT5_FREEZE}" \
-      io.ddp.mxe.patches="${MXE_PATCHES}"
+      io.ddp.mxe.patches="${MXE_PATCHES}" \
+      io.ddp.python.version="${PY_VERSION}"
 
 USER ${USER_UID}:${USER_GID}
 WORKDIR /work
