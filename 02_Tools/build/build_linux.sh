@@ -156,8 +156,15 @@ installed.
 
 Runtime dependencies (once):
   sudo apt install libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 \
-    libglibmm-2.4-1t64 libqt5core5a libqt5gui5 libqt5widgets5 \
+    libglibmm-2.4-1t64 libhidapi-hidraw0 libpython3.12 \
+    libqt5core5a libqt5gui5 libqt5widgets5 \
     libqt5svg5 python3 python3-numpy
+
+  Two of those are easy to leave out and produce the same symptom: sigrok-cli
+  exits 127 with "error while loading shared libraries" and never starts.
+  libhidapi-hidraw0 is linked by libsigrok. libpython3.12 is what actually
+  ships libpython3.12.so.1.0 - the python3 package installs the interpreter
+  but not the shared library libsigrokdecode links against.
 
 Device access (once):
   sudo cp 60-hantek-dso3062l.rules /etc/udev/rules.d/

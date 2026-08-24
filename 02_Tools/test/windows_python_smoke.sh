@@ -41,7 +41,19 @@ FAILED=0
 [ -d "${DECODERS}" ] || { printf 'error: no decoders at %s\n' "${DECODERS}" >&2; exit 1; }
 
 CLI="${STAGE}/sigrok-cli.exe"
-[ -f "${CLI}" ] || { printf 'error: no sigrok-cli.exe in %s\n' "${STAGE}" >&2; exit 1; }
+if [ ! -f "${CLI}" ]; then
+    # A Linux staging tree is not a broken Windows one. This test is about the
+    # Python embedded in the Windows build, so pointed at the Linux tree it
+    # cannot run rather than has failed - 77, not 1. Only a tree with neither
+    # binary is an actual error.
+    if [ -f "${STAGE}/sigrok-cli" ]; then
+        printf 'skip: %s is a Linux staged tree; this test covers the Windows build\n' \
+            "${STAGE}" >&2
+        exit 77
+    fi
+    printf 'error: no sigrok-cli.exe in %s\n' "${STAGE}" >&2
+    exit 1
+fi
 
 # Pick a runner. On Windows the .exe is native; elsewhere it needs Wine.
 RUNNER=()
@@ -64,6 +76,15 @@ cleanup() { rm -rf "${PROBE_DIR}"; find "${DECODERS}" -name '__pycache__' -type 
 trap 'cleanup; rm -rf "${TMP}"' EXIT
 
 run_cli() { ( cd "${STAGE}" && "${RUNNER[@]}" "./$(basename "${CLI}")" "$@" 2>&1 ); }
+
+# Same reasoning as the runner check above, one step later: a binary present
+# but unable to start would make every count below zero, and the test would
+# report a missing-decoder failure for something that never executed.
+if ! run_cli --version >/dev/null 2>&1; then
+    printf 'skip: %s cannot start on this host\n' "$(basename "${CLI}")" >&2
+    run_cli --version 2>&1 | head -3 | sed 's/^/    /' >&2
+    exit 77
+fi
 
 # `-L` lists drivers, input, output and transform modules before the decoders,
 # every entry two-space indented, with CRLF line endings. The decoder section

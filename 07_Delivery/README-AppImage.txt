@@ -1,5 +1,5 @@
 PulseView / sigrok-cli for the Hantek DSO-3062L and ALIENTEK ATK DL16
-Linux x86_64 AppImage - built 97ee66f
+Linux x86_64 AppImage - built 67114f1
 ======================================================================
 
 Fully self-contained: Qt5, glib, boost, libftdi, libusb, hidapi, libzip and

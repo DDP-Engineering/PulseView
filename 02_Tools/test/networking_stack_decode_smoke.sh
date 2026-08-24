@@ -76,6 +76,21 @@ run_cli() { ( cd "${STAGE}" && "${RUNNER[@]}" "./$(basename "${CLI}")" "$@" 2>&1
 
 note "staged tree ${STAGE}"
 
+# The binary has to start before any assertion below means anything. The thin
+# Linux tarball needs runtime libraries from the distribution, and on a host
+# without them the dynamic loader exits 127 before main() - at which point
+# every grep further down finds nothing and the test reports 23 assertion
+# failures for a binary that never ran. That is "cannot run here", which is
+# 77, not a failing decoder. Checked here rather than trusted, because the
+# difference between the two is the whole point of the exit-code convention.
+if ! run_cli --version >/dev/null 2>&1; then
+    printf 'skip: %s cannot start on this host\n' "$(basename "${CLI}")" >&2
+    run_cli --version 2>&1 | head -3 | sed 's/^/    /' >&2
+    printf '    The thin Linux tarball needs its runtime libraries; see the\n' >&2
+    printf '    README.txt in the staged tree for the apt line.\n' >&2
+    exit 77
+fi
+
 "${PY}" "${GEN}" "${TMP}" || { printf 'error: capture generation failed\n' >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
