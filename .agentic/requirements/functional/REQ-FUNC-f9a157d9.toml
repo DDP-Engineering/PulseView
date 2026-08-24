@@ -1,0 +1,82 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-FUNC-f9a157d9"
+
+title = "Decode the NRZI, 4b5b, Ethernet, ARP, IPv4 and UDP stack"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+When a logic capture containing an NRZI-encoded, 4b5b-coded Ethernet frame carrying an ARP packet or an IPv4/UDP packet is decoded by stacking the vendored nrzi, 4b5b, ethernet, and arp or ipv4/udp protocol decoders, the decoder stack shall emit annotations that report the frame's actual protocol field values - at minimum the Ethernet source/destination addresses and EtherType, the ARP operation or the IPv4 addresses and protocol, and the UDP source/destination ports - rather than loading with no annotation output.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Run sigrok-cli -P nrzi,4b5b,ethernet,arp (and separately ...,ipv4,udp) against a capture built for this task, and confirm the emitted annotation stream names real field values decoded from the capture's actual bytes (addresses, EtherType, operation/protocol, ports), not merely that the decoders loaded without error. The exact capture source (synthesized demo-driver .sr, real hardware, or - failing both - inspection against the protocol spec with a DEVIATION recorded) is fixed at design and logged in the task journal."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+    "05_Software/libsigrokdecode/decoders/nrzi",
+    "05_Software/libsigrokdecode/decoders/4b5b",
+    "05_Software/libsigrokdecode/decoders/ethernet",
+    "05_Software/libsigrokdecode/decoders/arp",
+    "05_Software/libsigrokdecode/decoders/ipv4",
+    "05_Software/libsigrokdecode/decoders/udp",
+    "02_Tools/test/gen_networking_stack_captures.py",
+    "02_Tools/test/networking_stack_decode_smoke.sh",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = [
+    "02_Tools/test/networking_stack_decode_smoke.sh::arp_chain_decodes_real_fields",
+    "02_Tools/test/networking_stack_decode_smoke.sh::ipv4_udp_chain_decodes_real_fields",
+]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "high"   # low | normal | high
+rationale = "A decoder that loads but decodes nothing is explicitly called out as a failure, not a pass - the batch is a stacking chain precisely to exercise real dependency between decoders, not six independently-loading leaves, and a capability this project genuinely lacked (network protocol decoding) is only real once it produces correct field values on real bytes."
+
+created = 2026-08-23
+updated = 2026-08-23

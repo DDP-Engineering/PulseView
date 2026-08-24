@@ -47,7 +47,27 @@ close = []
 
 [check]
 secret_patterns_extra = []
-ignore = []
+# Two distinct findings live here, both promoted by `strict_promote` below and
+# neither an actual secret. They are listed file by file rather than by a glob
+# over the vendored trees, because `ignore` is read by every diff check, not
+# only the secret scan: an ignored path also drops out of `uncovered-source`
+# and `scope-drift`. That is acceptable for the three entries below and would
+# not be for a whole directory of third-party code, which is exactly where a
+# secret scan earns its keep.
+ignore = [
+    # A coverage gap, not a match. `added_lines_of` refuses to read an
+    # untracked file over MAX_SCAN_BYTES (256 KiB), and a task's generated
+    # anchor exceeds that once the tree is large enough - TASK-2898e9a7's is
+    # 380 KiB where TASK-4459b9f5's is 21 KiB, which is the whole reason only
+    # one of the two ever produced this finding. The content is AEGIS's own
+    # state: repo-relative paths and sha256 digests, nothing else.
+    ".agentic/tasks/*.anchor.json",
+    # Real content, wrong conclusion. Both are upstream sigrok RFID decoders
+    # for tags whose protocol has a literal password field, so the word is
+    # protocol vocabulary in a decoder table. Vendored code, unmodified here.
+    "05_Software/libsigrokdecode/decoders/em4305/pd.py",
+    "05_Software/libsigrokdecode/decoders/t55xx/pd.py",
+]
 strict_promote = [
     "config",
     "secret-in-diff",

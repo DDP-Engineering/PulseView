@@ -43,7 +43,7 @@ Only build the image from source when the toolchain itself must change:
 
 | File | Holds |
 |---|---|
-| `hantek-builder-mingw.tar` | MXE cross-toolchain for Windows x86_64: gcc 11.5.0, Qt 5.15.19, glib 2.89.1 (held), glibmm 2.66.2, libusb 1.0.27 with the RAW_IO patch, plus host doxygen and NSIS |
+| `hantek-builder-mingw.tar` | MXE cross-toolchain for Windows x86_64: gcc 11.5.0, Qt 5.15.19, glib 2.89.1 (held), glibmm 2.66.2, libusb 1.0.27 with the RAW_IO patch, plus host doxygen and NSIS. Also the pinned CPython 3.13.15 that libsigrokdecode embeds, at `/opt/sigrok-deps` |
 | `*.tar.sha256` | Checksum, verified by `load_image.sh` before loading |
 
 ## Notes
@@ -55,8 +55,19 @@ again would cost time and save nothing.
 **Each revision costs its full size in LFS storage.** Git LFS does not
 deduplicate between versions, so a regenerated archive adds another ~2.2 GB
 that never goes away. Regenerate when the toolchain genuinely changes - a new
-MXE pin, a new package, a new patch - and not merely because the image was
-rebuilt.
+MXE pin, a new package, a new patch, a change to what the image bakes - and
+not merely because the image was rebuilt.
+
+Regenerated once so far, on 2026-08-23, when the embedded CPython moved from
+3.4.4 to 3.13.15. That is the shape of change that requires it: the archive
+carries the pinned Python artifacts, so an archive older than the Dockerfile
+hands a fresh clone an image that cannot build offline.
+
+**MXE itself is not in this repository, and does not need to be.** This archive
+is the toolchain; MXE is only the recipe for building it, and building from
+that recipe downloads 2-3 GB of upstream source from hundreds of hosts anyway.
+Vendoring the recipe without the ingredients would buy nothing. If MXE ever
+disappears, this archive is what keeps the Windows build alive.
 
 **A clone without Git LFS gets a pointer file**, roughly 130 bytes, in place of
 the archive. `load_image.sh` detects that and says so. The fix is

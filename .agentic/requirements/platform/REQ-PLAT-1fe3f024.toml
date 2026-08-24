@@ -1,0 +1,70 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-PLAT-1fe3f024"
+
+title = "Record governance when a vendor tree becomes locally modified"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+When this repository's own changes to a vendored upstream source make that source no longer a passive, re-vendorable copy of its canonical upstream, the entry for that source in 02_Tools/upstream/upstreams.lock.toml shall record the transition explicitly: a role no longer describing it as a pristine, re-clonable dependency, clone_enabled left or set to false, and an adjacent comment stating what content is now locally authored or modified, what an automated re-vendor would overwrite, and what a future rebase against upstream would cost.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Inspection: read the libsigrokdecode [[source]] entry and its adjacent comment in 02_Tools/upstream/upstreams.lock.toml, and the earlier libsigrok-removal comment above the source list it is modeled on. Confirm both name the same three things - what is now local, what --vendor would destroy, what a rebase costs - in the same voice, and confirm libsigrokdecode's role field no longer reads as a pristine build-dependency and clone_enabled is false."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = ["02_Tools/upstream/upstreams.lock.toml"]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = []
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "high"   # low | normal | high
+rationale = "upstreams.lock.toml's policy is immutable-commits-only; a source that keeps a pristine-dependency role after this repository starts adding or rewriting files inside it would let a future `--vendor` silently overwrite local work, exactly the failure mode the libsigrok entry's removal already had to guard against."
+
+created = 2026-08-23
+updated = 2026-08-23

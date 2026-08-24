@@ -1,0 +1,44 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-23T19:30:50.373262Z",
+      "anchor_head": "30128a3544aabeb23ab3185c4b4d55de8b734a8f",
+      "anchor_id": "931c60aacbc9bcff",
+      "anchor_stage": "build",
+      "changes": [],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 83
+          },
+          "source": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 1513
+          },
+          "tests": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 55
+          }
+        },
+        "status": {
+          "added": 0,
+          "modified": 0,
+          "removed": 0,
+          "unchanged": 1651
+        }
+      },
+      "current_head": "30128a3544aabeb23ab3185c4b4d55de8b734a8f",
+      "evolution_stage": "validate",
+      "evolved_at": "2026-08-23T19:32:57.671456Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-53d70195"
+}

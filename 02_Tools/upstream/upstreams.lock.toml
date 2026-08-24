@@ -41,12 +41,32 @@ fork_url = "ssh://git@192.168.1.15:2222/dpasare/mirror-pulseview.git"
 fork_status = "mirror-deleted-2026-08-19"
 clone_enabled = false
 
+# libsigrokdecode stopped being a passive, re-vendorable copy of upstream on
+# 2026-08-23, when the first Tier A decoders (ATK-Logic's drop-in additions,
+# starting with the nrzi/4b5b/ethernet/arp/ipv4/udp networking stack) were
+# added under 05_Software/libsigrokdecode/decoders/. The pinned commit above
+# is still meaningful - it is the upstream base every added decoder was
+# reviewed against, and the 131 decoders and the `common` helper package
+# that came from it are still that commit's own files, untouched - but the
+# tree as a whole is no longer only that commit. Leaving `role` as
+# "build-dependency" would say otherwise, and would let a future `--vendor`
+# silently overwrite every added decoder with a pristine reclone, exactly
+# the failure mode the libsigrok entry above was removed to avoid. Unlike
+# libsigrok this is not being pulled fully in-house - most of the tree
+# still is upstream's own unmodified work - so the entry stays rather than
+# being deleted; `clone_enabled` was already `false` following the same
+# mirror deletion, and stays that way. `role` is `"modified-vendor-tree"`
+# rather than reusing pulseview's `"modified-submodule"`: libsigrokdecode
+# was never a git submodule, only ever plain vendored files, and the label
+# should say what it actually is. A future rebase onto a newer upstream
+# commit means re-diffing every added decoder against the new tree by hand,
+# not re-running a vendor pull.
 [[source]]
 name = "libsigrokdecode"
 canonical_url = "https://github.com/sigrokproject/libsigrokdecode.git"
 commit = "71f451443029322d57376214c330b518efd84f88"
 head_observed = "71f451443029322d57376214c330b518efd84f88"
-role = "build-dependency"
+role = "modified-vendor-tree"
 licence = "GPL-3.0 repository licence; per-file terms govern"
 licence_url = "https://github.com/sigrokproject/libsigrokdecode/blob/71f451443029322d57376214c330b518efd84f88/COPYING"
 reviewed = 2026-08-15
