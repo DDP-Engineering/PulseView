@@ -13,12 +13,15 @@ gap, the two traps that burned three bisections. That part is still the
 reason the build works and is kept verbatim; the status around it is
 updated as the build changes.
 
-**All three deliveries build and are verified against hardware.**
+**All three deliveries build and are verified against hardware.** Last rebuilt
+clean at `67114f1` on 2026-08-24, the first build carrying the six imported
+networking decoders - see [What the 2026-08-24 rebuild
+found](#what-the-2026-08-24-rebuild-found) for the two defects that exposed.
 
 | Target | Script | Result |
 |---|---|---|
-| Windows x86_64 | `build_windows_mxe.sh` | `sigrok-cli.exe`, `pulseview.exe`, statically linked |
-| Linux x86_64 (thin) | `build_linux.sh` | tarball; needs runtime libs from the distro |
+| Windows x86_64 | `build_windows_mxe.sh` + `package_windows.sh` | `sigrok-cli.exe`, `pulseview.exe`, statically linked; zipped only after the suite passes |
+| Linux x86_64 (thin) | `build_linux.sh` | tarball; needs runtime libs from the distro, listed in the README it emits |
 | Linux x86_64 (portable) | `build_appimage.sh` | self-contained AppImage, no host packages |
 
 | Component | Result |
@@ -81,7 +84,8 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 | `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. |
 | `bootstrap/check_host.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\bootstrap\check_host.ps1` | The Windows counterpart. Reported ready with 0 warnings on the development host, and was written in PowerShell ConstrainedLanguage-safe form after the first run failed on `New-Object`, `[pscustomobject]` and `[math]::Floor` under a managed policy. Probes Docker from inside WSL, not from Windows. Rejects `System32\bash.exe` when locating Git Bash. `-Install` is opt-in and prompts per package; `-WhatIf` installs nothing. |
 | `02_Tools/test/run_tests.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\test\run_tests.ps1` | PowerShell entry point to the bash suite: 2 passed, 0 failed, 0 skipped, matching a direct `bash run_tests.sh`. Forwards the exit code verbatim, including 77. Exits 77 itself when Git Bash is absent. Verified against a `-Test` single run and a deliberately wrong staging dir. |
-| `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-19 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. |
+| `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-24 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. **That emitted list was wrong until 2026-08-24** - see below. |
+| `package_windows.sh` | verified | Windows 11 host | 2026-08-24 | `./package_windows.sh` | Zips the staged Windows tree into `07_Delivery`. Runs the test suite first and refuses to package a tree that fails, or one it could not verify: exit 77 blocks it, since "cannot run here" is not a pass. Uses `python3 -m zipfile` because neither `zip` nor `7z` exists in Git Bash or the WSL image. `--skip-verify` tolerates only the 77 case, never a FAIL. |
 | `build_appimage.sh` | verified | appimage builder image | 2026-08-19 | `./build_appimage.sh` | Self-contained AppImage, both binaries behind one AppRun (`--cli` selects sigrok-cli). Verified on a bare ubuntu:22.04 with zero packages installed. PulseView still needs the host's libGL and display - deliberate; graphics libraries must match the kernel driver. |
 | `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written, and no longer obviously needed - the three per-target scripts cover the deliveries. |
 
@@ -222,6 +226,13 @@ not touch needed re-verifying; a full `build_windows_mxe.sh --offline --clean
 since `tools/install-decoders` auto-discovers directories under
 `05_Software/libsigrokdecode/decoders` with no build-system edit required.
 
+**Closed 2026-08-24.** All three deliveries were rebuilt clean at `67114f1`
+and the prediction held: `install-decoders` discovered the six directories
+with no build-system edit. `build-record.txt` now reads `decoders 138` where
+it read `132`, and `source_revs 67114f1` across every component. The evidence
+is no longer hand-staged - the decoders in the shipped artifacts were put
+there by the build.
+
 ### The Windows Python problem, and how it was closed
 
 libsigrokdecode embeds CPython, and MXE has no Python for the Windows target -
@@ -293,6 +304,53 @@ log confirms it: `checking for glib-2.0 python3 >= 3.2... yes`.
 Windows now runs a *newer* Python than either Linux delivery - the AppImage
 builder has 3.10 and the thin Linux build takes the distribution's 3.12 - so
 3.10 is the floor across platforms, rather than 3.4.
+
+## What the 2026-08-24 rebuild found
+
+All three deliveries were rebuilt clean at `67114f1`, the first build to
+compile in the six imported decoders. Two defects surfaced that only a rebuild
+plus a from-scratch install could have exposed. Both are fixed; both are worth
+recording, because the shape of each is more instructive than the fix.
+
+### The emitted Linux dependency list was incomplete
+
+`build_linux.sh` writes a `README.txt` into the tarball telling the user what
+to `apt install`. Following it exactly produced a `sigrok-cli` that exits 127
+from the dynamic loader before `main()`. Two packages were missing:
+
+| Missing | Why the list did not catch it |
+|---|---|
+| `libhidapi-hidraw0` | linked by libsigrok, and simply never listed |
+| `libpython3.12` | the list says `python3`, which installs the interpreter but *not* `libpython3.12.so.1.0`, which libsigrokdecode links against |
+
+The trap is the second one. `python3` looks like it covers Python, and on the
+build host it does, because the build dependencies drag the shared library in.
+Only a machine that never had them - a clean container, or a user's laptop -
+sees the difference. This had been shipping since the first Linux tarball.
+
+Proved both directions in a disposable `ubuntu:24.04` container: the documented
+list alone gives exit 127; the documented list plus those two gives 137
+decoders, both project drivers, and 23/23 decode assertions. Nothing was
+installed on the build host to establish this.
+
+### The smoke tests could not tell "broken" from "cannot run"
+
+Pointed at the thin Linux tree on a host without its runtime libraries, the
+suite reported **23 assertion failures**. Nothing had been tested: the binary
+never started. Every `grep` against empty output failed, and the test dutifully
+attributed that to the decoders.
+
+That is precisely the distinction exit 77 exists for, and the suite was blind
+to it in the one case where it mattered most - a delivery artifact on a machine
+that is not the build host. Both tests now probe `--version` before asserting,
+and `windows_python_smoke.sh` additionally recognises a Linux staging tree as
+out of scope rather than broken. Verified in both directions: `2 passed` on the
+Windows tree, `2 skipped` with `rc=77` and `nothing ran; this is not a passing
+suite` on the Linux tree.
+
+The general lesson, which applies to any test added later: a test that asserts
+on a subprocess's output must first establish that the subprocess ran. Absence
+of expected output is not evidence of wrong output.
 
 ## How the stage-2 scripts were arrived at
 
@@ -438,12 +496,13 @@ The target is a developer on the same network. The mirrors at
 from outside it.
 
 ```sh
-git clone ssh://git@192.168.1.15:2222/dpasare/2026_Hantek_DSO3062L.git
-cd 2026_Hantek_DSO3062L
+git clone ssh://git@192.168.1.15:2222/dpasare/2026_Pulseview.git
+cd 2026_Pulseview
 git lfs pull                              # the 2.2 GB toolchain image
 02_Tools/bootstrap/check_host.sh          # reports what is missing
 02_Tools/build/load_image.sh --image mingw
 02_Tools/build/build_windows_mxe.sh --stage
+02_Tools/build/package_windows.sh         # suite-gated; writes the zip
 ```
 
 No `git submodule update` step: the sigrok stack was folded into this
@@ -461,7 +520,11 @@ For Linux:
 ```
 
 `check_host.sh` is read-only by contract: it names the missing prerequisite
-and the exact command to fix it, and installs nothing.
+and the exact command to fix it, and installs nothing. On a Windows host use
+`02_Tools\bootstrap\check_host.ps1`, which checks the same ground plus the
+Windows-specific traps - it probes Docker from inside WSL rather than from
+Windows, and rejects `System32\bash.exe` when locating Git Bash. It is
+read-only by default; its `-Install` flag is opt-in and prompts per package.
 
 ### The offline claim, tested
 
