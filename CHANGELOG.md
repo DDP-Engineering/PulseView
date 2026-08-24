@@ -15,6 +15,23 @@ whole vendored sigrok stack.
 
 ### Added - August 2026
 
+- **Human- and agent-readable project documentation.** A root `README.md` that
+  describes the project as it is rather than as it began,
+  `01_Documentation/Environment_Setup.md` covering prerequisites, the two host
+  roles and every build command, `01_Documentation/Testing.md` covering the
+  suite and the 77-means-skipped convention, and `00_Planning/Overview.md`
+  describing the current implementation. The setup knowledge had been correct
+  but scattered across five files; none of it was reachable from the front door.
+- **`02_Tools/bootstrap/check_host.ps1`.** The Windows counterpart to
+  `check_host.sh`, named as planned since the bootstrap contract was written.
+  Probes Docker from inside WSL rather than from Windows, checks the toolchain
+  archive by size so a Git LFS pointer is caught at once, and rejects
+  `System32\bash.exe` when locating Git Bash. Read-only by default; `-Install`
+  offers `winget` remediation one package at a time.
+- **`02_Tools/test/run_tests.ps1`.** PowerShell entry point to the bash test
+  suite. Forwards the exit code verbatim and names 77 as skipped rather than
+  letting it read as a pass.
+
 - **`hantek-dso3062l` driver.** Wire protocol recovered from the vendor SDK and
   verified against the instrument: VDIV and coupling across the full 9-range
   ladder, deep capture to 16 Msamples, roll mode, the trigger system, the relay

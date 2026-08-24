@@ -25,7 +25,7 @@ updated as the build changes.
 |---|---|
 | libserialport | built |
 | libsigrok | built, C++ bindings enabled, 84 drivers |
-| libsigrokdecode | built against CPython 3.13.15; 131 decoders, all loading |
+| libsigrokdecode | built against CPython 3.13.15; 137 decoders, all loading |
 | `sigrok-cli.exe` | 15 MB, PE32+ console x86-64 |
 | `pulseview.exe` | 33 MB, PE32+ GUI x86-64 |
 | `PulseView-x86_64.AppImage` | 36 MB, self-contained |
@@ -73,12 +73,14 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 |---|---|---|---|---|---|
 | `images/Dockerfile.mingw` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Builds a 7.28 GB image. `check` excluded, glib held at 2.89.1 - see deviations below. |
 | `images/Dockerfile.appimage` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-19 | `./build_image.sh --image appimage` | The `appimagetool` and `linuxdeployqt` artifacts it needed were finally added to the lock; it had indeed been failing closed until then. Also pre-creates `/build` - without that the volume mounts root-owned and the build cannot write to it. |
-| `build_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Full path exercised: clone, pin check, patch check, base-digest pinning, build, provenance record. `--save` is still untested. |
+| `build_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-23 | `./build_image.sh --image mingw --tag ... --skip-patch mxe_fixes.patch --mxe-src ~/mxe-verify/mxe` | Full path re-exercised from scratch with zero cached layers: clone, pin check, patch check, base-digest pinning, build, provenance record. Needed `--mxe-src` because the Gitea MXE mirror in the lock was deleted on 2026-08-19; the clone came from the canonical GitHub URL and HEAD matched the pin. `--save` itself is still untested - the archive below was written with the `docker save` and `sha256sum` that block runs, not by the flag. |
 | `run_in_builder.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./run_in_builder.sh --image mingw -- bash /work/.work/probe-verify.sh` | Drove the whole stock-sigrok build. Its first run failed on a root-owned `/build`; fixed in the image, not the script. |
 | `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-23 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 84 drivers, 132 decoder directories, both executables, CPython 3.13.15. Does not build firmware, dumps, or the NSIS installers. |
 | `02_Tools/test/windows_python_smoke.sh` | verified | Windows 11 host | 2026-08-23 | `02_Tools/test/windows_python_smoke.sh` | Host-side, not a build step: it runs `sigrok-cli.exe`, which the MXE image cannot do (no Wine). Runs on Windows directly or on Linux with wine; exits 77 where it can run neither. |
-| `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. |
-| `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. Windows host equivalent not written. |
+| `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-23 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. Re-run against the regenerated archive: the loaded image is the same id that was built and proved, and its baked Python digests re-verify inside the container. |
+| `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. |
+| `bootstrap/check_host.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\bootstrap\check_host.ps1` | The Windows counterpart. Reported ready with 0 warnings on the development host, and was written in PowerShell ConstrainedLanguage-safe form after the first run failed on `New-Object`, `[pscustomobject]` and `[math]::Floor` under a managed policy. Probes Docker from inside WSL, not from Windows. Rejects `System32\bash.exe` when locating Git Bash. `-Install` is opt-in and prompts per package; `-WhatIf` installs nothing. |
+| `02_Tools/test/run_tests.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\test\run_tests.ps1` | PowerShell entry point to the bash suite: 2 passed, 0 failed, 0 skipped, matching a direct `bash run_tests.sh`. Forwards the exit code verbatim, including 77. Exits 77 itself when Git Bash is absent. Verified against a `-Test` single run and a deliberately wrong staging dir. |
 | `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-19 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. |
 | `build_appimage.sh` | verified | appimage builder image | 2026-08-19 | `./build_appimage.sh` | Self-contained AppImage, both binaries behind one AppRun (`--cli` selects sigrok-cli). Verified on a bare ubuntu:22.04 with zero packages installed. PulseView still needs the host's libGL and display - deliberate; graphics libraries must match the kernel driver. |
 | `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written, and no longer obviously needed - the three per-target scripts cover the deliveries. |
@@ -185,6 +187,40 @@ records stay comparable; `02_Tools/test/windows_python_smoke.sh` checks the
 invariant that actually matters, which is that every directory except `common`
 produces a listed decoder - and it names the ones that do not, rather than
 only counting them.
+
+### Decoder count: 137, not 131 - the first imported (non-upstream) decoders
+
+`05_Software/libsigrokdecode` was, until 2026-08-23, an unmodified vendor
+tree: every one of its 131 decoders was upstream's own file, at the pinned
+commit, untouched. That changed with the batch-one import of six of
+ALIENTEK's ATK-Logic decoders that are drop-in against this project's
+unmodified base decoders and stdlib-only: `nrzi`, `4b5b`, `ethernet`, `arp`,
+`ipv4`, `udp` - a networking-protocol stack this project genuinely lacked,
+imported as a stacking chain (`nrzi` -> `4b5b` -> `ethernet` -> `arp` |
+`ipv4` -> `udp`) rather than six independent leaves. `02_Tools/upstream/
+upstreams.lock.toml`'s libsigrokdecode entry records the resulting
+governance change: it is no longer listed as a pristine build-dependency.
+
+The count is 137 decoders now, 138 directories under the same `common`-is-not-
+a-decoder convention above. Both were verified with the same evidence the
+131/132 figures already rest on - `02_Tools/test/windows_python_smoke.sh`
+shows the count risen by exactly six with nothing previously listed missing
+- plus a second, dedicated check the earlier figure had no counterpart for:
+`02_Tools/test/networking_stack_decode_smoke.sh` generates a real,
+NRZI/4B5B-encoded Ethernet frame (correct FCS, IPv4 header checksum, and UDP
+checksum) and requires the stacked decoders to report the actual field
+values it encodes, not merely that the chain loads. Both passed on the
+staged Windows tree and, via WSL, on the staged Linux tree.
+
+DEVIATION build: decoder-loading evidence was gathered by staging the six
+added `.py` files into the already-built Windows and Linux trees with the
+same copy semantics `install-decoders` itself uses, rather than by re-running
+the multi-hour offline MXE cross-build end to end. Protocol decoders are
+interpreted, not compiled, so nothing in the C/C++/Qt toolchain this task did
+not touch needed re-verifying; a full `build_windows_mxe.sh --offline --clean
+--stage` will pick these decoders up automatically the next time it runs,
+since `tools/install-decoders` auto-discovers directories under
+`05_Software/libsigrokdecode/decoders` with no build-system edit required.
 
 ### The Windows Python problem, and how it was closed
 
@@ -385,6 +421,7 @@ Read out of the built image, not assumed:
 | libzip | 1.5.2 |
 | Qt5 Core/Widgets/Svg | 5.15.19 |
 | NSIS | 3.08 |
+| CPython (Windows target) | 3.13.15, baked at `/opt/sigrok-deps` |
 
 Everything libsigrok, libsigrokdecode, sigrok-cli and PulseView need for the
 Windows target is present.
@@ -449,6 +486,19 @@ Everything the build needs now comes from the image or the repository.
 The toolchain image is saved to `07_Delivery/toolchain/` and tracked in Git
 LFS. That is what makes the rest of this list short.
 
+**Regenerated 2026-08-23**, because the CPython change altered what the image
+bakes. The 2026-08-17 archive carried Python 3.4.4 at `/opt/sigrok-deps`, so
+after that change a fresh clone would have loaded an image without the pinned
+3.13.15 artifacts - `--offline` would have failed, correctly but unhelpfully,
+and a networked build would have quietly downloaded them from python.org
+instead of using the archive. Regenerating is what keeps the offline claim
+below true for a clone rather than only for this machine.
+
+| Archive | sha256 | Carries |
+|---|---|---|
+| 2026-08-23 (current) | `3f1821ccb0b3…2024` | CPython 3.13.15 |
+| 2026-08-17 (superseded) | `300c7ff428fc…5359d` | Python 3.4.4 |
+
 | Dependency | State |
 |---|---|
 | MXE's upstream tarballs, from **117 distinct hosts** | **Retired.** Baked into the image; a load never reaches them |
@@ -477,7 +527,9 @@ every apt version would break the moment a security update lands.
 
 **LFS storage grows per revision.** Git LFS does not deduplicate between
 versions, so each regenerated archive costs another ~2.2 GB permanently.
-Regenerate on a real toolchain change, not on every image rebuild.
+Regenerate on a real toolchain change, not on every image rebuild. Two
+revisions exist as of 2026-08-23 - the original and the CPython one - so the
+LFS store now holds about 4.7 GB of toolchain archive.
 
 **The build is repeatable, not bit-reproducible.** Two builds from the same
 inputs produce working binaries, not identical ones. Nothing here sets

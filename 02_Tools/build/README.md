@@ -108,7 +108,8 @@ MXE fetches Qt, Python, boost and the rest. That step needs the internet.
 
 After that, `docker save` writes the complete built environment to one
 tarball, and no later build reaches the network. The sigrok sources themselves
-are already offline: `05_Software/` points at the Gitea mirrors, never GitHub.
+cannot expire at all: `05_Software/` holds them as plain files in this
+repository, so a clone carries every source the build needs.
 
 So the accurate claim is "offline after the first toolchain build", not
 "offline from a cold start". Getting to a cold-start-offline build would mean
@@ -136,5 +137,9 @@ deletes to halve the image size.
 - `sigrok-util`'s own MSYS2 script is broken and is not used here; see
   planning doc 06.
 
-Nothing in this directory has been executed yet. See `STATUS.md` for what is
-implemented versus verified.
+Everything in this directory has been run, and all three deliveries are
+verified against hardware. `STATUS.md` is the ledger: which script, on which
+host, with which command, and what each one's known limitation is.
+
+For the operator's route from a fresh clone through to a build, see
+`01_Documentation/Environment_Setup.md`.

@@ -276,7 +276,7 @@ step 5 is met.
 
 ## The SDK manual is an authoritative source, and was under-used
 
-`01_Documentation/SDK_3062L/Manual/SDK_HTHardDLL-EN.pdf` documents every
+`04_HardwareDocu/Hantek_DSO3062L/SDK_3062L/Manual/SDK_HTHardDLL-EN.pdf` documents every
 exported function's parameters and their legal values. It gives semantics that
 disassembly can only guess at. The headers under `HeadFiles/` give the struct
 layouts, and `Code Demo/VCDSO/Hard.cpp` shows the vendor's own calling
