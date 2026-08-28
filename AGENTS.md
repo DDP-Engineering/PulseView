@@ -71,10 +71,17 @@ when useful) -> **design** (a short note for non-trivial work) -> **build**
 report, commit/PR). A small fix or change may take the quick path,
 frame -> build -> validate -> deliver.
 
-To resume: `python .agentic/aegis.py status` lists the task journals; open
-`.agentic/tasks/TASK-<id>.md`, read its `stage:` line and `## Log`, open
-that stage's step file, and continue at the first unticked item of
-`## Done checklist`.
+To resume: `python .agentic/aegis.py status` lists the task journals; run
+`python .agentic/aegis.py summary TASK-<id>`, then read that journal's header,
+current checklist, and relevant scope, decisions, issues, and evidence in
+`## Log`. Open the current stage's step file and continue at its first
+unticked item; required full journal reads still apply.
+
+At stage completion or pause, update the journal's `## Stage report` fields
+from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and
+copy the block before detail. Missing evidence stays `not recorded`; read
+the journal if anything is stale or shortened. This adds no approval stops
+and never replaces immediate deviation notices or full delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in

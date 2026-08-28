@@ -39,7 +39,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.7.2"
+VERSION = "0.8.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -112,6 +112,7 @@ test = "pytest -q"
 # Globs used by the traceability heuristics of `aegis check`.
 source = ["src/"]
 tests = ["tests/"]
+docs = []  # documentation paths; still scanned for secrets, not source
 
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
@@ -155,10 +156,17 @@ when useful) -> **design** (a short note for non-trivial work) -> **build**
 report, commit/PR). A small fix or change may take the quick path,
 frame -> build -> validate -> deliver.
 
-To resume: `python .agentic/aegis.py status` lists the task journals; open
-`.agentic/tasks/TASK-<id>.md`, read its `stage:` line and `## Log`, open
-that stage's step file, and continue at the first unticked item of
-`## Done checklist`.
+To resume: `python .agentic/aegis.py status` lists the task journals; run
+`python .agentic/aegis.py summary TASK-<id>`, then read that journal's header,
+current checklist, and relevant scope, decisions, issues, and evidence in
+`## Log`. Open the current stage's step file and continue at its first
+unticked item; required full journal reads still apply.
+
+At stage completion or pause, update the journal's `## Stage report` fields
+from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and
+copy the block before detail. Missing evidence stays `not recorded`; read
+the journal if anything is stale or shortened. This adds no approval stops
+and never replaces immediate deviation notices or full delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in
@@ -1087,6 +1095,138 @@ def status_one(task_id: str, as_json: bool = False) -> int:
     return 0
 
 
+# summary - explicit recorded facts, not an inference from the log
+
+
+STAGE_REPORT_FIELDS = ("stage", "result", "current", "changed", "evidence",
+                       "issues", "next", "needs_user")
+STAGE_REPORT_RESULTS = ("in_progress", "completed", "paused", "blocked", "skipped")
+SUMMARY_VALUE_LIMIT = 240
+# Match a complete inline code span before interpreting a comment opener.
+INLINE_CODE_OR_COMMENT_RE = re.compile(
+    r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)|<!--")
+
+
+def parse_stage_report(text: str) -> dict[str, str]:
+    """@brief Read one optional plain-field Stage report; reject ambiguity.
+    @details Empty scaffold fields are valid. This parser deliberately does
+             not alter the legacy journal parser or its status JSON schema.
+    @exception UserError An unknown, duplicate or malformed field/section.
+    """
+    fields: dict[str, str] = {}
+    active = seen = False
+    comment = False
+    fence = ""
+    for line in text.splitlines():
+        # Examples in the log are not live records. Fence contents are opaque,
+        # including comment markers and shorter nested fence delimiters.
+        if fence:
+            if re.fullmatch(r" {0,3}" + re.escape(fence[0])
+                            + "{" + str(len(fence)) + r",}[ \t]*", line):
+                fence = ""
+            continue
+        opening = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line) if not comment else None
+        if opening and (opening[1][0] != "`" or "`" not in opening[2]):
+            if active:
+                raise UserError("Stage report fields must not be fenced")
+            fence = opening[1]
+            continue
+        visible = []
+        while line:
+            if comment:
+                _hidden, closed, line = line.partition("-->")
+                if not closed:
+                    break
+                comment = False
+            else:
+                token = INLINE_CODE_OR_COMMENT_RE.search(line)
+                if not token:
+                    visible.append(line)
+                    break
+                visible.append(line[:token.start()])
+                comment = token[0] == "<!--"
+                if not comment:
+                    visible.append(token[0])
+                line = line[token.end():]
+        line = "".join(visible)
+        if line.startswith("## "):
+            active = line[3:].strip().lower() == "stage report"
+            if active:
+                if seen:
+                    raise UserError("duplicate Stage report section")
+                seen = True
+            continue
+        if not active or not line.strip():
+            continue
+        match = HEADER_RE.fullmatch(line)
+        if not match:
+            raise UserError("Stage report requires one 'key: value' per line")
+        key, value = match.group(1).lower(), match.group(2).strip()
+        if key not in STAGE_REPORT_FIELDS:
+            raise UserError("unknown Stage report field; see templates/task.md")
+        if key in fields:
+            raise UserError(f"duplicate Stage report field: {key}")
+        allowed = (KNOWN_STAGES if key in {"stage", "current"} else
+                   STAGE_REPORT_RESULTS if key == "result" else None)
+        if value and allowed is not None and value not in allowed:
+            raise UserError(f"invalid Stage report {key}; expected {', '.join(allowed)}")
+        fields[key] = value
+    return fields
+
+
+def summary_value(value: str) -> tuple[str, bool]:
+    """@brief Make one bounded printable line, explicitly marking any omission."""
+    clean = " ".join("".join(char if char.isprintable() else " "
+                             for char in value).split()) or "not recorded"
+    if len(clean) <= SUMMARY_VALUE_LIMIT:
+        return clean, False
+    suffix = " ... [truncated; read journal]"
+    return clean[:SUMMARY_VALUE_LIMIT - len(suffix)] + suffix, True
+
+
+def cmd_summary(args: argparse.Namespace) -> int:
+    """@brief Print a bounded stage snapshot without writes, Git or commands.
+    @details Recorded outcomes are author statements, not fresh proof. Missing
+             or mismatched bindings suppress outcome and next-action claims.
+             Any shortened value requires full-journal review before proceeding.
+    """
+    path, data = read_journal(args.task)
+    current = data["header"].get("stage", "")
+    if current not in KNOWN_STAGES:
+        raise UserError("journal has no valid current stage")
+    record = parse_stage_report(read_text(path))
+    notice = ""
+    if not any(record.values()):
+        notice = "stage report not recorded; read journal"
+    elif not record.get("stage") or not record.get("current"):
+        notice = "incomplete stage report binding; refresh from journal"
+    elif record["current"] != current:
+        notice = "stale stage report: current stage changed; refresh from journal"
+    if notice:
+        record = {}
+    rows = {
+        "Stage": (f"{record['stage']} - {record.get('result') or 'not recorded'}"
+                  if record else "not recorded"),
+        "Task": data["id"] or path.stem,
+        "Current": current,
+        "Requirements": data["header"].get("requirements", ""),
+        "Changed": record.get("changed", ""),
+        "Evidence": record.get("evidence", ""),
+        "Issues": notice or record.get("issues", ""),
+        "Next": "read journal and refresh Stage report" if notice else record.get("next", ""),
+        "Needs user": "review journal; reporting state is not recorded" if notice
+                      else record.get("needs_user", ""),
+        "Details": f"{rel(path)} (recorded snapshot, not fresh proof)",
+    }
+    rendered = {key: summary_value(value) for key, value in rows.items()}
+    if any(shortened for _value, shortened in rendered.values()):
+        rendered["Needs user"] = (
+            "review full journal before proceeding (summary truncated)", False)
+    for key, (value, _shortened) in rendered.items():
+        print(f"{key + ':':<14}{value}")
+    return 0
+
+
 # check - the heuristic catalog
 
 #: (slug, one-line description). The slugs are the stable vocabulary the
@@ -1103,7 +1243,7 @@ CHECKS: tuple[tuple[str, str], ...] = (
     ("secret-in-diff", "no secret patterns in the added diff lines"),
     ("ticket-ref", "no ticket/run-id patterns inside requirement prose"),
     ("unticked-deliver", "a journal in deliver has no unticked items"),
-    ("outside-layout", "the diff stays inside source/tests globs and .agentic/"),
+    ("outside-layout", "the diff stays inside source/tests/docs globs and .agentic/"),
     ("source-no-test-changes", "source changes come with test changes"),
     ("repo-evolution", "a scoped task has a completed anchor/evolution pair"),
     ("config", "aegis.toml keys have the documented shapes"),
@@ -1138,7 +1278,7 @@ RESERVED_COMMAND_KEYS = ("timeout", "workdir")
 #: [table][key] -> expected python type, for the advisory config check.
 CONFIG_SHAPE: dict[str, dict[str, type]] = {
     "commands": {"timeout": int, "workdir": str},
-    "layout": {"source": list, "tests": list, "default_branch": str},
+    "layout": {"source": list, "tests": list, "docs": list, "default_branch": str},
     "check": {"ignore": list, "secret_patterns_extra": list,
               "strict_promote": list, "run": list},
     "timeouts": {},   # keys are command names; values checked below
@@ -1730,6 +1870,7 @@ def check_diff(add, skip, cfg, records, journals, scope) -> None:
     layout = cfg_table(cfg, "layout")
     source_globs = str_list(layout.get("source"))
     tests_globs = str_list(layout.get("tests"))
+    docs_globs = str_list(layout.get("docs"))
     info = {str(d.get("id", "")): (relpath, str_list(d.get("affected_paths")))
             for relpath, _p, d in records}
 
@@ -1789,9 +1930,10 @@ def check_diff(add, skip, cfg, records, journals, scope) -> None:
         if file in POINTER_FILES:
             continue
         if not (match_any(file, source_globs) or match_any(file, tests_globs)
+                or match_any(file, docs_globs)
                 or file.startswith(".agentic/")):
             add("WARN", "outside-layout", file,
-                "outside source/tests globs and .agentic/")
+                "outside source/tests/docs globs and .agentic/")
 
     source_changed = [f for f in files if match_any(f, source_globs)]
     if source_changed and not any(match_any(f, tests_globs) for f in files):
@@ -2870,6 +3012,11 @@ def build_parser() -> argparse.ArgumentParser:
         "report", help="append the delivery summary to a task journal")
     report.add_argument("task", help="TASK-<id> or <id>")
     report.set_defaults(func=cmd_report)
+
+    summary = subs.add_parser(
+        "summary", help="print a compact recorded stage summary (read-only)")
+    summary.add_argument("task", help="TASK-<id> or <id>")
+    summary.set_defaults(func=cmd_summary)
 
     diagram = subs.add_parser(
         "diagram", help="draw the requirement register as a Mermaid coverage map")

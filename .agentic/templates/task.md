@@ -28,6 +28,14 @@ the block, no comments between the lines — so it stays machine-readable.
 
 Header lines are edited in place; log lines are only ever appended.
 Keep each log line to one sentence.
+
+Stage report is one replaceable latest snapshot, not an evidence store.
+Use plain one-line fields with no fences or bullets inside that section.
+stage is the reported stage; current must match the journal header after any
+transition. result is in_progress | completed | paused | blocked | skipped.
+Keep all observations and decisions in the append-only Log as well.
+Leave unknown fields blank; summary prints not recorded, never an assumed pass.
+Refresh after work or decisions even if current has not changed.
 -->
 
 # TASK-0000 — <one-line title>
@@ -47,3 +55,14 @@ opened: 2026-01-01
 ## Log
 
 - 2026-01-01 frame: <scope agreed, exclusions, chosen path and why>
+
+## Stage report
+
+stage:
+result:
+current:
+changed:
+evidence:
+issues:
+next:
+needs_user:

@@ -18,6 +18,25 @@ requirement links current so that set stays correct.
 - Every requirement on its `requirements:` line, and their specs.
 - The existing tests for the files you are about to touch.
 
+**Stage report (completion or pause):** After updating the log, header and
+checklist, refresh the single `## Stage report` section in this task journal:
+`stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
+`needs_user` (plain one-line fields, no fences). Record the completed stage
+separately from `current`, which must match the header after any transition;
+use `paused` when waiting or ending a session. Other results are `in_progress`,
+`completed`, `blocked`, `skipped`. Run
+`python .agentic/aegis.py summary TASK-<id>` and copy its block before any
+detailed explanation. Unknown values stay blank (`not recorded`); refresh
+stale records and read omitted details before continuing. Preserve existing
+approval stops and immediate deviation notices; this report adds no new stop.
+
+**Resume context:** Read the summary first, then this stage's instructions,
+the journal header/checklist and relevant log entries (scope, user limits,
+unresolved issues, decisions and evidence); follow links to needed records.
+This stage's required full reads still apply. Use linked requirements and
+source as needed, not the whole register. Do not act on missing, stale, or
+shortened reporting without reviewing the full journal information.
+
 **Steps:**
 
 1. Pick one requirement. Work it to green before starting the next — do

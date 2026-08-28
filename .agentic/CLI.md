@@ -36,6 +36,7 @@ network.
 | `status` | List open tasks or inspect one journal. | Before starting or resuming work, and whenever the next step is unclear. |
 | `check` | Run the heuristic governance catalog. | During work for feedback; with `--strict --run` at the validation or CI boundary. |
 | `test` | Run a command configured in `.agentic/aegis.toml`. | During build and validation, optionally recording the result in a journal. |
+| `summary` | Print a compact recorded stage snapshot without writes. | Before resuming and after recording a stage completion or pause. |
 | `report` | Append a delivery summary to a task journal. | After validation and before the delivery commit or pull request. |
 | `diagram` | Draw the requirement register as a Mermaid coverage map. | In review or handover, when the question is where verification is thin. |
 | `explain` | Show which requirements and tasks govern one path. | Reading unfamiliar code, or before changing a file you did not write. |
@@ -253,6 +254,60 @@ python .agentic/aegis.py status TASK-8b12
 python .agentic/aegis.py status 8b12 --json
 ```
 
+## `summary`
+
+```text
+python .agentic/aegis.py summary <TASK-id|id>
+```
+
+**Description:** Print a compact recorded stage snapshot without writing files,
+running checks/tests, consulting Git, or changing workflow state. Existing
+`status` output and JSON are unchanged; `report` remains the journal-writing
+delivery command. Use `summary` before resuming or after updating a stage report.
+
+The journal may contain one optional `## Stage report` section with plain
+one-line fields (no bullets or code fences inside the actual section):
+
+```text
+stage: specify
+result: completed
+current: design
+changed: requirements created; IDs are on the journal header
+evidence: check exit 0; tests not run at this stage
+issues: none recorded
+next: follow 3_design.md
+needs_user: no
+```
+
+`stage` is the reported stage; `current` must equal the journal header after
+any transition. Use canonical ordinary/adoption stages, not display aliases.
+`result` accepts `in_progress`, `completed`, `paused`, `blocked`, or `skipped`.
+The other fields contain the agent's recorded observations and decisions;
+blank values print `not recorded`. Keep evidence and decisions in the
+append-only log as well; replace only this latest-view section.
+
+Output fields, in order: **Stage, Task, Current, Requirements, Changed,
+Evidence, Issues, Next, Needs user, Details**. Stage combines the reported
+stage and result; Current and Requirements come from the journal header.
+Details points to the full journal. Each value is at most 240 characters,
+including a visible `[truncated; read journal]` marker for omitted detail.
+If any value is shortened, Needs user directs full-journal review before
+proceeding, even if the record said no. This is a character bound, not a
+model-specific token guarantee.
+
+Missing records and incomplete or mismatched stage bindings suppress recorded
+outcomes and next-action claims and direct journal review. Unknown stages or
+results, duplicate sections/fields, unknown keys, and malformed record lines
+exit 1 with an error and no partial stdout. Old journals need no migration.
+Commented and fenced examples outside the live section do not supply report
+facts; literal comment markers in inline code and fence info stay literal.
+
+The output is an agent-authored snapshot, **not fresh proof or an approval**.
+A matching stage cannot detect subsequent source edits: refresh the record
+after new work, evidence, deviations, or decisions even within one stage.
+Read omitted details and unresolved issues before acting. Normal checkpoints,
+full validation/delivery reads, and immediate deviation notices still apply.
+
 ## `check`
 
 ```text
@@ -265,6 +320,14 @@ are `ERROR`, `WARN`, or `NOTE`.
 
 Without `--strict`, findings do not block work and the command exits zero.
 Read them and correct real issues or record why a finding does not apply.
+
+Set optional `[layout] docs` globs for documentation outside source/tests,
+for example `docs = ["docs/", "README.md", "CHANGELOG.md"]`. These paths
+remain in secret scanning and the diff; they do not count as source, tests,
+or stage write zones. Existing source/tests matches still apply if globs
+overlap. The default empty list preserves existing layout checks.
+An unticked delivery checklist remains a warning even when delivery is
+intentionally on hold; a pause is not evidence that its items are complete.
 
 Options:
 
@@ -531,7 +594,7 @@ python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 
 | Situation | Exit behavior |
 |---|---|
-| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `report`, `diagram`, or `explain` succeeds | Exit 0. |
+| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `report`, `diagram`, or `explain` succeeds | Exit 0. |
 | Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |

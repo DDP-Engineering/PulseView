@@ -87,18 +87,26 @@ yours to write.
 
 ## Resume a task
 
-1. Open the task journal named in the prompt,
-   `.agentic/tasks/TASK-<id>.md` (or run `python .agentic/aegis.py status`
-   to list open tasks and their stages).
+1. Run `python .agentic/aegis.py summary TASK-<id>` for the named task
+   (use `status` to find its ID when needed), then open the journal header
+   and current checklist in `.agentic/tasks/TASK-<id>.md`.
 2. Compare `git branch --show-current` with the journal's `branch:` line.
    On a mismatch, stop and reconcile first — check out the recorded
    branch, or say so if it does not exist here — before touching anything.
-3. Read its `stage:` line and its `## Log`; open the step file for that
-   stage from the table above.
+3. Read its `stage:` line and relevant log entries: agreed scope, user/Git
+   limits, unresolved issues, decisions, and latest evidence; open the step
+   file for that stage from the table above. Follow references to complete
+   evidence, not just the last few lines of a long log. A missing, stale,
+   or shortened summary requires journal review before continuing.
 4. Continue at the first unticked item of `## Done checklist`. The
    checklist always belongs to the **current** stage: advancing a stage
    replaces it with the next stage's "Done when" list (each step file's
    last step says so).
+
+Load linked requirements, specs, knowledge, source, and tests as the current
+stage needs them; do not preload the whole repository or requirement register.
+Full journal reads required by validate and deliver still apply. The summary
+is an entry point, never a substitute for required review or fresh proof.
 
 The journal is a committed file, so this works across sessions, machines,
 and models. End every session by updating the journal. A journal travels
@@ -145,6 +153,40 @@ the human has already paid for not knowing. `DEVIATION` is deliberately not
 `WARNING`: `check` prints `WARN` and `NOTE` for its own findings, and your
 judgement should not be mistaken for the tool's.
 
+## Stage reporting
+
+At each stage completion or pause, present one compact report **before any
+detailed explanation**. Reporting does not introduce approval stops: the two
+ordinary checkpoints, adoption approvals, and explicit user limits still
+apply. Immediate `DEVIATION` notices remain immediate; do not defer them to
+the report. Do not report after every command.
+
+After recording evidence and decisions in `## Log`, update the journal's
+single `## Stage report` section using the plain fields in `templates/task.md`:
+`stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
+`needs_user`. It is a replaceable latest snapshot; the log stays append-only.
+Record the completed stage in `stage`, and the actual header stage in
+`current` after any transition. Use `result: paused` when waiting or ending a
+session; other outcomes are `in_progress`, `completed`, `blocked`, `skipped`.
+Stage names stay canonical (`specify` means requirements); reporting must not
+rename stages or claim the next stage has been completed.
+
+Run `python .agentic/aegis.py summary TASK-<id>` and copy its output into one
+plain text code block. The fields are always Stage, Task, Current,
+Requirements, Changed, Evidence, Issues, Next, Needs user, Details.
+The command only reads the journal; it does not run tests or grant approval.
+Write observed command results and their scope, never an inferred "passed";
+blank values remain `not recorded`. Name all unresolved issues and carry
+required decisions forward; `needs_user: no` requires an explicit reason to
+continue under the existing interaction mode, not a guess from silence.
+
+A missing or stale record must be reconstructed from the journal before
+continuing. A shortened field is visibly marked: read the full journal before
+acting, especially unresolved issues, deviations, evidence, and user requests.
+Do not replace omitted content with "none". The snapshot is agent-authored,
+not fresh proof; refresh it after work, new results, or decisions even when
+the stage has not changed. Full delivery presentation remains required.
+
 ## Prompt cheatsheet
 
 Starting work is one line:
@@ -160,14 +202,21 @@ same way — `frame` decides whether they take the quick path.
 
 For a small local model, give one stage per session:
 
+Each prompt below explicitly ends the session after that stage. Advance the
+header/checklist when appropriate, record the report, then stop before work
+on the next stage. This session limit does not add an approval gate to normal
+checkpoint or autopilot runs. The workflow is model-independent: compact
+output reduces context use but does not prove compliance by a particular
+model or guarantee a tokenizer-specific 64K budget.
+
 | Stage | One-line prompt |
 |---|---|
-| frame | `Read .agentic/AGENTS.md. Start task "<title>": follow .agentic/steps/1_frame.md and write the task journal.` |
-| specify | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage specify): follow .agentic/steps/2_specify.md, then update the task journal.` |
-| design | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage design): follow .agentic/steps/3_design.md, then update the task journal.` |
-| build | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage build): follow .agentic/steps/4_build.md, then update the task journal.` |
-| validate | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage validate): follow .agentic/steps/5_validate.md, then update the task journal.` |
-| deliver | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage deliver): follow .agentic/steps/6_deliver.md, then update the task journal.` |
+| frame | `Read .agentic/AGENTS.md. Start task "<title>": follow .agentic/steps/1_frame.md, then record and show the stage report. Stop after this stage.` |
+| specify | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage specify): follow .agentic/steps/2_specify.md, then record and show the stage report. Stop after this stage.` |
+| design | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage design): follow .agentic/steps/3_design.md, then record and show the stage report. Stop after this stage.` |
+| build | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage build): follow .agentic/steps/4_build.md, then record and show the stage report. Stop after this stage.` |
+| validate | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage validate): follow .agentic/steps/5_validate.md, then record and show the stage report. Stop after this stage.` |
+| deliver | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage deliver): follow .agentic/steps/6_deliver.md, then record and show the stage report. Stop after this stage.` |
 | adopt | `Read .agentic/AGENTS.md. Adopt this repo: follow .agentic/steps/adopt.md, one component per session.` |
 
 ## Commands you will use
@@ -178,6 +227,7 @@ to use each command are in `.agentic/CLI.md`.
 ```
 # "python" throughout - use "python3" on Linux distributions without it
 python .agentic/aegis.py status                 # open tasks, or one task's state
+python .agentic/aegis.py summary TASK-<id>       # compact recorded stage report
 python .agentic/aegis.py task "<title>"         # new task journal
 python .agentic/aegis.py req <cat> "<title>"    # new requirement file
 python .agentic/aegis.py check                  # advisory report, always exits 0
