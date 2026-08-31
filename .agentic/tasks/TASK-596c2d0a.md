@@ -40,7 +40,7 @@ Refresh after work or decisions even if current has not changed.
 
 # TASK-596c2d0a — Harden Linux packaging and validate Raspberry Pi delivery
 
-stage: deliver
+stage: done
 type: fix
 path: full
 requirements: REQ-PLAT-aa8d5d46, REQ-PLAT-ceeee15c, REQ-PLAT-871c1254, REQ-PLAT-0e73bea7, REQ-REL-dc0ff39f, REQ-REL-08b2f2e8
@@ -50,12 +50,12 @@ opened: 2026-08-31
 
 ## Done checklist (current stage)
 
-- [ ] validated candidate confirmed unchanged; otherwise returned to validate
-- [ ] validation evidence, diff, exclusions, and outcome presented
-- [ ] delivery confirmed by the human
-- [ ] journal and report included in the delivery commit
-- [ ] agreed outcome delivered, normally a PR
-- [ ] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
+- [x] validated candidate confirmed unchanged; otherwise returned to validate
+- [x] validation evidence, diff, exclusions, and outcome presented
+- [x] delivery confirmed by the human
+- [x] journal and report included in the delivery commit
+- [x] agreed outcome delivered, normally a PR
+- [x] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
 
 ## Log
 
@@ -100,14 +100,34 @@ opened: 2026-08-31
 - 2026-08-31 validate: final evolution refreshed at `2026-08-31T12:21:27.046001Z` and matched the expected 18 files, 6 added, 12 modified and 0 removed.
 - 2026-08-31 deviation validate: the first strict proof exited 1 with test success, 0 errors and 34 warnings because three task-scoped uncovered-source warnings were promoted; adding the already-built architecture-mapping and pinned-tool requirements to this review task eliminated every uncovered-source warning without changing runtime behavior.
 - 2026-08-31 deviation validate: final `python .agentic/aegis.py check --task TASK-596c2d0a --strict --run` exited 1 after its configured test command passed, with 0 errors, 29 warnings and 7 notes; the three promoted warning classes are accepted repository-wide stale-path debt, expected root/delivery outside-layout paths, and binary payloads the text-only secret scanner cannot inspect.
+- 2026-08-31 deliver: The user authorized committing the clean delivery files and closing the related delivery task after the implementation had been committed and pushed as `66540df`.
+- 2026-08-31 deliver: Clean x86_64 and aarch64 AppImages from revision `66540df` passed dependency closure, decoder checks on bare x86_64 distributions, and exact native Raspberry Pi CLI and GUI validation; physical instrument capture remains excluded because neither instrument was attached.
+- 2026-08-31 deliver: The agreed remaining outcome is a repository-local clean-delivery commit without an additional push.
+- 2026-08-31 done: Closed with the clean AppImage delivery and final report carried by the authorized repository-local delivery commit.
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: fail-closed Linux gates, dirty provenance, executable arm64 host probe, runtime smoke, architecture-specific README generation, and rebuilt x86_64/aarch64 AppImages
-evidence: Git Bash suite 9 passed and 1 skipped; WSL suite 7 passed and 3 skipped; x86 decoder tests pass on two bare distros; ARM emulation and Pi runtime/FUSE/GUI checks pass
-issues: strict proof exits 1 on 29 accepted warnings despite 0 errors and test success; physical instrument capture remains unverified because neither device was attached
-next: present validated candidate and exclusions; no Git operation without separate human approval
-needs_user: yes - explicit Git delivery authority is required for any commit, push or PR
+evidence: implementation committed and pushed as 66540df; clean five-package manifest verified; x86 decoder tests pass on two bare distros; exact ARM Pi runtime and GUI checks pass
+issues: strict proof exited 1 on accepted advisory warnings despite 0 errors and test success; physical instrument capture remains unverified because neither device was attached
+next: none; close-out is carried by the authorized repository-local clean-delivery commit
+needs_user: no
+
+## Delivery report (2026-08-31)
+
+- stage: deliver; type: fix; path: full; branch: feature/arm64-linux-build
+- requirements:
+  - REQ-PLAT-aa8d5d46 - Build a self-contained aarch64 AppImage for Raspberry Pi 4 and 5
+  - REQ-PLAT-ceeee15c - Report missing arm64 container support on the build host
+  - REQ-PLAT-871c1254 - Derive Linux artifact names and paths from the build architecture
+  - REQ-PLAT-0e73bea7 - Provision the arm64 AppImage builder from pinned verified tools
+  - REQ-REL-dc0ff39f - Fail closed when staged Linux binaries are unusable
+  - REQ-REL-08b2f2e8 - Record honest source state in AppImage provenance
+- deviations: none recorded
+- explicit review: disabled; existing validation remains required
+- diff vs task base 5aa2f17: 89 file(s) changed, 47245 line(s) added; 3 file(s) not content-scanned
+- checks: errors=0 warnings=47 notes=7
+- checklist: 5/6 done; open: close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it

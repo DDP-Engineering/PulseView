@@ -41,7 +41,7 @@ Refresh after work or decisions even if current has not changed.
 
 # TASK-9b2fc9a0 — Add Raspberry Pi deb and complete delivery set
 
-stage: deliver
+stage: done
 type: feature
 path: full
 requirements: REQ-PLAT-7c68e538, REQ-FUNC-d6ba285a, REQ-REL-dae2e62f, REQ-UX-5295dc77
@@ -52,12 +52,12 @@ opened: 2026-08-31
 
 ## Done checklist (current stage)
 
-- [ ] validated candidate confirmed unchanged; otherwise returned to validate
-- [ ] validation evidence, diff, exclusions, and outcome presented
-- [ ] delivery confirmed by the human
-- [ ] journal and report included in the delivery commit
-- [ ] agreed outcome delivered, normally a PR
-- [ ] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
+- [x] validated candidate confirmed unchanged; otherwise returned to validate
+- [x] validation evidence, diff, exclusions, and outcome presented
+- [x] delivery confirmed by the human
+- [x] journal and report included in the delivery commit
+- [x] agreed outcome delivered, normally a PR
+- [x] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
 
 ## Log
 
@@ -97,6 +97,10 @@ opened: 2026-08-31
 - 2026-08-31 validate: Final evolution recorded and reviewed 33 candidate paths comprising the delivery coordinator, Debian builder, producer integrity/provenance changes, tests, documentation and final artifacts.
 - 2026-08-31 validate: Final `python .agentic/aegis.py check --task TASK-9b2fc9a0 --strict --run` ran the configured test command successfully and reported 0 errors, 64 warnings and 7 notes, then exited 1 because strict promoted six opaque-binary secret-scan coverage warnings.
 - 2026-08-31 validate: Accepted warnings are generated packages outside the source layout, opaque archives that the text secret scanner cannot inspect, pre-existing stale planning paths and a prior unticked delivery task, plus ARM build paths governed by requirements from the preceding task rather than this Debian/release task; none reports a test or artifact failure.
+- 2026-08-31 deliver: The user authorized committing the clean release files and closing the task after commit `66540df` had delivered and pushed the implementation.
+- 2026-08-31 deliver: The five packages were rebuilt from clean source revision `66540df`, all manifest hashes passed, x86_64 decoder loading passed on bare Ubuntu 22.04 and Debian Bookworm, and the exact arm64 AppImage and Debian package passed hashes, drivers, UART decoder and GUI smoke on the physical Raspberry Pi 4.
+- 2026-08-31 deliver: The agreed outcome is a repository-local clean-delivery commit without an additional push; the existing implementation commit is already present on `origin/feature/arm64-linux-build`.
+- 2026-08-31 done: Closed with the clean five-package delivery and final report carried by the authorized repository-local delivery commit.
 
 ## Design
 
@@ -122,22 +126,36 @@ source: user | repository | requirement | technical
 status: ready | waiting | blocked
 -->
 
-current: deliver
+current: done
 status: ready
-next: Present the validated unpublished candidate and wait for explicit Git/delivery authority.
+next: None; the task is closed when the authorized delivery commit succeeds.
 must_read: .agentic/steps/6_deliver.md; .agentic/tasks/TASK-9b2fc9a0.md; .agentic/knowledge/linux-build-tooling.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: Validated the complete same-revision five-package release, final manifest, Debian installer, producer integrity/provenance, tests, documentation, and exact Raspberry Pi artifacts.
-evidence: Coordinator sentinel b6d0e8e-dirty; Git Bash 11/0/1; five manifest hashes rechecked; bare Ubuntu 22.04 and Debian Bookworm decoder loads; physical Pi exact deb/AppImage CLI and GUI passed; AEGIS test command passed with 0 errors.
-issues: Strict check exits 1 on six promoted opaque-binary scan-coverage warnings; 64 total warnings are accepted layout, stale-path, prior-task and coverage findings; physical capture was not possible without attached instruments.
-next: Present the validated candidate and wait for explicit commit or publication authority.
-needs_user: yes
+evidence: Clean revision 66540df; Git Bash package gate; five manifest hashes; bare Ubuntu 22.04 and Debian Bookworm decoder loads; physical Pi exact deb/AppImage CLI and GUI passed.
+issues: Physical capture was not possible without attached instruments; no additional push was requested for the clean delivery commit.
+next: None; close-out is carried by the authorized repository-local delivery commit.
+needs_user: no
 spec_compliance: disabled
 implementation_quality: disabled
 review_round:
+
+## Delivery report (2026-08-31)
+
+- stage: deliver; type: feature; path: full; branch: feature/arm64-linux-build
+- requirements:
+  - REQ-PLAT-7c68e538 - Install the Raspberry Pi delivery as a Debian package
+  - REQ-FUNC-d6ba285a - Build the complete supported delivery matrix
+  - REQ-REL-dae2e62f - Reject incomplete or unchecked delivery sets
+  - REQ-UX-5295dc77 - Expose the installed Raspberry Pi application in the desktop menu
+- deviations: none recorded
+- explicit review: disabled; existing validation remains required
+- diff vs task base b6d0e8e: 75 file(s) changed, 46491 line(s) added; 3 file(s) not content-scanned
+- checks: errors=0 warnings=57 notes=7
+- checklist: 5/6 done; open: close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
