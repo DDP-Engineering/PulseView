@@ -1,0 +1,261 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-31T11:23:06.313392Z",
+      "anchor_head": "5aa2f172c0095dea4077bcffb4af231420ad340d",
+      "anchor_id": "b6dceea4c6d61d55",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "6f5bea3920a7972549d5c0cc33dcad8bde1882c70461097b3c796f3bc9a491e1"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "8480e22073fb0684bcf761eb2a60cd4401e4a04ccba9fa6f7d45067c26bfe3bb"
+          },
+          "path": "01_Documentation/Environment_Setup.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "78f2a0dde0d3c5715dd62251a81e6fdb90c7769afa526f02e685cdac0e1004e6"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "1888616fd24e2a4c262de4d1b5a3bfaf4aff743b6dbe5e4e360f165a0d650af9"
+          },
+          "path": "02_Tools/bootstrap/check_host.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "af5012f963769770cb79e26fc855473e303fefb22af878225ee2bfca503f4b36"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "f5a69802d743f67321baec1507309ced90e33490b1b713d6833d5c9d20eecfb9"
+          },
+          "path": "02_Tools/build/STATUS.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "c832fe00801cae519aa247f7fb85f02202bd321461ebba58a43fde45425f9444"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "d6f9a30faa62d1c89c66e23b93fc90d70ef1b629c3853dc14ecf0bb2452a9c78"
+          },
+          "path": "02_Tools/build/build_appimage.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "0d821f48a0901b2869d12abcca3595738234b70718dae9974fa03521c135074f"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "f087cdc08db2a33d036830659fcf7c099da206810a99bce51f39309dbddbc381"
+          },
+          "path": "02_Tools/build/build_linux.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "7d1a3254ecdcb1c58d2204d0df641fc39148acb175534e4c37ff978953b1e8c8"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/source_revision.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "0db996d2acce18658c7561f1101045567ca0ce3f112d223e0a87fa14339a1734"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/verify_linux_stage.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "526e3b9ee1a9f91ac87a6f6b7f43444ad4fc964ccbbefe310bc4baf9ca5e9d44"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/write_appimage_readme.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1145020de102cdb938eac257c8488f79858f936905fb71d8b9654d8e46d344f2"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/appimage_readme_test.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "f6fca80d6f618086f5d92806a73b947a7922706b0a3215ca0f5deafb2f8f6474"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/arm64_appimage_runtime_smoke.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "6b11fd75f6f0cc30052dff1de21cf4705872d26c058fd4c8925c014a077293ec"
+          },
+          "area": "tests",
+          "before": {
+            "kind": "file",
+            "sha256": "afcc07d98cef466e9a141aa6cb2fda3059cf8c1b586d70a3904e6fc633599609"
+          },
+          "path": "02_Tools/test/check_host_arm64_test.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "22e331ee83f166dc03be1f60cfc72b0c324fbfec27a06066a7ff824bc68afe06"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/source_revision_test.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "2ad20ba17a41750fc31c0f187bbead04c7fbc8c273dd4144247b71ea076f0e10"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "4f458b890d2325c0fa2e2569bc961b46d7ebfaee2a09c53129b3249a5869e6aa"
+          },
+          "path": "02_Tools/upstream/upstreams.lock.toml",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "8259df19afd8a079cd39ffbe79bfc4f524bb8860bb5051a91026676da576964b"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "eea17421d36740cfc0fbc02e222be2fe7d664f92069b3373dfd25a5093320f19"
+          },
+          "path": "07_Delivery/PulseView-aarch64.AppImage",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5568e3e13c5eedcccf804fb6b08ea3b8c44377f282d9cc0acb437cc692c95ab6"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "5080ff9e8001f0562d11eb975ed60110da753aabbd571f98afbdb9629d89c863"
+          },
+          "path": "07_Delivery/PulseView-x86_64.AppImage",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "e99bbbf704d6f371376390e5b1a7254edc7380d679a3f666df2a507d321ec6ca"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "72b7c8392dc0a80067df41d9a78dd49c244333b574a477fa3adac492d0ebac87"
+          },
+          "path": "07_Delivery/README-AppImage-aarch64.txt",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "15a21140f33ad470d18baaf6c0871eebdd39766fb06ea6003456c31a34c93b7d"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "6063d6db52b9ad136b2a02fb050763a02bbb388bb696fd1a885d87ebfc235161"
+          },
+          "path": "07_Delivery/README-AppImage.txt",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "2ff0b223fd179fc7b7e7d49f788729cadec180088d8dcea866b0eef3a0b31cf0"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "d574ae7222f2c8d620255a672fdfd2ef6f06630e145da5c2d91c2e577f1934f2"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 6,
+            "removed": 0,
+            "unchanged": 82
+          },
+          "source": {
+            "added": 3,
+            "modified": 5,
+            "removed": 0,
+            "unchanged": 1511
+          },
+          "tests": {
+            "added": 3,
+            "modified": 1,
+            "removed": 0,
+            "unchanged": 60
+          }
+        },
+        "status": {
+          "added": 6,
+          "modified": 12,
+          "removed": 0,
+          "unchanged": 1653
+        }
+      },
+      "current_head": "5aa2f172c0095dea4077bcffb4af231420ad340d",
+      "evolution_stage": "validate",
+      "evolved_at": "2026-08-31T12:21:27.046001Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-596c2d0a"
+}

@@ -1,0 +1,76 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-PLAT-7c68e538"
+
+title = "Install the Raspberry Pi delivery as a Debian package"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+When the project's arm64 Debian package is installed on a Raspberry Pi 4 or 5 running 64-bit Raspberry Pi OS, the package shall make the project-built PulseView GUI and sigrok-cli, their bundled runtime, the two project USB drivers, protocol decoders, and the shared instrument udev rules available through normal installed-system paths without requiring FUSE or extraction by the user.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Build the arm64 .deb, inspect its control metadata and file list, install it with apt on a physical Raspberry Pi running 64-bit Raspberry Pi OS, and confirm pulseview --version, sigrok-cli --version, both project driver names, UART decoder loading, and the installed udev rules; remove it and confirm package-owned commands and files are removed."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+  "02_Tools/build/build_deb.sh",
+  "02_Tools/test/deb_package_test.sh",
+  "01_Documentation/Environment_Setup.md",
+  "02_Tools/build/README.md",
+  "07_Delivery/README-RaspberryPi-deb.txt",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = ["02_Tools/test/deb_package_test.sh"]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = "specs/REQ-PLAT-7c68e538.md"
+
+priority = "high"   # low | normal | high
+rationale = "The AppImage remains the no-install option, while the Debian package gives Raspberry Pi users native apt installation, standard commands, USB rules, and clean uninstallation."
+
+created = 2026-08-31
+updated = 2026-08-31

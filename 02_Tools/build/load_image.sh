@@ -25,6 +25,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
 IMAGE="mingw"
+PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
 ARCHIVE=""
 FORCE=0
@@ -35,6 +36,10 @@ Load a saved builder image from 07_Delivery/toolchain/.
 
 Options:
   --image mingw|appimage   Which toolchain. Default mingw.
+  --platform ARCH          Target architecture: x86_64 or aarch64/arm64.
+                           Default x86_64. Non-x86_64 selects the
+                           arch-suffixed archive and image tag, matching
+                           what build_image.sh --platform produces.
   --archive PATH           Load this file instead of the default location.
   --engine docker|podman   Container engine. Default docker.
   --force                  Load even if an image with that tag exists.
@@ -47,11 +52,12 @@ note() { printf '==> %s\n' "$*"; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --image)   IMAGE="${2:-}"; shift 2 ;;
-        --archive) ARCHIVE="${2:-}"; shift 2 ;;
-        --engine)  ENGINE="${2:-}"; shift 2 ;;
-        --force)   FORCE=1; shift ;;
-        -h|--help) usage; exit 0 ;;
+        --image)    IMAGE="${2:-}"; shift 2 ;;
+        --platform) PLATFORM="${2:-}"; shift 2 ;;
+        --archive)  ARCHIVE="${2:-}"; shift 2 ;;
+        --engine)   ENGINE="${2:-}"; shift 2 ;;
+        --force)    FORCE=1; shift ;;
+        -h|--help)  usage; exit 0 ;;
         *) die "unknown option: $1 (try --help)" ;;
     esac
 done
@@ -61,8 +67,21 @@ case "${IMAGE}" in
     *) die "--image must be mingw or appimage, got '${IMAGE}'" ;;
 esac
 
-TAG="hantek-builder-${IMAGE}:latest"
-ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/hantek-builder-${IMAGE}.tar}"
+# Same arch-suffix convention as build_image.sh and run_in_builder.sh, from
+# the same shared mapping. The default is x86_64 rather than the host so an
+# arm64 machine loading the x86_64 archive by habit is not surprised.
+ARCH_OVERRIDE="${PLATFORM#linux/}"
+[ -n "${ARCH_OVERRIDE}" ] || ARCH_OVERRIDE="x86_64"
+# shellcheck source=arch_map.sh
+. "${SCRIPT_DIR}/arch_map.sh"
+if [ "${IMAGE}" = "mingw" ] && [ "${SR_ARCH}" != "x86_64" ]; then
+    die "the mingw cross-toolchain image is x86_64-hosted; --platform ${SR_ARCH} is not a thing for it"
+fi
+TAG_ARCH_SUFFIX=""
+[ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
+
+TAG="hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
+ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}.tar}"
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
