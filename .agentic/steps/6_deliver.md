@@ -19,8 +19,11 @@ changing what was proved.
 
 **Stage report (completion or pause):** After updating the log, header and
 checklist, refresh the single `## Stage report` section in this task journal:
+At every stage transition or pause, append any new Ruling and refresh the Handoff;
+also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user` (plain one-line fields, no fences). Record the completed stage
+`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
+(plain one-line fields, no fences). Record the completed stage
 separately from `current`, which must match the header after any transition;
 use `paused` when waiting or ending a session. Other results are `in_progress`,
 `completed`, `blocked`, `skipped`. Run
@@ -29,7 +32,7 @@ detailed explanation. Unknown values stay blank (`not recorded`); refresh
 stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
-**Resume context:** Read the summary first, then this stage's instructions,
+**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
 the journal header/checklist and relevant log entries (scope, user limits,
 unresolved issues, decisions and evidence); follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
@@ -43,23 +46,29 @@ shortened reporting without reviewing the full journal information.
    specs, or knowledge changed after the recorded proof—or must change now—
    return to `validate`: set `stage: validate`, replace the checklist with
    `5_validate.md`'s "Done when" list, log why, and stop for revalidation.
-2. Keep the journal log append-only. Journal-only delivery records are
+2. When explicit review is enabled, confirm both current bound verdicts are
+   `approved` for this unchanged candidate. Blank, malformed, stale,
+   `disabled`, or `changes_required` evidence returns to validate. When
+   explicit review is disabled, rely on the existing validation evidence and
+   checkpoint; disabled review never skips them.
+3. Keep the journal log append-only. Journal-only delivery records are
    expected here; never rewrite or delete earlier evidence.
-3. **Stop and present in both interaction modes:** validation commands and
+4. **Stop and present in both interaction modes:** validation commands and
    results, accepted warnings and pre-existing failures, the exact diff
-   summary, what will be committed, exclusions, and the intended outcome.
+   summary, child status and integrated parent evidence when children are
+   visible, what will be committed, exclusions, and the intended outcome.
    Wait for the human's approval. Any deviation notices you gave along the
    way were notifications, not approvals: notices supplement this
    presentation and never shorten it, so repeat every deviation here even
    where you already said it, and state it as a deviation notice if this
    stage turns up a new one.
-4. After approval, tick every checklist item except close-out, keep
+5. After approval, tick every checklist item except close-out, keep
    `stage: deliver`, log the decision, and run
    `python .agentic/aegis.py report TASK-<id>`. Read the appended report.
    Its check counts are a fresh report-time advisory snapshot, not a
    replacement for the validation evidence. Correct journal-only mistakes;
    any candidate correction returns to `validate` and requires new proof.
-5. Deliver the approved outcome:
+6. Deliver the approved outcome:
    - **Commit** on the task branch, with requirement IDs in the message.
    - **PR** by default. If CI runs `check --strict --run`, it decides merge.
    - Release or deployment beyond the PR requires the repository's separate
@@ -67,7 +76,7 @@ shortened reporting without reviewing the full journal information.
    - With no remote, stop after the commit and report that no PR was opened.
      With no Git, stop after presentation and report that delivery is
      unavailable in this environment.
-6. Close out only after the approved outcome succeeds — but let the outcome
+7. Close out only after the approved outcome succeeds - but let the outcome
    decide how many commits that takes:
    - **The outcome can still fail after the delivery commit** (a push, a PR, a
      release, a deployment): commit the delivery, wait for the outcome, then

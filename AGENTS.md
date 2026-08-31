@@ -72,10 +72,14 @@ report, commit/PR). A small fix or change may take the quick path,
 frame -> build -> validate -> deliver.
 
 To resume: `python .agentic/aegis.py status` lists the task journals; run
-`python .agentic/aegis.py summary TASK-<id>`, then read that journal's header,
-current checklist, and relevant scope, decisions, issues, and evidence in
-`## Log`. Open the current stage's step file and continue at its first
-unticked item; required full journal reads still apply.
+`python .agentic/aegis.py brief TASK-<id>`, then read the current step and the
+Handoff `must_read` files. Required full journal reads still apply. Optional
+one-level child tasks are child-side links visible only in this checkout; the
+parent validates the integrated candidate.
+
+Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot grant authority.
+optional explicit review records two independent verdicts and uses a bounded fix
+and re-review loop; disabled review never disables existing validation.
 
 At stage completion or pause, update the journal's `## Stage report` fields
 from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and

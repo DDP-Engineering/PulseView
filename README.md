@@ -131,6 +131,14 @@ tarball so no build needs to reach the network.
 02_Tools/build/build_windows_mxe.sh --stage
 ```
 
+The Linux builds also target the **Raspberry Pi 4/5** (aarch64): pass
+`--arch aarch64` to `build_appimage.sh` or `build_linux.sh`, after building
+the arm64 builder image with `build_image.sh --image appimage --platform
+aarch64`. On an x86_64 host the arm64 container runs emulated - a one-time
+qemu binfmt install that `check_host.sh` explains. Details, including the
+glibc floor that makes the AppImage the right delivery for Raspberry Pi OS:
+[01_Documentation/Environment_Setup.md](01_Documentation/Environment_Setup.md).
+
 Full prerequisites, both host roles, every build script and the known sharp
 edges: **[01_Documentation/Environment_Setup.md](01_Documentation/Environment_Setup.md)**.
 

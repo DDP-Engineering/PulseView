@@ -15,6 +15,49 @@ whole vendored sigrok stack.
 
 ### Added - August 2026
 
+- **Raspberry Pi 4/5 (aarch64) build target.** `build_appimage.sh --arch
+  aarch64` and `build_linux.sh --arch aarch64` build the whole stack for
+  arm64 Linux, natively on a Pi or emulated via qemu binfmt on the x86_64
+  build host (`check_host.sh` now reports that capability and its one-line
+  fix). One shared table, `02_Tools/build/arch_map.sh`, owns every
+  architecture-dependent name - the x86_64 artifact names are pinned
+  byte-for-byte by `arch_map_test.sh`. Both architectures use the same
+  pinned packaging tools: linuxdeployqt release 11 ships an aarch64 asset
+  alongside the x86_64 one. The aarch64 AppImage has been built and verified
+  both in a bare emulated Bookworm container and natively on a Raspberry Pi 4,
+  including normal FUSE execution and GUI startup under Wayland/XWayland.
+
+### Fixed - August 2026
+
+- **AppImage protocol decoders no longer depend on the host's Python.** The
+  AppImage bundled libpython but never the standard library and never set
+  PYTHONHOME, so srd_init - and with it all 137 decoders - failed on any
+  host without Ubuntu 22.04's exact python3.10 under /usr. Found by the
+  aarch64 bare-container decoder gate. build_appimage.sh now bundles the
+  stdlib (tests, GUI extras and site packages pruned) before the closure
+  pass and AppRun exports PYTHONHOME into the bundle. Both the x86_64 and
+  aarch64 delivery AppImages were rebuilt and their UART decoder verified.
+- **Linux packaging now fails closed on unusable staged binaries.** The thin
+  tarball is written only after sigrok-cli reports its version and lists both
+  project drivers; the device-specific show probe remains informational
+  because it legitimately fails when no instrument is connected.
+- **Build provenance no longer labels dirty inputs as a clean commit.** Linux
+  artifacts and generated AppImage READMEs append `-dirty` when tracked or
+  untracked build inputs differ from HEAD, while generated delivery and
+  scratch output do not affect the label.
+- **ARM host readiness is tested by execution.** `check_host.sh` runs a local
+  linux/arm64 probe image instead of trusting binfmt metadata and prints an
+  immutable, lock-recorded tonistiigi/binfmt digest when remediation is needed.
+- **AppImage README compatibility text is architecture-specific.** The
+  x86_64 delivery no longer inherits Raspberry Pi-only guidance.
+- **The AppImage packaging step no longer reaches the network.** External
+  review caught that appimagetool downloads the type-2 AppImage runtime
+  from GitHub at packaging time unless told otherwise - an unpinned fetch
+  inside a build that claims to be offline, present in every x86_64
+  AppImage built so far. Both architectures' runtimes are now pinned by
+  SHA-256 in `upstreams.lock.toml`, baked into the builder image, and
+  passed to appimagetool with `--runtime-file`.
+
 - **Human- and agent-readable project documentation.** A root `README.md` that
   describes the project as it is rather than as it began,
   `01_Documentation/Environment_Setup.md` covering prerequisites, the two host
