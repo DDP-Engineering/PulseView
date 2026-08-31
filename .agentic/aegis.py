@@ -39,7 +39,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -114,6 +114,10 @@ source = ["src/"]
 tests = ["tests/"]
 docs = []  # documentation paths; still scanned for secrets, not source
 
+[review]
+enabled = false
+max_fix_cycles = 2
+
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
 # always write. Values name the globs above: "source", "tests". A stage
@@ -157,10 +161,14 @@ report, commit/PR). A small fix or change may take the quick path,
 frame -> build -> validate -> deliver.
 
 To resume: `python .agentic/aegis.py status` lists the task journals; run
-`python .agentic/aegis.py summary TASK-<id>`, then read that journal's header,
-current checklist, and relevant scope, decisions, issues, and evidence in
-`## Log`. Open the current stage's step file and continue at its first
-unticked item; required full journal reads still apply.
+`python .agentic/aegis.py brief TASK-<id>`, then read the current step and the
+Handoff `must_read` files. Required full journal reads still apply. Optional
+one-level child tasks are child-side links visible only in this checkout; the
+parent validates the integrated candidate.
+
+Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot grant authority.
+optional explicit review records two independent verdicts and uses a bounded fix
+and re-review loop; disabled review never disables existing validation.
 
 At stage completion or pause, update the journal's `## Stage report` fields
 from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and
@@ -336,6 +344,17 @@ def cfg_table(cfg: dict, name: str) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def review_settings(cfg: dict) -> tuple[bool, int]:
+    """@brief Return fail-safe explicit-review enablement and fix-cycle bound."""
+    table = cfg_table(cfg, "review")
+    raw_enabled = table.get("enabled", False)
+    enabled = raw_enabled if isinstance(raw_enabled, bool) else False
+    raw_cycles = table.get("max_fix_cycles", DEFAULT_MAX_FIX_CYCLES)
+    cycles = (raw_cycles if isinstance(raw_cycles, int)
+              and not isinstance(raw_cycles, bool) and 0 <= raw_cycles <= 5 else 0)
+    return enabled, cycles
+
+
 def toml_string(value: str) -> str:
     """@brief Quote a value as a TOML basic string."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
@@ -447,6 +466,21 @@ def read_journal(task_id: str) -> tuple[Path, dict]:
     if not path.resolve().is_relative_to(tasks_root):  # symlink escape
         raise UserError(f"{rel(path)} resolves outside .agentic/tasks")
     return path, parse_journal(read_text(path))
+
+
+def visible_children(parent_id: str) -> list[tuple[Path, dict]]:
+    """@brief Return readable child journals visible in this checkout, sorted."""
+    normalized = parent_id.upper()
+    children: list[tuple[Path, dict]] = []
+    for path in sorted((AGENTIC / "tasks").glob("TASK-*.md")):
+        try:
+            data = parse_journal(read_text(path))
+        except UserError:
+            continue
+        parent = data.get("header", {}).get("parent", "").upper()
+        if parent == normalized:
+            children.append((path, data))
+    return sorted(children, key=lambda item: (item[1].get("id") or item[0].stem).upper())
 
 
 # repository anchor / evolution
@@ -928,6 +962,15 @@ def cmd_task(args: argparse.Namespace) -> int:
     if not title:
         raise UserError("task title must not be empty")
 
+    parent_id = ""
+    if args.parent:
+        parent_path, parent = read_journal(args.parent)
+        parent_id = parent.get("id", "")
+        if not parent_id or parent_path.stem.lower() != parent_id.lower():
+            raise UserError("parent task journal is malformed")
+        if parent.get("header", {}).get("parent", "").strip():
+            raise UserError(f"parent task {parent_id} is already a child")
+
     tasks = AGENTIC / "tasks"
     tasks.mkdir(parents=True, exist_ok=True)
     taken = taken_ids("tasks", "TASK-*.md")
@@ -938,6 +981,8 @@ def cmd_task(args: argparse.Namespace) -> int:
     text = template("task.md")
     text = TITLE_RE.sub(lambda _m: f"# {task_id} — {title}", text, count=1)
     text = re.sub(r"^type: .*$", f"type: {args.type}", text, count=1, flags=re.MULTILINE)
+    text = re.sub(r"^parent:.*$", lambda _m: f"parent: {parent_id}".rstrip(), text,
+                  count=1, flags=re.MULTILINE)
     text = re.sub(r"^branch: .*$", lambda _m: f"branch: {branch}", text, count=1,
                   flags=re.MULTILINE)
     # no space after the colon in the template: the value starts out empty,
@@ -1099,12 +1144,157 @@ def status_one(task_id: str, as_json: bool = False) -> int:
 
 
 STAGE_REPORT_FIELDS = ("stage", "result", "current", "changed", "evidence",
-                       "issues", "next", "needs_user")
+                       "issues", "next", "needs_user", "spec_compliance",
+                       "implementation_quality", "review_round")
 STAGE_REPORT_RESULTS = ("in_progress", "completed", "paused", "blocked", "skipped")
+REVIEW_VERDICTS = ("approved", "changes_required", "disabled")
+HANDOFF_FIELDS = ("current", "status", "next", "must_read", "blockers")
+HANDOFF_STATUSES = ("ready", "waiting", "blocked")
+RULING_KEYS = ("date", "decision", "reason", "source", "supersedes")
+RULING_SOURCES = ("user", "repository", "requirement", "technical")
+DEFAULT_MAX_FIX_CYCLES = 2
 SUMMARY_VALUE_LIMIT = 240
+BRIEF_VALUE_LIMIT = 240
+BRIEF_RULING_LIMIT = 8
+BRIEF_CHILD_LIMIT = 20
+RULING_DIAGNOSTIC_LIMIT = 20
 # Match a complete inline code span before interpreting a comment opener.
 INLINE_CODE_OR_COMMENT_RE = re.compile(
     r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)|<!--")
+
+
+def live_markdown_lines(text: str) -> list[str]:
+    """@brief Return visible Markdown lines, excluding fences and comments."""
+    visible_lines: list[str] = []
+    comment = False
+    fence = ""
+    for raw in text.splitlines():
+        line = raw
+        if fence:
+            if re.fullmatch(r" {0,3}" + re.escape(fence[0])
+                            + "{" + str(len(fence)) + r",}[ \t]*", line):
+                fence = ""
+            continue
+        opening = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line) if not comment else None
+        if opening and (opening[1][0] != "`" or "`" not in opening[2]):
+            fence = opening[1]
+            continue
+        visible = []
+        while line:
+            if comment:
+                _hidden, closed, line = line.partition("-->")
+                if not closed:
+                    break
+                comment = False
+            else:
+                token = INLINE_CODE_OR_COMMENT_RE.search(line)
+                if not token:
+                    visible.append(line)
+                    break
+                visible.append(line[:token.start()])
+                comment = token[0] == "<!--"
+                if not comment:
+                    visible.append(token[0])
+                line = line[token.end():]
+        visible_lines.append("".join(visible))
+    return visible_lines
+
+
+def parse_rulings(text: str) -> tuple[list[dict[str, str]], list[str]]:
+    """@brief Parse valid Rulings in journal order plus bounded diagnostics."""
+    records: list[dict[str, str]] = []
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    active = section_seen = False
+    for line_no, line in enumerate(live_markdown_lines(text), 1):
+        if line.startswith("## "):
+            active = line[3:].strip().lower() == "rulings"
+            if active:
+                if section_seen:
+                    errors.append("duplicate Rulings section")
+                    active = False
+                section_seen = True
+            continue
+        if not active or not line.strip():
+            continue
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            errors.append(f"invalid ruling record at line {line_no}")
+            continue
+        parts = [part.strip() for part in stripped[2:].split("|")]
+        if len(parts) != 6 or not re.fullmatch(r"RULING-\d{3}", parts[0]):
+            errors.append(f"invalid ruling record at line {line_no}")
+            continue
+        record = {"id": parts[0]}
+        valid = True
+        for expected, part in zip(RULING_KEYS, parts[1:]):
+            key, separator, value = part.partition("=")
+            if not separator or key.strip() != expected or not value.strip():
+                valid = False
+                break
+            record[expected] = value.strip()
+        if (not valid or record["id"] in seen_ids
+                or record.get("source") not in RULING_SOURCES
+                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record.get("date", ""))
+                or (record.get("supersedes") != "none" and not re.fullmatch(
+                    r"RULING-\d{3}", record.get("supersedes", "")))):
+            errors.append(f"invalid ruling record at line {line_no}")
+            continue
+        try:
+            _dt.date.fromisoformat(record["date"])
+        except ValueError:
+            errors.append(f"invalid ruling record at line {line_no}")
+            continue
+        seen_ids.add(record["id"])
+        records.append(record)
+    if len(errors) > RULING_DIAGNOSTIC_LIMIT:
+        shown = RULING_DIAGNOSTIC_LIMIT - 1
+        errors = errors[:shown] + [
+            f"...[{len(errors) - shown} ruling diagnostics omitted; read journal]"]
+    return records, errors
+
+
+def active_rulings(records: list[dict[str, str]]) -> list[dict[str, str]]:
+    """@brief Return valid ruling records not superseded by a later record."""
+    active: list[dict[str, str]] = []
+    earlier: set[str] = set()
+    for record in records:
+        supersedes = record.get("supersedes", "none")
+        if supersedes in earlier:
+            active = [item for item in active if item.get("id") != supersedes]
+        active.append(record)
+        earlier.add(record["id"])
+    return active
+
+
+def parse_handoff(text: str) -> dict[str, str]:
+    """@brief Read one optional strict Handoff field section."""
+    fields: dict[str, str] = {}
+    active = seen = False
+    for line in live_markdown_lines(text):
+        if line.startswith("## "):
+            active = line[3:].strip().lower() == "handoff"
+            if active:
+                if seen:
+                    raise UserError("duplicate Handoff section")
+                seen = True
+            continue
+        if not active or not line.strip():
+            continue
+        match = HEADER_RE.fullmatch(line)
+        if not match:
+            raise UserError("Handoff requires one 'key: value' per line")
+        key, value = match.group(1).lower(), match.group(2).strip()
+        if key not in HANDOFF_FIELDS:
+            raise UserError("unknown Handoff field; see templates/task.md")
+        if key in fields:
+            raise UserError(f"duplicate Handoff field: {key}")
+        if key == "current" and value and value not in KNOWN_STAGES:
+            raise UserError("invalid Handoff current stage")
+        if key == "status" and value and value not in HANDOFF_STATUSES:
+            raise UserError("invalid Handoff status")
+        fields[key] = value
+    return fields
 
 
 def parse_stage_report(text: str) -> dict[str, str]:
@@ -1167,11 +1357,29 @@ def parse_stage_report(text: str) -> dict[str, str]:
         if key in fields:
             raise UserError(f"duplicate Stage report field: {key}")
         allowed = (KNOWN_STAGES if key in {"stage", "current"} else
-                   STAGE_REPORT_RESULTS if key == "result" else None)
+                   STAGE_REPORT_RESULTS if key == "result" else
+                   REVIEW_VERDICTS if key in {
+                       "spec_compliance", "implementation_quality"} else None)
         if value and allowed is not None and value not in allowed:
             raise UserError(f"invalid Stage report {key}; expected {', '.join(allowed)}")
+        if key == "review_round" and value and (
+                not value.isdecimal() or not 1 <= int(value) <= 6):
+            raise UserError("invalid Stage report review_round; expected 1 through 6")
         fields[key] = value
     return fields
+
+
+def bound_stage_report(text: str, current: str) -> tuple[dict[str, str], str]:
+    """@brief Parse the current Stage report or return a freshness notice."""
+    record = parse_stage_report(text)
+    notice = ""
+    if not any(record.values()):
+        notice = "stage report not recorded; read journal"
+    elif not record.get("stage") or not record.get("current"):
+        notice = "incomplete stage report binding; refresh from journal"
+    elif record["current"] != current:
+        notice = "stale stage report: current stage changed; refresh from journal"
+    return ({}, notice) if notice else (record, "")
 
 
 def summary_value(value: str) -> tuple[str, bool]:
@@ -1194,16 +1402,7 @@ def cmd_summary(args: argparse.Namespace) -> int:
     current = data["header"].get("stage", "")
     if current not in KNOWN_STAGES:
         raise UserError("journal has no valid current stage")
-    record = parse_stage_report(read_text(path))
-    notice = ""
-    if not any(record.values()):
-        notice = "stage report not recorded; read journal"
-    elif not record.get("stage") or not record.get("current"):
-        notice = "incomplete stage report binding; refresh from journal"
-    elif record["current"] != current:
-        notice = "stale stage report: current stage changed; refresh from journal"
-    if notice:
-        record = {}
+    record, notice = bound_stage_report(read_text(path), current)
     rows = {
         "Stage": (f"{record['stage']} - {record.get('result') or 'not recorded'}"
                   if record else "not recorded"),
@@ -1216,6 +1415,9 @@ def cmd_summary(args: argparse.Namespace) -> int:
         "Next": "read journal and refresh Stage report" if notice else record.get("next", ""),
         "Needs user": "review journal; reporting state is not recorded" if notice
                       else record.get("needs_user", ""),
+        "Specification compliance": record.get("spec_compliance", ""),
+        "Implementation quality": record.get("implementation_quality", ""),
+        "Review round": record.get("review_round", ""),
         "Details": f"{rel(path)} (recorded snapshot, not fresh proof)",
     }
     rendered = {key: summary_value(value) for key, value in rows.items()}
@@ -1224,6 +1426,110 @@ def cmd_summary(args: argparse.Namespace) -> int:
             "review full journal before proceeding (summary truncated)", False)
     for key, (value, _shortened) in rendered.items():
         print(f"{key + ':':<14}{value}")
+    return 0
+
+
+def brief_lines(path: Path, journal: dict, text: str, cfg: dict) -> list[str]:
+    """@brief Render one deterministic bounded resume brief from durable files."""
+    header = journal.get("header", {})
+    current = header.get("stage", "")
+    record, report_notice = bound_stage_report(text, current)
+    rulings, _ruling_errors = parse_rulings(text)
+    active = active_rulings(rulings)
+    handoff = parse_handoff(text)
+    children = visible_children(journal.get("id") or path.stem)
+
+    def clean(value: str, fallback: str = "not recorded") -> str:
+        rendered, _shortened = summary_value(value)
+        return fallback if rendered == "not recorded" and fallback != "not recorded" \
+            else rendered
+
+    total = len(journal.get("checklist", []))
+    done = sum(1 for ticked, _item in journal.get("checklist", []) if ticked)
+    next_item = next((item for ticked, item in journal.get("checklist", [])
+                      if not ticked), "not recorded")
+    task = clean(f"{journal.get('id') or path.stem} - {journal.get('title', '')}".rstrip(" -"))
+    branch = clean(header.get("branch", ""))
+    base = clean(header.get("base", ""))
+    parent = clean(header.get("parent", ""), "none")
+    requirements = clean(header.get("requirements", ""))
+    checklist = clean(f"{done}/{total} done; next={next_item}")
+
+    if report_notice:
+        report_line = ("not recorded" if report_notice.startswith("stage report not recorded")
+                       else clean(report_notice))
+    else:
+        report_line = clean(
+            f"{record['stage']} - {record.get('result') or 'not recorded'}; "
+            f"changed={record.get('changed') or 'not recorded'}; "
+            f"evidence={record.get('evidence') or 'not recorded'}; "
+            f"issues={record.get('issues') or 'not recorded'}; "
+            f"next={record.get('next') or 'not recorded'}; "
+            f"needs_user={record.get('needs_user') or 'not recorded'}")
+    review_enabled, max_fix_cycles = review_settings(cfg)
+    review_line = clean(
+        f"policy={'enabled' if review_enabled else 'disabled'}; "
+        f"max_fix_cycles={max_fix_cycles}; "
+        f"spec={record.get('spec_compliance') or 'not recorded'}; "
+        f"quality={record.get('implementation_quality') or 'not recorded'}; "
+        f"round={record.get('review_round') or 'not recorded'}")
+
+    if not any(handoff.values()):
+        handoff_line = "not recorded"
+    elif handoff.get("current") != current:
+        handoff_line = "stale handoff: current stage changed; refresh from journal"
+    else:
+        handoff_line = clean(
+            f"{handoff.get('status') or 'not recorded'}; "
+            f"current={handoff.get('current') or 'not recorded'}; "
+            f"next={handoff.get('next') or 'not recorded'}; "
+            f"must_read={handoff.get('must_read') or 'not recorded'}; "
+            f"blockers={handoff.get('blockers') or 'not recorded'}")
+
+    lines = [
+        "AEGIS brief",
+        f"Task: {task}",
+        f"Stage: {clean(current)}",
+        f"Branch/base: {branch} @ {base}",
+        f"Parent: {parent}",
+        f"Requirements: {requirements}",
+        f"Checklist: {checklist}",
+        f"Stage report: {report_line}",
+        f"Review: {review_line}",
+        "Active rulings:",
+    ]
+    if active:
+        for ruling in active[:BRIEF_RULING_LIMIT]:
+            value = (f"{ruling['id']} | decision={ruling['decision']} | "
+                     f"reason={ruling['reason']} | source={ruling['source']} | "
+                     f"supersedes={ruling['supersedes']}")
+            lines.append(f"- {clean(value)}")
+        if len(active) > BRIEF_RULING_LIMIT:
+            lines.append(f"- ...[{len(active) - BRIEF_RULING_LIMIT} omitted; read journal]")
+    else:
+        lines.append("- none recorded")
+    lines.append(f"Handoff: {handoff_line}")
+    lines.append("Visible children:")
+    if children:
+        for _child_path, child in children[:BRIEF_CHILD_LIMIT]:
+            lines.append("- " + clean(
+                f"{child.get('id') or 'not recorded'} | "
+                f"stage={child.get('header', {}).get('stage') or 'not recorded'} | "
+                f"title={child.get('title') or 'not recorded'}"))
+        if len(children) > BRIEF_CHILD_LIMIT:
+            lines.append(f"- ...[{len(children) - BRIEF_CHILD_LIMIT} omitted; read journal]")
+    else:
+        lines.append("- none visible")
+    lines.append(f"Details: {rel(path)} (durable snapshot; read journal for full history)")
+    return lines
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    """@brief Print a deterministic bounded durable resume brief."""
+    path, journal = read_journal(args.task)
+    text = read_text(path)
+    for line in brief_lines(path, journal, text, load_config()):
+        print(line)
     return 0
 
 
@@ -1251,6 +1557,7 @@ CHECKS: tuple[tuple[str, str], ...] = (
     ("command-timeout", "no --run command was stopped by its time limit"),
     ("nothing-ran", "--run actually executed at least one command"),
     ("manual-verification", "a requirement is verified by hand, not by test"),
+    ("review-state", "enabled explicit-review evidence matches its configured bound"),
     ("stage-zone", "the diff stays inside the current stage's write zone"),
 )
 
@@ -1283,6 +1590,7 @@ CONFIG_SHAPE: dict[str, dict[str, type]] = {
               "strict_promote": list, "run": list},
     "timeouts": {},   # keys are command names; values checked below
     "zones": {stage: list for stage in DEFAULT_ZONES},
+    "review": {"enabled": bool, "max_fix_cycles": int},
 }
 
 
@@ -1300,9 +1608,14 @@ def check_config(add, cfg: dict) -> None:
             value = cfg_table(cfg, table).get(key)
             if value is None:
                 continue
-            if isinstance(value, bool) or not isinstance(value, want):
+            if not isinstance(value, want) or (want is int and isinstance(value, bool)):
                 add("WARN", "config", name,
                     f"[{table}] {key} should be {want.__name__}")
+    cycles = cfg_table(cfg, "review").get("max_fix_cycles")
+    if (isinstance(cycles, int) and not isinstance(cycles, bool)
+            and not 0 <= cycles <= 5):
+        add("WARN", "config", name,
+            "[review] max_fix_cycles should be 0 through 5")
     for key, value in cfg_table(cfg, "commands").items():
         if key != "timeout" and not isinstance(value, str):
             add("WARN", "config", name, f"[commands] {key} should be a string")
@@ -1808,7 +2121,8 @@ def scan_journals(add, skip, req_ids: set[str]) -> list[tuple[str, dict]]:
         if skip(relpath):
             continue
         try:
-            data = parse_journal(read_text(path))
+            text = read_text(path)
+            data = parse_journal(text)
         except UserError:  # corrupt encoding: report, keep scanning
             add("ERROR", "journal-header", relpath, "not valid UTF-8")
             continue
@@ -1830,6 +2144,25 @@ def scan_journals(add, skip, req_ids: set[str]) -> list[tuple[str, dict]]:
                 add("WARN", "journal-header", relpath,
                     f"missing '{key}:' header line")
         journals.append((relpath, data))
+        rulings, ruling_errors = parse_rulings(text)
+        for error in ruling_errors:
+            add("WARN", "journal-header", relpath, error)
+        known_rulings: set[str] = set()
+        for ruling in rulings:
+            supersedes = ruling.get("supersedes", "none")
+            if supersedes != "none" and supersedes not in known_rulings:
+                add("WARN", "journal-header", relpath,
+                    f"{ruling['id']} supersedes unknown earlier {supersedes}")
+            known_rulings.add(ruling["id"])
+        try:
+            handoff = parse_handoff(text)
+        except UserError as exc:
+            add("WARN", "journal-header", relpath, str(exc))
+            handoff = {}
+        handoff_current = handoff.get("current", "")
+        if handoff_current and handoff_current != data["header"]["stage"]:
+            add("WARN", "journal-header", relpath,
+                f"stale Handoff current {handoff_current} != {data['header']['stage']}")
         for rid in split_ids(data["header"].get("requirements", "")):
             if rid not in req_ids:
                 add("ERROR", "journal-header", relpath, f"unknown requirement {rid}")
@@ -1838,7 +2171,71 @@ def scan_journals(add, skip, req_ids: set[str]) -> list[tuple[str, dict]]:
             if open_items:
                 add("WARN", "unticked-deliver", relpath,
                     f"{open_items} unticked item(s) in deliver")
+    by_id = {data["id"].upper(): (relpath, data) for relpath, data in journals}
+    children: dict[str, list[tuple[str, dict]]] = {}
+    for relpath, data in journals:
+        parent = data["header"].get("parent", "").strip()
+        if not parent:
+            continue
+        if not re.fullmatch(r"TASK-[0-9A-Fa-f]{4,12}", parent):
+            add("WARN", "journal-header", relpath,
+                "malformed parent visible in this checkout")
+            continue
+        target = by_id.get(parent.upper())
+        if target is None:
+            add("WARN", "journal-header", relpath,
+                f"unknown parent {parent} visible in this checkout")
+            continue
+        if target[1]["header"].get("parent", "").strip():
+            add("WARN", "journal-header", relpath,
+                f"parent {parent} is itself a child visible in this checkout")
+            continue
+        children.setdefault(parent.upper(), []).append((relpath, data))
+    for parent_id, visible in children.items():
+        parent_path, parent = by_id[parent_id]
+        unfinished = [data for _path, data in visible
+                      if data["header"].get("stage") != "done"]
+        if parent["header"].get("stage") == "done" and unfinished:
+            add("WARN", "journal-header", parent_path,
+                f"done parent has {len(unfinished)} unfinished child visible in this checkout")
     return journals
+
+
+def check_review_state(add, cfg: dict, journals: list[tuple[str, dict]]) -> None:
+    """@brief Check enabled explicit-review evidence against its finite policy."""
+    enabled, max_fix_cycles = review_settings(cfg)
+    if not enabled:
+        return
+    for relpath, journal in journals:
+        stage = journal.get("header", {}).get("stage", "")
+        if stage not in {"validate", "deliver"}:
+            continue
+        try:
+            text = read_text(ROOT / relpath)
+            record, notice = bound_stage_report(text, stage)
+        except UserError:
+            add("WARN", "review-state", relpath,
+                "enabled review has malformed verdict evidence")
+            continue
+        if notice:
+            add("WARN", "review-state", relpath,
+                f"enabled review evidence not current: {notice}")
+            continue
+        spec = record.get("spec_compliance", "")
+        quality = record.get("implementation_quality", "")
+        round_text = record.get("review_round", "")
+        enabled_verdicts = {"approved", "changes_required"}
+        if spec not in enabled_verdicts or quality not in enabled_verdicts or not round_text:
+            add("WARN", "review-state", relpath,
+                "enabled review has incomplete verdict evidence")
+        if round_text and int(round_text) > 1 + max_fix_cycles:
+            add("WARN", "review-state", relpath,
+                f"review_round {round_text} exceeds configured total "
+                f"{1 + max_fix_cycles}")
+        if (journal.get("header", {}).get("stage") == "deliver"
+                and (spec, quality) != ("approved", "approved")):
+            add("WARN", "review-state", relpath,
+                "deliver requires two current approved verdicts")
 
 
 def check_diff(add, skip, cfg, records, journals, scope) -> None:
@@ -1998,6 +2395,7 @@ def run_checks(cfg: dict, task: str | None) -> list[tuple[str, str, str, str]]:
     check_requirement_links(add, records)
     req_ids = {str(d.get("id", "")) for _r, _p, d in records} - {""}
     journals = scan_journals(add, skip, req_ids)
+    check_review_state(add, cfg, journals)
     check_diff(add, skip, cfg, records, journals, scope)
     if scope_path is not None and scope is not None:
         check_repo_evolution(add, scope_path, scope)
@@ -2879,6 +3277,24 @@ def cmd_report(args: argparse.Namespace) -> int:
     header = data["header"]
     text = read_text(path)
     deviations = recorded_deviations(text)
+    review_enabled, _max_fix_cycles = review_settings(cfg)
+    if not review_enabled:
+        review_line = "- explicit review: disabled; existing validation remains required"
+    else:
+        try:
+            review_record, review_notice = bound_stage_report(
+                text, header.get("stage", ""))
+        except UserError:
+            review_record, review_notice = {}, "malformed verdict evidence; read journal"
+        if review_notice:
+            review_line = f"- explicit review: enabled; evidence={review_notice}"
+        else:
+            review_line = (
+                "- explicit review: enabled; "
+                f"spec_compliance={review_record.get('spec_compliance') or 'not recorded'}; "
+                "implementation_quality="
+                f"{review_record.get('implementation_quality') or 'not recorded'}; "
+                f"review_round={review_record.get('review_round') or 'not recorded'}")
 
     titles = {
         str(record.get("id", "")): str(record.get("title", ""))
@@ -2918,6 +3334,7 @@ def cmd_report(args: argparse.Namespace) -> int:
         (f"- deviations: {len(deviations)} recorded" if deviations
          else "- deviations: none recorded"),
         *[f"  - {entry}" for entry in deviations],
+        review_line,
         f"- diff vs {basis}: {diff_line}",
         (f"- checks: errors={counts['ERROR']} warnings={counts['WARN']}"
          f" notes={counts['NOTE']}"),
@@ -2956,6 +3373,7 @@ def build_parser() -> argparse.ArgumentParser:
     task = subs.add_parser("task", help="create a task journal")
     task.add_argument("title")
     task.add_argument("--type", choices=TASK_TYPES, default="feature")
+    task.add_argument("--parent", help="optional visible top-level TASK-<id>")
     task.set_defaults(func=cmd_task)
 
     req = subs.add_parser("req", help="create a requirement file")
@@ -3017,6 +3435,10 @@ def build_parser() -> argparse.ArgumentParser:
         "summary", help="print a compact recorded stage summary (read-only)")
     summary.add_argument("task", help="TASK-<id> or <id>")
     summary.set_defaults(func=cmd_summary)
+
+    brief = subs.add_parser("brief", help="print a bounded durable resume brief")
+    brief.add_argument("task", help="TASK-<id> or <id>")
+    brief.set_defaults(func=cmd_brief)
 
     diagram = subs.add_parser(
         "diagram", help="draw the requirement register as a Mermaid coverage map")

@@ -1,12 +1,16 @@
 PulseView / sigrok-cli for the Hantek DSO-3062L and ALIENTEK ATK DL16
-Linux x86_64 AppImage - built 67114f1
+Linux x86_64 AppImage - built 66540df
 ======================================================================
+
+Source revision: 66540df
 
 Fully self-contained: Qt5, glib, boost, libftdi, libusb, hidapi, libzip and
 python3 are all bundled inside the AppImage itself. Nothing needs to be
 installed - no apt, no network, no root.
 
-Verified on a bare ubuntu:22.04 container with zero packages installed:
+The x86_64 build targets 64-bit Intel/AMD Linux systems with glibc 2.35
+or newer, including Ubuntu 22.04 and Debian 12 (Bookworm).
+
 sigrok-cli runs with no host libraries at all. PulseView additionally needs
 the host's own graphics driver (libGL and an X11/Wayland display) - that is
 deliberate and universal to AppImages: those libraries have to match the

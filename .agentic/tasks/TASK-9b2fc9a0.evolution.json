@@ -1,0 +1,426 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-31T14:52:40.392487Z",
+      "anchor_head": "b6d0e8ea529ce9d07b9e994ac26af99a258517f5",
+      "anchor_id": "acb82e12cbfb5637",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "3f07c5198438808149ac0f6e13625301108bd6e8f37554d2ac2323f24dfa0016"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "6f5bea3920a7972549d5c0cc33dcad8bde1882c70461097b3c796f3bc9a491e1"
+          },
+          "path": "01_Documentation/Environment_Setup.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1b75e3d611e9470e4d685fc400beb6173d7320f0df398c0258b80dc1c11b42fe"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "ff0cdb1ac61861f40c8fdd87cd10b2b5e6c246ad336c9cf0db44d8680bca9cad"
+          },
+          "path": "02_Tools/build/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "99925a0f9a9631a7dfd83f6bf382258959135599a54c787c73b86108777afe10"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "af5012f963769770cb79e26fc855473e303fefb22af878225ee2bfca503f4b36"
+          },
+          "path": "02_Tools/build/STATUS.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "bf9d119f2772290876cfb81e4310db785f0b62d7e8b924b296af2480d630703e"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "c832fe00801cae519aa247f7fb85f02202bd321461ebba58a43fde45425f9444"
+          },
+          "path": "02_Tools/build/build_appimage.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "34d46ae58834d8232054c0f02f78544f48bc82170849dd57726559a18973f894"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/build_deb.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "ef8d63a44b7072e75f03d623ce4563895586bce712e3df181c753a2a427abb79"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/build_delivery_set.ps1",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "79cb699392398322b30f638a6edf8ad571626418ee049b457a417e6816a40d41"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "0d821f48a0901b2869d12abcca3595738234b70718dae9974fa03521c135074f"
+          },
+          "path": "02_Tools/build/build_linux.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "bac2c7186a8c7e3fbb0cb7b97135d8fdb6354a71187ad4253415a7b20474bc9a"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "08c76d9bdacd3d32cd3625c69b467cf7b78c5cb05cb04ca1db35dbb2d5bcaa64"
+          },
+          "path": "02_Tools/build/package_windows.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1dae115e3a6468c79456032d394d21bfb6c99557b37203cd3fd84a29a9872fb5"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/verify_delivery_set.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1680a6f2140b27835437cdd63e6f25e37d50a17e761d04fb5b38c75c8b03e653"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "526e3b9ee1a9f91ac87a6f6b7f43444ad4fc964ccbbefe310bc4baf9ca5e9d44"
+          },
+          "path": "02_Tools/build/write_appimage_readme.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "dad5720011363098ae2d040af7190abb0167bd66d41afdfb94559057b88ae840"
+          },
+          "area": "tests",
+          "before": {
+            "kind": "file",
+            "sha256": "1145020de102cdb938eac257c8488f79858f936905fb71d8b9654d8e46d344f2"
+          },
+          "path": "02_Tools/test/appimage_readme_test.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "b1521b695563b774ea24731bd720d1e25e1236d5c78cb3ca111e88193e1355de"
+          },
+          "area": "tests",
+          "before": {
+            "kind": "file",
+            "sha256": "be77232d9e8c67b4e6b7ff91a771e5f25510a6634656e91bb7839f5bcd8ad210"
+          },
+          "path": "02_Tools/test/deb_package_test.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "946b517f7c4759ac97f85da41910f3891aba60ed86194d4675542d09d7c62611"
+          },
+          "area": "tests",
+          "before": {
+            "kind": "file",
+            "sha256": "3b40c2d4f78137ae112f32ffc62bd7d9acc8544b73f2b68c07bb3245cc1600cc"
+          },
+          "path": "02_Tools/test/delivery_set_test.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "dca82ac7f809adbb8b531d6f2c6070ea71f3ddbb90adc5577cd6d821e618bd73"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "8259df19afd8a079cd39ffbe79bfc4f524bb8860bb5051a91026676da576964b"
+          },
+          "path": "07_Delivery/PulseView-aarch64.AppImage",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "33815ad3d19a6571247c39f180280bc048f6cf39e00a637b8cac26cd3158cfaa"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/PulseView-aarch64.AppImage.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "13dc4280435b36803c75ad01d9ce583c87880e97832848d03ace66d1c9f2096e"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "5568e3e13c5eedcccf804fb6b08ea3b8c44377f282d9cc0acb437cc692c95ab6"
+          },
+          "path": "07_Delivery/PulseView-x86_64.AppImage",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5f150b6a398d087e7b33a9bbf3e6dd3bd0d88c2010574a5f84bf34a4b28bcd5c"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/PulseView-x86_64.AppImage.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "3291fde74cab22e77d82f2f532408b913bffd54b5997d5738ad98a1cfec3e3bb"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "e99bbbf704d6f371376390e5b1a7254edc7380d679a3f666df2a507d321ec6ca"
+          },
+          "path": "07_Delivery/README-AppImage-aarch64.txt",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "39a058b25f3457ff85d1da491b823dfc6feda2bcf64dfeb7da05322ee35d07f8"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "15a21140f33ad470d18baaf6c0871eebdd39766fb06ea6003456c31a34c93b7d"
+          },
+          "path": "07_Delivery/README-AppImage.txt",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "a9d615e3e8afbf6f3750ff9e67a7e968c8490fc76508159ce33a7e8e41344d7e"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/README-RaspberryPi-deb.txt",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "66d5f29f39646691e06775c529218882039abc0401807dcf617f7f276c880400"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "9a5b19b0d06172f3f4f7e78793b63c9981b2f0e85a7a98a6282b6ff8c7901077"
+          },
+          "path": "07_Delivery/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "9f06b8451333add4524e27ee2b1d106ebeb1042998dd3827d07227d09030062b"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/SHA256SUMS",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "e78195397ff19d795e24380682f495d31a353d618fb72f6d8233313f8a1b5ae2"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-20260828-8e67ed1-linux-x64.tar.gz.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "4dec8d8a8825fb05dcf91ef83a4288ccff7779ff792c7340b49e0f0c6281f8dc"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-20260831-b6d0e8e-dirty-linux-x64.tar.gz",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "37701eec0a494a07f15dc0f80b48c5d3ea6b9ba3a4b99b0eacee9ded4609568f"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-20260831-b6d0e8e-dirty-linux-x64.tar.gz.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "7ddc41a2dd82183c560761f8b5ea137c15e1d0be92516d3f655f4614ecb7cf10"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-20260831-b6d0e8e-dirty-windows-x64.zip",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "ca314142d7e548d3f4403cd439ab1e61a7f15f5bd205f7e24425ccd40516c446"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-20260831-b6d0e8e-dirty-windows-x64.zip.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "e689b5dc93289dc0948df9e87b843cc56cf124c1238dec0b1d4aa4583ad82a17"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-ddp_0.5.0+git5aa2f17.dirty_arm64.deb",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "dfd330920cdf7944e65f74b04fb7442e7fd07fceaf5b5a3a9e1ec739e24f5787"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-ddp_0.5.0+git5aa2f17.dirty_arm64.deb.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "c2f988acfe6df78769a8d66f61450ba8c28c23d761b1bd6cb03f915a6dc214a4"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "fee017d28f28851936403a9a5305f4b3287f2951fdf88c4c992c7b8d8ab2d680"
+          },
+          "area": "other",
+          "before": null,
+          "path": "07_Delivery/pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb.sha256",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5aba8419fc61deb6a92dfb32dfb8e5e85c10e674cd5ebcecb52d7f55e409e28f"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "2ff0b223fd179fc7b7e7d49f788729cadec180088d8dcea866b0eef3a0b31cf0"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5b6c000fb359757377ce5ef37b0662237a7cc1fb886874e258f0489f911f01ad"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "bbb55df54af5f3a61c5785fc859d8cbbeab418b740f35e4211a773f444b32e02"
+          },
+          "path": "README.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 13,
+            "modified": 8,
+            "removed": 0,
+            "unchanged": 80
+          },
+          "source": {
+            "added": 3,
+            "modified": 6,
+            "removed": 0,
+            "unchanged": 1513
+          },
+          "tests": {
+            "added": 0,
+            "modified": 3,
+            "removed": 0,
+            "unchanged": 63
+          }
+        },
+        "status": {
+          "added": 16,
+          "modified": 17,
+          "removed": 0,
+          "unchanged": 1656
+        }
+      },
+      "current_head": "b6d0e8ea529ce9d07b9e994ac26af99a258517f5",
+      "evolution_stage": "validate",
+      "evolved_at": "2026-08-31T16:09:23.673351Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-9b2fc9a0"
+}

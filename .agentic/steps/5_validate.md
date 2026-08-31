@@ -20,8 +20,11 @@ prove the final tree before it is presented for publication.
 
 **Stage report (completion or pause):** After updating the log, header and
 checklist, refresh the single `## Stage report` section in this task journal:
+At every stage transition or pause, append any new Ruling and refresh the Handoff;
+also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user` (plain one-line fields, no fences). Record the completed stage
+`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
+(plain one-line fields, no fences). Record the completed stage
 separately from `current`, which must match the header after any transition;
 use `paused` when waiting or ending a session. Other results are `in_progress`,
 `completed`, `blocked`, `skipped`. Run
@@ -30,14 +33,51 @@ detailed explanation. Unknown values stay blank (`not recorded`); refresh
 stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
-**Resume context:** Read the summary first, then this stage's instructions,
+**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
 the journal header/checklist and relevant log entries (scope, user limits,
 unresolved issues, decisions and evidence); follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
 source as needed, not the whole register. Do not act on missing, stale, or
 shortened reporting without reviewing the full journal information.
 
+## Optional explicit review and bounded re-review
+
+Read `[review]` in `.agentic/aegis.toml` before applying this protocol.
+When review is disabled, record both verdicts as `disabled`, leave
+`review_round` blank, and skip only explicit verdicts and their fix loop.
+Existing semantic review, full suite, strict check, evidence, and the delivery
+checkpoint remain mandatory.
+
+When review is enabled:
+
+1. Set the initial `review_round` to 1. The total bound is
+   `1 + max_fix_cycles`; two fix cycles means three total review rounds.
+2. Ask two questions and record independent verdicts. **Specification
+   compliance** checks scope, exclusions, requirements, specs, and design.
+   **Implementation quality** checks correctness, errors, tests, security,
+   maintainability, portability, and unrequested work.
+3. Both verdicts apply to the same current candidate. Any candidate change
+   invalidates both verdicts: clear both while editing, then perform both
+   reviews again.
+4. If either verdict is `changes_required` and a cycle remains, append the
+   findings to the log and route to the appropriate existing stage.
+5. Fix only the recorded findings, rerun relevant proof, increment the round,
+   and return here. Do not expand scope or reset the counter to continue.
+6. A specification ambiguity or scope change uses the existing human
+   checkpoint; do not guess inside the loop.
+7. If both current verdicts are `approved`, continue with the final proof and
+   delivery transition below.
+8. If either verdict still requires changes on the final allowed round, set
+   `result: blocked` and `needs_user: yes`; do not advance to deliver.
+9. Only an explicit human Ruling that changes scope or policy can reset the
+   counter.
+
 **Steps:**
+
+Parent validation owns the integrated candidate. Review all children visible
+in this checkout, confirm each child was independently validated, and verify
+their combined behavior against the parent's scope and requirements. A child
+verdict or green suite does not replace integration proof in the parent.
 
 1. Review the diff semantically, hunk by hunk, against the frame scope and
    exclusions, each requirement and its verification, the design note, error

@@ -19,6 +19,7 @@ the block, no comments between the lines — so it stays machine-readable.
   type          feature | fix | change | adopt
   path          full | quick
   requirements  comma-separated requirement IDs, empty until specify
+  parent        optional top-level TASK-id; blank for an ordinary task
   branch        the branch this task is delivered on
   base          the commit this task started from, filled in at creation;
                 the delivery report and `check --task` measure the diff
@@ -44,6 +45,7 @@ stage: frame
 type: feature
 path: full
 requirements:
+parent:
 branch: <branch>
 base:
 opened: 2026-01-01
@@ -56,6 +58,25 @@ opened: 2026-01-01
 
 - 2026-01-01 frame: <scope agreed, exclusions, chosen path and why>
 
+## Rulings
+
+<!-- Append decisions here; never edit history. Supersede with a new ruling.
+- RULING-001 | date=YYYY-MM-DD | decision=<decision> | reason=<reason> | source=user | supersedes=none
+source: user | repository | requirement | technical
+-->
+
+## Handoff
+
+<!-- Replace these fields with the latest minimal resume snapshot.
+status: ready | waiting | blocked
+-->
+
+current:
+status:
+next:
+must_read:
+blockers:
+
 ## Stage report
 
 stage:
@@ -66,3 +87,6 @@ evidence:
 issues:
 next:
 needs_user:
+spec_compliance:
+implementation_quality:
+review_round:

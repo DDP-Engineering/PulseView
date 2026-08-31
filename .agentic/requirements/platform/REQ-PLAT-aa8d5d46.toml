@@ -1,0 +1,84 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-PLAT-aa8d5d46"
+
+title = "Build a self-contained aarch64 AppImage for Raspberry Pi 4 and 5"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+When the AppImage build script runs on an aarch64 build machine - a native arm64 Linux host or an emulated arm64 container - it shall produce a self-contained PulseView-aarch64.AppImage built against glibc 2.35, so the one file runs unmodified on 64-bit Raspberry Pi OS Bookworm (glibc 2.36, the legacy compatibility floor) and everything newer - Raspberry Pi OS Trixie, the current release, and 64-bit Ubuntu 22.04 or newer - on a Raspberry Pi 4 or 5.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Manual: run the artifact identity and runtime smoke tests, then execute the pristine AppImage normally on a physical Raspberry Pi 4 or 5 running 64-bit Raspberry Pi OS Trixie: sigrok-cli must report its version, list both project drivers, load the UART decoder without host Python, and PulseView must start to a window; replay the CLI checks in a bare arm64 Debian Bookworm container to prove the compatibility floor."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+    "02_Tools/build/build_appimage.sh",
+    "02_Tools/build/STATUS.md",
+    "02_Tools/build/arch_map.sh",
+    "02_Tools/build/write_appimage_readme.sh",
+    "02_Tools/build/run_in_builder.sh",
+    "02_Tools/build/images/Dockerfile.appimage",
+    "02_Tools/test/arm64_appimage_smoke.sh",
+    "02_Tools/test/arm64_appimage_runtime_smoke.sh",
+    "02_Tools/test/appimage_readme_test.sh",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = [
+    "02_Tools/test/arm64_appimage_smoke.sh",
+    "02_Tools/test/arm64_appimage_runtime_smoke.sh",
+    "02_Tools/test/appimage_readme_test.sh",
+]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "The Raspberry Pi 4 and 5 are the cheapest bench machines that can drive both supported instruments, and the AppImage is the only Linux delivery with no install step. Pinning the build base at glibc 2.35 is what makes one binary cover both Raspberry Pi OS Bookworm and Ubuntu LTS instead of needing a per-distro tarball."
+
+created = 2026-08-31
+updated = 2026-08-31

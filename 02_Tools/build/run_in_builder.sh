@@ -29,6 +29,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
 IMAGE="mingw"
 TAG=""
+PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
 VOLUME=""
 KEEP=0
@@ -40,10 +41,16 @@ Run a command inside a sigrok builder image.
 
 Options:
   --image mingw|appimage   Which builder to use. Default mingw.
+  --platform ARCH          Target architecture: x86_64 or aarch64/arm64
+                           (linux/<arch> also accepted). Default: the host.
+                           Non-x86_64 selects the arch-suffixed image tag
+                           and volume, and runs the container emulated on
+                           an x86_64 host (needs qemu binfmt).
   --tag NAME               Override the image tag.
   --engine docker|podman   Container engine. Default docker.
   --volume NAME            Named volume for /build.
-                           Default hantek-build-<image>.
+                           Default hantek-build-<image> plus the arch
+                           suffix for non-x86_64.
   --keep-volume            Do not warn about stale build state.
   --offline                Run with no network at all (--network none).
                            The point of the saved image is that a build needs
@@ -60,6 +67,7 @@ CMD=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --image)        IMAGE="${2:-}"; shift 2 ;;
+        --platform)     PLATFORM="${2:-}"; shift 2 ;;
         --tag)          TAG="${2:-}"; shift 2 ;;
         --engine)       ENGINE="${2:-}"; shift 2 ;;
         --volume)       VOLUME="${2:-}"; shift 2 ;;
@@ -76,8 +84,18 @@ case "${IMAGE}" in
     *) die "--image must be mingw or appimage, got '${IMAGE}'" ;;
 esac
 
-TAG="${TAG:-hantek-builder-${IMAGE}:latest}"
-VOLUME="${VOLUME:-hantek-build-${IMAGE}}"
+# One shared mapping resolves the architecture and its docker platform
+# string; the image tag and build volume get an arch suffix so an arm64
+# build can never poison the x86_64 build tree or vice versa.
+ARCH_OVERRIDE="${PLATFORM#linux/}"
+[ -n "${ARCH_OVERRIDE}" ] || ARCH_OVERRIDE="$(uname -m)"
+# shellcheck source=arch_map.sh
+. "${SCRIPT_DIR}/arch_map.sh"
+TAG_ARCH_SUFFIX=""
+[ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
+
+TAG="${TAG:-hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
+VOLUME="${VOLUME:-hantek-build-${IMAGE}${TAG_ARCH_SUFFIX}}"
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
@@ -91,6 +109,7 @@ mkdir -p "${DELIVERY}/staging"
 RUN_ARGS=(
     --rm
     --init
+    --platform "${SR_DOCKER_PLATFORM}"
     --volume "${REPO_ROOT}:/work"
     --volume "${VOLUME}:/build"
     --volume "${DELIVERY}:/out"

@@ -1,0 +1,83 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-PLAT-871c1254"
+
+title = "Derive Linux artifact names and paths from the build architecture"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+The Linux build scripts shall take every architecture-dependent value they use - the multiarch library directory, the staging directory name, the tarball suffix, and the AppImage file name - from a single shared mapping keyed on the build machine's reported architecture (uname -m), and that mapping shall yield for x86_64 exactly the values existing deliveries already use: library directory x86_64-linux-gnu, stage pulseview-linux-x86_64, tarball suffix linux-x64, AppImage name PulseView-x86_64.AppImage.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Source the shared mapping helper with the machine architecture forced to x86_64 and then to aarch64, and compare every exported value against the expected table: x86_64 must reproduce the historical names byte for byte (a rename would silently break the delivery ledger and download instructions), aarch64 must yield aarch64-linux-gnu, pulseview-linux-aarch64, linux-arm64, and PulseView-aarch64.AppImage. An unmapped architecture must make the helper fail loudly rather than emit empty strings."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+    "02_Tools/build/arch_map.sh",
+    "02_Tools/build/build_linux.sh",
+    "02_Tools/build/build_appimage.sh",
+    "02_Tools/build/build_image.sh",
+    "02_Tools/build/load_image.sh",
+    "02_Tools/build/run_in_builder.sh",
+    "02_Tools/build/write_appimage_readme.sh",
+    "02_Tools/test/arch_map_test.sh",
+    "02_Tools/test/appimage_readme_test.sh",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = [
+    "02_Tools/test/arch_map_test.sh",
+    "02_Tools/test/appimage_readme_test.sh",
+]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Both Linux build scripts hardcode x86_64 in library paths and artifact names today, so adding a second architecture by copy-paste would fork the scripts and let the two drift. One mapping in one file keeps a single build path for all architectures and makes the x86_64 names a tested invariant instead of an accident."
+
+created = 2026-08-31
+updated = 2026-08-31
