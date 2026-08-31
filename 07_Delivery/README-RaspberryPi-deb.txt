@@ -4,12 +4,12 @@ Licensed under PolyForm Noncommercial 1.0.0 (LICENSE.txt).
 PulseView for Raspberry Pi 4/5 - Debian installer
 =================================================
 
-Package: pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb
-Source revision: b6d0e8e-dirty
+Package: pulseview-ddp_0.5.0+git66540df_arm64.deb
+Source revision: 66540df
 Architecture: arm64 (64-bit Raspberry Pi OS only)
 
 Install:
-  sudo apt install ./pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb
+  sudo apt install ./pulseview-ddp_0.5.0+git66540df_arm64.deb
 
 Start:
   PulseView from the desktop application menu, or: pulseview
