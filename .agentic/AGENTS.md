@@ -87,9 +87,9 @@ yours to write.
 
 ## Resume a task
 
-1. Run `python .agentic/aegis.py summary TASK-<id>` for the named task
-   (use `status` to find its ID when needed), then open the journal header
-   and current checklist in `.agentic/tasks/TASK-<id>.md`.
+1. Run `python .agentic/aegis.py brief TASK-<id>` for the named task
+   (use `status` to find its ID when needed), then open the journal header,
+   current checklist, current step file, and the Handoff `must_read` paths.
 2. Compare `git branch --show-current` with the journal's `branch:` line.
    On a mismatch, stop and reconcile first — check out the recorded
    branch, or say so if it does not exist here — before touching anything.
@@ -105,14 +105,29 @@ yours to write.
 
 Load linked requirements, specs, knowledge, source, and tests as the current
 stage needs them; do not preload the whole repository or requirement register.
-Full journal reads required by validate and deliver still apply. The summary
-is an entry point, never a substitute for required review or fresh proof.
+Full journal reads required by validate and deliver still apply. Brief and
+summary are entry points, never substitutes for required review or fresh proof.
 
 The journal is a committed file, so this works across sessions, machines,
 and models. End every session by updating the journal. A journal travels
 only with its branch: to continue on another computer, commit and push
 the branch first (ask before pushing), then pull there — uncommitted work
 never crosses machines.
+
+## Optional child tasks
+
+Large work may use opt-in child tasks, limited to one level, with
+`task "<title>" --parent TASK-<id>`. The relationship is stored only in the
+child; creation never edits the parent. A child cannot be a parent, and every
+child keeps its own branch, base, requirements, journal, evidence, and
+approvals. Visible-child views scan only journals in the current checkout and
+must never claim state hidden on another branch or machine.
+
+Frame decides whether the work is large enough to split. Design assigns
+non-overlapping scopes and requirement links. Children are governed and
+validated independently. After their work is reconciled, the parent owns
+validation of the integrated candidate and the status of children visible in
+this checkout. AEGIS does not dispatch, branch, merge, or create worktrees.
 
 ## Interaction modes
 
@@ -130,6 +145,10 @@ These pauses are conversational and sit on top of whatever permission or
 sandbox prompts your host already applies. Autopilot loses no
 auditability: the journal still shows the scope decision, the red-test
 line, the check findings, and the ticked checklists after the fact.
+
+No new approval checkpoint is added by children, Rulings, Handoff, brief, or
+optional explicit review. The frame and pre-delivery checkpoints remain the
+only ordinary stops.
 
 **Deviation notices.** A third thing, and not a stop. The moment you record
 a deviation, say it in the conversation too, as one line:
@@ -153,6 +172,22 @@ the human has already paid for not knowing. `DEVIATION` is deliberately not
 `WARNING`: `check` prints `WARN` and `NOTE` for its own findings, and your
 judgement should not be mistaken for the tool's.
 
+## Rulings and handoffs
+
+Rulings are append-only durable decisions. Use the exact `RULING-` format in
+the task template for approved scope changes, authority constraints, durable
+technical choices, and accepted deviations with future impact. Never edit or
+delete an old ruling; append a later ruling whose `supersedes` value names it.
+Rulings cannot grant authority or override newer user instructions,
+repository rules, or Git authority.
+
+Handoff is one replaceable minimal resume snapshot. Handoff current must match
+the journal header stage; `next` names exactly one action and `must_read` names
+only the repository-relative files needed for that action. Refresh it at every
+stage transition, pause, blocker, and session end. The log remains the history,
+the Stage report remains the user-facing result, and neither Rulings nor
+Handoff adds an approval stop.
+
 ## Stage reporting
 
 At each stage completion or pause, present one compact report **before any
@@ -164,7 +199,10 @@ the report. Do not report after every command.
 After recording evidence and decisions in `## Log`, update the journal's
 single `## Stage report` section using the plain fields in `templates/task.md`:
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user`. It is a replaceable latest snapshot; the log stays append-only.
+`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`.
+It is a replaceable latest snapshot; the log stays append-only. Review fields
+are `disabled`/blank when optional review is off and current-candidate verdicts
+when it is on.
 Record the completed stage in `stage`, and the actual header stage in
 `current` after any transition. Use `result: paused` when waiting or ending a
 session; other outcomes are `in_progress`, `completed`, `blocked`, `skipped`.
@@ -202,6 +240,9 @@ same way — `frame` decides whether they take the quick path.
 
 For a small local model, give one stage per session:
 
+For a resumed task, start with `brief TASK-<id>`, then read the current step
+file and only the Handoff `must_read` paths before following the stage prompt.
+
 Each prompt below explicitly ends the session after that stage. Advance the
 header/checklist when appropriate, record the report, then stop before work
 on the next stage. This session limit does not add an approval gate to normal
@@ -227,6 +268,7 @@ to use each command are in `.agentic/CLI.md`.
 ```
 # "python" throughout - use "python3" on Linux distributions without it
 python .agentic/aegis.py status                 # open tasks, or one task's state
+python .agentic/aegis.py brief TASK-<id>         # bounded durable resume view
 python .agentic/aegis.py summary TASK-<id>       # compact recorded stage report
 python .agentic/aegis.py task "<title>"         # new task journal
 python .agentic/aegis.py req <cat> "<title>"    # new requirement file

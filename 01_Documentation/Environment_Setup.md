@@ -200,6 +200,84 @@ compatibility floor. That is why there are two builder images rather than one -
 MXE wants a current Debian, the AppImage wants the oldest base still worth
 supporting, and merging them would silently raise the floor.
 
+### Raspberry Pi 4/5 (aarch64)
+
+The same two Linux builds take `--arch aarch64` and run in an arm64 container.
+On the x86_64 build host that container is emulated; enable the qemu binfmt
+handlers once per boot (`check_host.sh` reports whether they are present):
+
+```bash
+docker run --privileged --rm tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
+02_Tools/build/build_image.sh --image appimage --platform aarch64   # once
+02_Tools/build/build_appimage.sh --arch aarch64
+02_Tools/build/build_deb.sh                                         # recommended installer
+02_Tools/build/build_linux.sh --arch aarch64                        # optional
+```
+
+Produces `07_Delivery/PulseView-aarch64.AppImage` for a Pi 4 or 5 running a
+64-bit OS: Raspberry Pi OS Trixie (the current release) or Bookworm (the
+legacy floor), or Ubuntu 22.04 or newer. The glibc floor is the same
+ubuntu:22.04 base as x86_64 (2.35), which is what lets one binary cover
+Bookworm (2.36) and everything after it. 32-bit Raspberry Pi OS cannot run
+it. The thin aarch64 tarball, by contrast, builds against ubuntu:24.04 and
+therefore does NOT run on Bookworm - it is for arm64 Ubuntu. The AppImage and
+the Debian package are the two Raspberry Pi deliveries; the tarball README says
+why it is not one of them.
+
+Expect the emulated build to run several times longer than the native one.
+Building directly on a Pi 4/5 (8 GB recommended) with Docker installed works
+with the same commands minus the binfmt step; the scripts detect the native
+architecture. Both architectures use the same packaging tools - linuxdeployqt
+release 11 ships an aarch64 asset alongside the x86_64 one - and the type-2
+AppImage runtime is pinned and baked into the builder too, because
+appimagetool would otherwise download it from GitHub at packaging time.
+One runtime note for the Pi itself: a normal `./PulseView-aarch64.AppImage`
+launch needs the host's FUSE stack; where FUSE is unavailable, run with
+`APPIMAGE_EXTRACT_AND_RUN=1` set. The udev rules and instrument
+capabilities are identical to x86_64.
+
+### Raspberry Pi Debian installer
+
+`build_deb.sh` verifies and extracts `PulseView-aarch64.AppImage` inside the
+arm64 builder, installs that tested payload under `/opt/pulseview-ddp`, and
+creates `07_Delivery/pulseview-ddp_<version>_arm64.deb`. It does not compile a
+second copy of PulseView and the installed application does not need FUSE.
+
+On the Pi, copy the `.deb` there and run:
+
+```bash
+sudo apt install ./pulseview-ddp_0.5.0+gitREV_arm64.deb
+pulseview                    # or choose PulseView from the application menu
+sigrok-cli --version
+```
+
+The package installs both project drivers, all protocol decoders, the desktop
+entry/icon, and the udev rules. It owns the standard `pulseview` and
+`sigrok-cli` commands, so `apt` replaces/conflicts with Raspberry Pi OS's stock
+packages of those names. Remove it cleanly with `sudo apt remove
+pulseview-ddp`. Use the aarch64 AppImage instead when no installation or
+package replacement is wanted.
+
+### Complete delivery set
+
+Every release consists of exactly five packages: Windows x86_64 ZIP, Linux
+x86_64 AppImage, Linux x86_64 thin tarball, Raspberry Pi aarch64 AppImage, and
+Raspberry Pi arm64 Debian package. From Windows PowerShell, the owner command
+is:
+
+```powershell
+.\02_Tools\build\build_delivery_set.ps1 -Plan
+.\02_Tools\build\build_delivery_set.ps1
+```
+
+The builder images and per-boot arm64 binfmt handler must already be ready.
+The script uses WSL for all container builds and native Git Bash for the
+Windows runtime gate. Its final `verify_delivery_set.sh` step refuses mixed,
+missing, or duplicate package rows and atomically writes `07_Delivery/
+SHA256SUMS` only after all five hashes verify. Judge the cross-environment run
+by the `DELIVERY_SET_COMPLETE` sentinel and the manifest, not an intermediate
+bridge exit code.
+
 ## Installing the Linux udev rules
 
 Without these, both instruments need root:

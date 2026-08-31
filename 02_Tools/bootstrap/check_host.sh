@@ -23,6 +23,8 @@ LOCK="${REPO_ROOT}/02_Tools/upstream/upstreams.lock.toml"
 
 RESULT=""
 IMAGE_TAG="hantek-builder-mingw:latest"
+ARM64_PROBE_IMAGE="${ARM64_PROBE_IMAGE:-hantek-builder-appimage-arm64:latest}"
+BINFMT_IMAGE="tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
 
 # Disk needed for the image plus one build tree. The image alone is ~7.3 GB
 # unpacked; the build volume reaches a few GB more.
@@ -141,6 +143,30 @@ if command -v docker >/dev/null 2>&1; then
         report FAIL "docker daemon" "not reachable" \
             "Start Docker. If using Docker Desktop, enable WSL integration for this distro."
     fi
+fi
+
+# --------------------------------------------------------------------------
+printf '\narm64 build capability\n'
+
+# The aarch64 (Raspberry Pi 4/5) builds run in linux/arm64 containers. Do not
+# infer capability from a binfmt file: an enabled registration can name a
+# missing interpreter, and a remote Docker context may use another kernel.
+# Run a LOCAL image with pulling forbidden; --rm leaves no container behind.
+# This is a WARN, never a FAIL: the x86_64 builds need none of it.
+#
+# ARM64_PROBE_IMAGE is overridable so tests and hosts with another known-local
+# arm64 image do not need to mutate the image store.
+if command -v docker >/dev/null 2>&1 \
+   && docker info >/dev/null 2>&1 \
+   && docker run --rm --pull never --platform linux/arm64 \
+        --entrypoint /usr/bin/true "${ARM64_PROBE_IMAGE}" >/dev/null 2>&1; then
+    report PASS "arm64 containers" \
+        "Docker executed linux/arm64 (${ARM64_PROBE_IMAGE})"
+else
+    report WARN "arm64 containers" \
+        "Docker could not execute local probe image ${ARM64_PROBE_IMAGE}" \
+        "Needed only for aarch64 builds. Ensure the probe image exists, then enable emulation once per boot with:
+        docker run --privileged --rm ${BINFMT_IMAGE} --install arm64"
 fi
 
 # --------------------------------------------------------------------------

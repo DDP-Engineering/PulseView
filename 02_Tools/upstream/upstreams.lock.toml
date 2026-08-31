@@ -199,6 +199,76 @@ mirrored = false
 # a "self-contained" Linux build launches fine headless and then fails the
 # moment it needs a real display.
 
+# Added 2026-08-31 for the aarch64 (Raspberry Pi 4/5) AppImage.
+# linuxdeployqt's release 11 - the same tag pinned for x86_64 above -
+# publishes an aarch64 asset too, so both architectures use the one proven
+# deployer. Each sha256 below was computed from the bytes actually
+# downloaded from that URL on the date recorded, and each also matches the
+# digest GitHub's release API reports for the asset.
+[[artifact]]
+name = "appimagetool-aarch64"
+version = "1.9.1"
+url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-aarch64.AppImage"
+sha256 = "f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/AppImage/appimagetool/blob/master/LICENSE"
+reviewed = 2026-08-31
+mirrored = false
+
+[[artifact]]
+name = "linuxdeployqt-aarch64"
+version = "11"
+url = "https://github.com/probonopd/linuxdeployqt/releases/download/11/linuxdeployqt-continuous-aarch64.AppImage"
+sha256 = "c6c078d9ceb90e78bdcf099fd31805715ac6a5ad362fb824d0edeff7f4c869f7"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/probonopd/linuxdeployqt/blob/master/LICENSE.txt"
+reviewed = 2026-08-31
+mirrored = false
+
+# The type-2 AppImage runtime, one per architecture. appimagetool fetches
+# this from the network AT PACKAGING TIME unless --runtime-file is passed -
+# which means the "pinned, offline" x86_64 AppImage build had one unpinned
+# download hiding inside it all along (found by external review 2026-08-31).
+# Both runtimes are pinned here, baked into the builder image, and passed
+# with --runtime-file. Newest stable dated tag, never "continuous".
+[[artifact]]
+name = "appimage-runtime-x86_64"
+version = "20251108"
+url = "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64"
+sha256 = "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/AppImage/type2-runtime/blob/main/LICENSE"
+reviewed = 2026-08-31
+mirrored = false
+
+# Privileged host bootstrap used only to register qemu binfmt handlers for
+# emulated arm64 builds. This command runs with host-level authority, so the
+# mutable :latest tag is never acceptable in documentation or diagnostics.
+# The manifest digest was read from the exact local image whose version output
+# was binfmt/e29e7d7 qemu/v10.2.3 on 2026-08-31.
+[[artifact]]
+name = "tonistiigi-binfmt-image"
+version = "binfmt-e29e7d7-qemu-10.2.3"
+url = "docker://tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
+sha256 = "400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
+role = "host-bootstrap"
+reviewed = 2026-08-31
+mirrored = false
+
+[[artifact]]
+name = "appimage-runtime-aarch64"
+version = "20251108"
+url = "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-aarch64"
+sha256 = "00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444"
+role = "packaging-tool"
+licence = "MIT"
+licence_url = "https://github.com/AppImage/type2-runtime/blob/main/LICENSE"
+reviewed = 2026-08-31
+mirrored = false
+
 # Added 2026-08-23. The Python that libsigrokdecode embeds for the Windows
 # target. MXE has no python3 for the Windows target - verified in the built
 # image, where /opt/mxe/src carries only python-conf.mk, python-mako.mk,

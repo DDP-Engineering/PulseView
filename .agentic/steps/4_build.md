@@ -20,8 +20,11 @@ requirement links current so that set stays correct.
 
 **Stage report (completion or pause):** After updating the log, header and
 checklist, refresh the single `## Stage report` section in this task journal:
+At every stage transition or pause, append any new Ruling and refresh the Handoff;
+also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user` (plain one-line fields, no fences). Record the completed stage
+`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
+(plain one-line fields, no fences). Record the completed stage
 separately from `current`, which must match the header after any transition;
 use `paused` when waiting or ending a session. Other results are `in_progress`,
 `completed`, `blocked`, `skipped`. Run
@@ -30,7 +33,7 @@ detailed explanation. Unknown values stay blank (`not recorded`); refresh
 stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
-**Resume context:** Read the summary first, then this stage's instructions,
+**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
 the journal header/checklist and relevant log entries (scope, user limits,
 unresolved issues, decisions and evidence); follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
@@ -39,7 +42,16 @@ shortened reporting without reviewing the full journal information.
 
 **Steps:**
 
-1. Pick one requirement. Work it to green before starting the next — do
+When build is re-entered from explicit review, Fix only recorded review
+findings. Do not expand scope, reset the review round, or preserve either old
+verdict while the candidate changes. Return to validate after focused proof.
+
+A child is an ordinary governed task: follow the same test-first loop, keep
+its journal and requirement links current, and expose its state to the parent
+through the shared checkout. The parent does not treat child completion as
+integrated proof.
+
+1. Pick one requirement. Work it to green before starting the next - do
    not open several at once.
 2. Write or extend a test that expresses that requirement's
    `verification` and fails for the right reason. Write the test

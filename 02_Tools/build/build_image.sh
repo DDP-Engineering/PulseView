@@ -17,6 +17,9 @@
 #   ./build_image.sh --image mingw
 #   ./build_image.sh --image mingw --save 07_Delivery/toolchain/mingw.tar
 #   ./build_image.sh --image appimage --dry-run
+#   ./build_image.sh --image appimage --platform aarch64   Raspberry Pi 4/5
+#                    builder (on an x86_64 host this needs qemu binfmt -
+#                    check_host.sh reports whether it is set up)
 
 set -euo pipefail
 
@@ -29,6 +32,7 @@ LOG_ROOT="${REPO_ROOT}/.work/logs"
 
 IMAGE=""
 TAG=""
+PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
 SAVE=""
 NO_CACHE=0
@@ -46,7 +50,12 @@ usage() {
 
 Options:
   --image mingw|appimage   Which builder to produce.            (required)
+  --platform ARCH          Target architecture: x86_64 or aarch64 (arm64).
+                           Default: the host architecture. Only the
+                           appimage image builds for aarch64; the mingw
+                           cross-toolchain is x86_64-hosted.
   --tag NAME               Image tag. Default hantek-builder-<image>:latest
+                           (x86_64) or hantek-builder-<image>-arm64:latest
   --engine docker|podman   Container engine. Default docker.
   --mxe-src PATH           Use an existing local MXE clone instead of
                            cloning from Gitea. For hosts without SSH
@@ -83,6 +92,7 @@ export GIT_TERMINAL_PROMPT=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --image)              IMAGE="${2:-}"; shift 2 ;;
+        --platform)           PLATFORM="${2:-}"; shift 2 ;;
         --tag)                TAG="${2:-}"; shift 2 ;;
         --engine)             ENGINE="${2:-}"; shift 2 ;;
         --mxe-src)            MXE_SRC_LOCAL="${2:-}"; shift 2 ;;
@@ -105,6 +115,18 @@ case "${IMAGE}" in
     "")  usage; exit 2 ;;
     *)   die "--image must be mingw or appimage, got '${IMAGE}'" ;;
 esac
+
+# Resolve the target architecture through the one shared mapping. Accepts
+# x86_64/amd64/aarch64/arm64 and the docker linux/<arch> spelling.
+ARCH_OVERRIDE="${PLATFORM#linux/}"
+[ -n "${ARCH_OVERRIDE}" ] || ARCH_OVERRIDE="$(uname -m)"
+# shellcheck source=arch_map.sh
+. "${SCRIPT_DIR}/arch_map.sh"
+if [ "${IMAGE}" = "mingw" ] && [ "${SR_ARCH}" != "x86_64" ]; then
+    die "the mingw cross-toolchain image is x86_64-hosted; --platform ${SR_ARCH} is not a thing for it"
+fi
+TAG_ARCH_SUFFIX=""
+[ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
@@ -133,9 +155,9 @@ else:
 PYEOF
 }
 
-TAG="${TAG:-hantek-builder-${IMAGE}:latest}"
-BUILD_ID="$(date -u +%Y%m%dT%H%M%SZ)-${IMAGE}"
-CONTEXT="${CONTEXT_ROOT}/${IMAGE}"
+TAG="${TAG:-hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
+BUILD_ID="$(date -u +%Y%m%dT%H%M%SZ)-${IMAGE}${TAG_ARCH_SUFFIX}"
+CONTEXT="${CONTEXT_ROOT}/${IMAGE}${TAG_ARCH_SUFFIX}"
 LOG_DIR="${LOG_ROOT}/${BUILD_ID}"
 mkdir -p "${CONTEXT}" "${LOG_DIR}"
 
@@ -283,18 +305,42 @@ EOF
     fi
     note "parallelism ${PKG_JOBS} packages x ${SUB_JOBS} jobs"
 else
-    AIT_VERSION="$(lock_get artifact appimagetool version)"
-    AIT_SHA256="$(lock_get artifact appimagetool sha256)"
-    LDQT_VERSION="$(lock_get artifact linuxdeployqt version)"
-    LDQT_SHA256="$(lock_get artifact linuxdeployqt sha256)"
-    note "appimagetool ${AIT_VERSION} sha256 ${AIT_SHA256:0:12}..."
-    note "linuxdeployqt ${LDQT_VERSION} sha256 ${LDQT_SHA256:0:12}..."
+    # Same three tools on both architectures - appimagetool, linuxdeployqt,
+    # and the type-2 AppImage runtime appimagetool would otherwise fetch
+    # from the network at packaging time. Only the lock entry names differ
+    # by architecture; URLs come from the lock too, so the file names live
+    # in exactly one place.
+    if [ "${SR_ARCH}" = "x86_64" ]; then
+        AIT_LOCK="appimagetool"
+        LDQT_LOCK="linuxdeployqt"
+    else
+        AIT_LOCK="appimagetool-aarch64"
+        LDQT_LOCK="linuxdeployqt-aarch64"
+    fi
+    RUNTIME_LOCK="appimage-runtime-${SR_ARCH}"
+    AIT_VERSION="$(lock_get artifact "${AIT_LOCK}" version)"
+    AIT_URL="$(lock_get artifact "${AIT_LOCK}" url)"
+    AIT_SHA256="$(lock_get artifact "${AIT_LOCK}" sha256)"
+    LDQT_VERSION="$(lock_get artifact "${LDQT_LOCK}" version)"
+    LDQT_URL="$(lock_get artifact "${LDQT_LOCK}" url)"
+    LDQT_SHA256="$(lock_get artifact "${LDQT_LOCK}" sha256)"
+    RUNTIME_VERSION="$(lock_get artifact "${RUNTIME_LOCK}" version)"
+    RUNTIME_URL="$(lock_get artifact "${RUNTIME_LOCK}" url)"
+    RUNTIME_SHA256="$(lock_get artifact "${RUNTIME_LOCK}" sha256)"
+    note "${AIT_LOCK} ${AIT_VERSION} sha256 ${AIT_SHA256:0:12}..."
+    note "${LDQT_LOCK} ${LDQT_VERSION} sha256 ${LDQT_SHA256:0:12}..."
+    note "${RUNTIME_LOCK} ${RUNTIME_VERSION} sha256 ${RUNTIME_SHA256:0:12}..."
     BASE_IMAGE="ubuntu:22.04"
     BUILD_ARGS+=(
         --build-arg "APPIMAGETOOL_VERSION=${AIT_VERSION}"
+        --build-arg "APPIMAGETOOL_URL=${AIT_URL}"
         --build-arg "APPIMAGETOOL_SHA256=${AIT_SHA256}"
         --build-arg "LINUXDEPLOYQT_VERSION=${LDQT_VERSION}"
+        --build-arg "LINUXDEPLOYQT_URL=${LDQT_URL}"
         --build-arg "LINUXDEPLOYQT_SHA256=${LDQT_SHA256}"
+        --build-arg "APPIMAGE_RUNTIME_VERSION=${RUNTIME_VERSION}"
+        --build-arg "APPIMAGE_RUNTIME_URL=${RUNTIME_URL}"
+        --build-arg "APPIMAGE_RUNTIME_SHA256=${RUNTIME_SHA256}"
     )
 fi
 
@@ -309,7 +355,7 @@ fi
 # from the same bytes. The tag is only used to discover the digest.
 printf '=== resolving base image\n'
 if [ "${DRY_RUN}" -eq 0 ]; then
-    "${ENGINE}" pull "${BASE_IMAGE}" >/dev/null
+    "${ENGINE}" pull --platform "${SR_DOCKER_PLATFORM}" "${BASE_IMAGE}" >/dev/null
     BASE_PINNED="$("${ENGINE}" image inspect --format '{{index .RepoDigests 0}}' \
         "${BASE_IMAGE}" 2>/dev/null || true)"
 else
@@ -329,7 +375,8 @@ BUILD_ARGS+=(
 )
 [ "${NO_CACHE}" -eq 1 ] && BUILD_ARGS+=(--no-cache)
 
-CMD=("${ENGINE}" build --tag "${TAG}" "${BUILD_ARGS[@]}" "${CONTEXT}")
+CMD=("${ENGINE}" build --platform "${SR_DOCKER_PLATFORM}" \
+    --tag "${TAG}" "${BUILD_ARGS[@]}" "${CONTEXT}")
 
 printf '=== build\n'
 printf '  %q' "${CMD[@]}"; printf '\n'
@@ -350,6 +397,7 @@ IMAGE_ID="$("${ENGINE}" image inspect --format '{{.Id}}' "${TAG}")"
     printf 'image_id     %s\n' "${IMAGE_ID}"
     printf 'base         %s\n' "${BASE_PINNED}"
     printf 'engine       %s (%s)\n' "${ENGINE}" "$("${ENGINE}" --version)"
+    printf 'platform     %s\n' "${SR_DOCKER_PLATFORM}"
     printf 'host         %s\n' "$(uname -srm)"
     if [ "${IMAGE}" = "mingw" ]; then
         printf 'mxe_commit   %s\n' "${MXE_COMMIT}"

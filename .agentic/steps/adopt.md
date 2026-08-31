@@ -21,8 +21,11 @@ Three phases: survey, one component per session, close.
 
 **Stage report (completion or pause):** After updating the log, header and
 checklist, refresh the single `## Stage report` section in this task journal:
+At every stage transition or pause, append any new Ruling and refresh the Handoff;
+also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user` (plain one-line fields, no fences). Record the completed stage
+`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
+(plain one-line fields, no fences). Record the completed stage
 separately from `current`, which must match the header after any transition;
 use `paused` when waiting or ending a session. Other results are `in_progress`,
 `completed`, `blocked`, `skipped`. Run
@@ -31,7 +34,7 @@ detailed explanation. Unknown values stay blank (`not recorded`); refresh
 stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
-**Resume context:** Read the summary first, then this stage's instructions,
+**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
 the journal header/checklist and relevant log entries (scope, user limits,
 unresolved issues, decisions and evidence); follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and

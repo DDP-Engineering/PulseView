@@ -52,6 +52,20 @@ intermediate stays in `.work/`, which is ignored and safe to delete.
 Run these **inside WSL** (`wsl -d Ubuntu-24.04`), not Git Bash - the container
 engine lives there. The repository is visible at `/mnt/f/2026_PulseView`.
 
+For a release, the Windows host has one owner command instead of a handwritten
+mixture of WSL and Git Bash steps:
+
+```powershell
+.\02_Tools\build\build_delivery_set.ps1 -Plan
+.\02_Tools\build\build_delivery_set.ps1
+```
+
+It produces the required Windows x86_64 ZIP, Linux x86_64 AppImage and thin
+tarball, Raspberry Pi aarch64 AppImage and arm64 Debian package. The final
+`verify_delivery_set.sh` gate writes `SHA256SUMS` only when exactly one of each
+exists at the same source revision. Builder images and arm64 binfmt remain
+one-time/per-boot prerequisites; see `01_Documentation/Environment_Setup.md`.
+
 ### One-time prerequisite: SSH access from WSL
 
 WSL has its own home directory, so SSH keys set up under Windows are not
@@ -137,9 +151,11 @@ deletes to halve the image size.
 - `sigrok-util`'s own MSYS2 script is broken and is not used here; see
   planning doc 06.
 
-Everything in this directory has been run, and all three deliveries are
-verified against hardware. `STATUS.md` is the ledger: which script, on which
-host, with which command, and what each one's known limitation is.
+Everything in this directory that is marked verified has been run. The five
+required package formats share one release coordinator; the Raspberry Pi
+Debian package has also been installed, GUI-launched, removed, and reinstalled
+on the physical Pi. `STATUS.md` is the ledger: which script, on which host,
+with which command, and what each one's known limitation is.
 
 For the operator's route from a fresh clone through to a build, see
 `01_Documentation/Environment_Setup.md`.

@@ -4,7 +4,11 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
-# Builder image for the Linux x86_64 AppImage.
+# Builder image for the Linux AppImage - x86_64, and arm64 for the
+# Raspberry Pi 4/5. One Dockerfile for both: the base image resolves per
+# platform (build_image.sh passes --platform), the apt package list is
+# identical on both architectures, and only the packaging-tool downloads
+# differ, selected by the build arguments described below.
 #
 # Separate from Dockerfile.mingw on purpose. The Windows image wants a current
 # Debian because MXE is happiest there; this one wants the OLDEST base we are
@@ -24,22 +28,38 @@
 ARG BASE_IMAGE=ubuntu:22.04
 FROM ${BASE_IMAGE}
 
-# appimagetool and linuxdeployqt releases and their SHA-256s. Both come from
-# the artifact table in 02_Tools/upstream/upstreams.lock.toml and are passed
-# by build_image.sh. There is no default checksum: an unverified download
+# Packaging-tool releases and their SHA-256s. All of them come from the
+# artifact table in 02_Tools/upstream/upstreams.lock.toml and are passed by
+# build_image.sh, URL included, so the lock is the single place a version or
+# a file name lives. There is no default checksum: an unverified download
 # must not be silently accepted into a release toolchain.
 #
-# Two tools, not one, because they do different jobs. appimagetool only
+# A packer plus a deployer, because they do different jobs. appimagetool only
 # packs an AppDir into a self-extracting archive - it does no dependency
-# resolution at all. linuxdeployqt is what actually walks the Qt platform
+# resolution at all. The deployer is what actually walks the Qt platform
 # plugin tree (libqxcb.so and everything it loads at runtime, which plain
 # ldd never sees) and bundles the native libraries plain ldd DOES see. Using
 # appimagetool alone produces an AppImage that launches headless and fails
 # the moment it needs a real display.
+#
+# Both architectures use the same deployer: linuxdeployqt's release 11
+# ships an aarch64 asset alongside the x86_64 one, so build_image.sh just
+# passes the right architecture's URL from the lock.
+#
+# The type-2 AppImage RUNTIME is baked too. appimagetool downloads it from
+# the network at PACKAGING time unless --runtime-file is passed - an
+# unpinned fetch that hid inside the "offline" build until external review
+# caught it. The runtime is a pinned artifact like everything else here,
+# and build_appimage.sh points appimagetool at the baked copy.
 ARG APPIMAGETOOL_VERSION
+ARG APPIMAGETOOL_URL
 ARG APPIMAGETOOL_SHA256
 ARG LINUXDEPLOYQT_VERSION
+ARG LINUXDEPLOYQT_URL
 ARG LINUXDEPLOYQT_SHA256
+ARG APPIMAGE_RUNTIME_VERSION
+ARG APPIMAGE_RUNTIME_URL
+ARG APPIMAGE_RUNTIME_SHA256
 
 ARG USER_UID=1000
 ARG USER_GID=1000
@@ -67,22 +87,35 @@ RUN set -eux; \
         libboost-system-dev libboost-test-dev; \
     rm -rf /var/lib/apt/lists/*
 
-# Pinned, checksum-verified appimagetool and linuxdeployqt. A mismatch fails
-# the image build. APPIMAGE_EXTRACT_AND_RUN (set above) covers both - neither
-# tool can FUSE-mount itself inside a container either.
+# Pinned, checksum-verified packaging tools. A mismatch fails the image
+# build. APPIMAGE_EXTRACT_AND_RUN (set above) covers all of them - none of
+# these tools can FUSE-mount itself inside a container either.
+#
+# The dd after each verification zeroes the type-2 AppImage magic (AI\x02
+# at ELF offset 8, three e_ident padding bytes). Without that, qemu's
+# binfmt_misc magic match rejects the file and an EMULATED arm64 container
+# cannot exec the tool at all - "Exec format error", which is exactly how
+# the first emulated build died. A native kernel never reads those bytes,
+# so the zeroing is harmless where emulation is not involved. It runs
+# after sha256sum -c on purpose: the digest pins the published bytes.
 RUN set -eux; \
-    test -n "${APPIMAGETOOL_VERSION}"; \
+    test -n "${APPIMAGETOOL_URL}"; \
     test -n "${APPIMAGETOOL_SHA256}"; \
-    wget -O /usr/local/bin/appimagetool \
-        "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"; \
+    wget -O /usr/local/bin/appimagetool "${APPIMAGETOOL_URL}"; \
     echo "${APPIMAGETOOL_SHA256}  /usr/local/bin/appimagetool" | sha256sum -c -; \
+    printf '\0\0\0' | dd of=/usr/local/bin/appimagetool bs=1 seek=8 count=3 conv=notrunc; \
     chmod +x /usr/local/bin/appimagetool; \
-    test -n "${LINUXDEPLOYQT_VERSION}"; \
+    test -n "${LINUXDEPLOYQT_URL}"; \
     test -n "${LINUXDEPLOYQT_SHA256}"; \
-    wget -O /usr/local/bin/linuxdeployqt \
-        "https://github.com/probonopd/linuxdeployqt/releases/download/${LINUXDEPLOYQT_VERSION}/linuxdeployqt-continuous-x86_64.AppImage"; \
+    wget -O /usr/local/bin/linuxdeployqt "${LINUXDEPLOYQT_URL}"; \
     echo "${LINUXDEPLOYQT_SHA256}  /usr/local/bin/linuxdeployqt" | sha256sum -c -; \
-    chmod +x /usr/local/bin/linuxdeployqt
+    printf '\0\0\0' | dd of=/usr/local/bin/linuxdeployqt bs=1 seek=8 count=3 conv=notrunc; \
+    chmod +x /usr/local/bin/linuxdeployqt; \
+    test -n "${APPIMAGE_RUNTIME_URL}"; \
+    test -n "${APPIMAGE_RUNTIME_SHA256}"; \
+    mkdir -p /usr/local/lib/appimage; \
+    wget -O /usr/local/lib/appimage/runtime "${APPIMAGE_RUNTIME_URL}"; \
+    echo "${APPIMAGE_RUNTIME_SHA256}  /usr/local/lib/appimage/runtime" | sha256sum -c -
 
 RUN set -eux; \
     groupadd -g "${USER_GID}" builder 2>/dev/null || true; \
@@ -92,10 +125,11 @@ RUN set -eux; \
     chown -R "${USER_UID}:${USER_GID}" /work /out /build
 
 LABEL org.opencontainers.image.title="sigrok Linux AppImage builder" \
-      org.opencontainers.image.description="Ubuntu 22.04 toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView as a Linux x86_64 AppImage" \
+      org.opencontainers.image.description="Ubuntu 22.04 toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView as a Linux AppImage (x86_64 or aarch64)" \
       org.opencontainers.image.licenses="LicenseRef-PolyForm-Noncommercial-1.0.0" \
       io.ddp.appimagetool.version="${APPIMAGETOOL_VERSION}" \
       io.ddp.linuxdeployqt.version="${LINUXDEPLOYQT_VERSION}" \
+      io.ddp.appimage-runtime.version="${APPIMAGE_RUNTIME_VERSION}" \
       io.ddp.glibc.floor="2.35"
 
 USER ${USER_UID}:${USER_GID}
