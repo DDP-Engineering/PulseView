@@ -13,16 +13,19 @@ gap, the two traps that burned three bisections. That part is still the
 reason the build works and is kept verbatim; the status around it is
 updated as the build changes.
 
-**All three deliveries build and are verified against hardware.** Last rebuilt
-clean at `67114f1` on 2026-08-24, the first build carrying the six imported
-networking decoders - see [What the 2026-08-24 rebuild
-found](#what-the-2026-08-24-rebuild-found) for the two defects that exposed.
+**Five package formats are now required and implemented.** The Raspberry Pi
+AppImage and Debian package have been verified on a physical Pi. The complete
+five-target coordinator rebuilt every package from `b6d0e8e-dirty` and wrote a
+verified five-row `SHA256SUMS`; a directory without that verifier-generated
+manifest remains only a candidate collection.
 
 | Target | Script | Result |
 |---|---|---|
 | Windows x86_64 | `build_windows_mxe.sh` + `package_windows.sh` | `sigrok-cli.exe`, `pulseview.exe`, statically linked; zipped only after the suite passes |
 | Linux x86_64 (thin) | `build_linux.sh` | tarball; needs runtime libs from the distro, listed in the README it emits |
 | Linux x86_64 (portable) | `build_appimage.sh` | self-contained AppImage, no host packages |
+| Raspberry Pi aarch64 (portable) | `build_appimage.sh --arch aarch64` | self-contained AppImage for 64-bit Raspberry Pi OS |
+| Raspberry Pi arm64 (installed) | `build_deb.sh` | apt-installable package derived from the verified aarch64 AppImage payload |
 
 | Component | Result |
 |---|---|
@@ -31,7 +34,9 @@ found](#what-the-2026-08-24-rebuild-found) for the two defects that exposed.
 | libsigrokdecode | built against CPython 3.13.15; 137 decoders, all loading |
 | `sigrok-cli.exe` | 15 MB, PE32+ console x86-64 |
 | `pulseview.exe` | 33 MB, PE32+ GUI x86-64 |
-| `PulseView-x86_64.AppImage` | 36 MB, self-contained |
+| `PulseView-x86_64.AppImage` | 40 MB, self-contained |
+| `PulseView-aarch64.AppImage` | 39 MB, self-contained; verified natively on Raspberry Pi 4 |
+| `pulseview-ddp_*_arm64.deb` | 35 MB; installs a 127 MB private runtime plus commands, desktop entry and USB rules |
 
 The Windows binaries link statically. Their only non-system import is
 `python313.dll`; everything else resolves against stock Windows DLLs. The
@@ -75,19 +80,132 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 | Path | Status | Host | Last verified | Verification command | Known limitation |
 |---|---|---|---|---|---|
 | `images/Dockerfile.mingw` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-17 | `./build_image.sh --image mingw --skip-patch mxe_fixes.patch` | Builds a 7.28 GB image. `check` excluded, glib held at 2.89.1 - see deviations below. |
-| `images/Dockerfile.appimage` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-19 | `./build_image.sh --image appimage` | The `appimagetool` and `linuxdeployqt` artifacts it needed were finally added to the lock; it had indeed been failing closed until then. Also pre-creates `/build` - without that the volume mounts root-owned and the build cannot write to it. |
+| `images/Dockerfile.appimage` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-08-31 | `./build_image.sh --image appimage` | Rebuilt from the pinned Ubuntu 22.04 base with checksum-verified appimagetool, linuxdeployqt and the baked Type-2 runtime. Also pre-creates `/build` - without that the volume mounts root-owned and the build cannot write to it. |
 | `build_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-23 | `./build_image.sh --image mingw --tag ... --skip-patch mxe_fixes.patch --mxe-src ~/mxe-verify/mxe` | Full path re-exercised from scratch with zero cached layers: clone, pin check, patch check, base-digest pinning, build, provenance record. Needed `--mxe-src` because the Gitea MXE mirror in the lock was deleted on 2026-08-19; the clone came from the canonical GitHub URL and HEAD matched the pin. `--save` itself is still untested - the archive below was written with the `docker save` and `sha256sum` that block runs, not by the flag. |
 | `run_in_builder.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./run_in_builder.sh --image mingw -- bash /work/.work/probe-verify.sh` | Drove the whole stock-sigrok build. Its first run failed on a root-owned `/build`; fixed in the image, not the script. |
 | `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-23 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 84 drivers, 132 decoder directories, both executables, CPython 3.13.15. Does not build firmware, dumps, or the NSIS installers. |
 | `02_Tools/test/windows_python_smoke.sh` | verified | Windows 11 host | 2026-08-23 | `02_Tools/test/windows_python_smoke.sh` | Host-side, not a build step: it runs `sigrok-cli.exe`, which the MXE image cannot do (no Wine). Runs on Windows directly or on Linux with wine; exits 77 where it can run neither. |
 | `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-23 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. Re-run against the regenerated archive: the loaded image is the same id that was built and proved, and its baked Python digests re-verify inside the container. |
-| `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `02_Tools/bootstrap/check_host.sh` | Read-only. Found a missing git-lfs on its first run. |
+| `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-31 | `02_Tools/bootstrap/check_host.sh` | Read-only. ARM readiness now requires successful execution of the local linux/arm64 builder image; failure prints the immutable binfmt image digest recorded in the lock. |
 | `bootstrap/check_host.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\bootstrap\check_host.ps1` | The Windows counterpart. Reported ready with 0 warnings on the development host, and was written in PowerShell ConstrainedLanguage-safe form after the first run failed on `New-Object`, `[pscustomobject]` and `[math]::Floor` under a managed policy. Probes Docker from inside WSL, not from Windows. Rejects `System32\bash.exe` when locating Git Bash. `-Install` is opt-in and prompts per package; `-WhatIf` installs nothing. |
 | `02_Tools/test/run_tests.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\test\run_tests.ps1` | PowerShell entry point to the bash suite: 2 passed, 0 failed, 0 skipped, matching a direct `bash run_tests.sh`. Forwards the exit code verbatim, including 77. Exits 77 itself when Git Bash is absent. Verified against a `-Test` single run and a deliberately wrong staging dir. |
 | `build_linux.sh` | verified | ubuntu:24.04 container | 2026-08-24 | `./build_linux.sh` | Native build, thin tarball. Bundles only the sigrok libraries; Qt5, boost, glib and the rest are an `apt install` on the target, listed in the emitted README. Use the AppImage where that is not acceptable. **That emitted list was wrong until 2026-08-24** - see below. |
 | `package_windows.sh` | verified | Windows 11 host | 2026-08-24 | `./package_windows.sh` | Zips the staged Windows tree into `07_Delivery`. Runs the test suite first and refuses to package a tree that fails, or one it could not verify: exit 77 blocks it, since "cannot run here" is not a pass. Uses `python3 -m zipfile` because neither `zip` nor `7z` exists in Git Bash or the WSL image. `--skip-verify` tolerates only the 77 case, never a FAIL. |
-| `build_appimage.sh` | verified | appimage builder image | 2026-08-19 | `./build_appimage.sh` | Self-contained AppImage, both binaries behind one AppRun (`--cli` selects sigrok-cli). Verified on a bare ubuntu:22.04 with zero packages installed. PulseView still needs the host's libGL and display - deliberate; graphics libraries must match the kernel driver. |
-| `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written, and no longer obviously needed - the three per-target scripts cover the deliveries. |
+| `build_appimage.sh` | verified | x86_64 and aarch64 appimage builder images | 2026-08-31 | `./build_appimage.sh` and `./build_appimage.sh --arch aarch64` | Both self-contained AppImages rebuilt with bundled Python stdlib and honest `b6d0e8e-dirty` provenance. The exact x86_64 candidate loaded the UART decoder on bare Ubuntu 22.04 and Debian Bookworm; the exact aarch64 candidate passed CLI, decoder and GUI checks natively on a Raspberry Pi 4. PulseView still needs the host's libGL and display - deliberate; graphics libraries must match the kernel driver. |
+| `build_deb.sh` | verified | arm64 AppImage builder + Raspberry Pi 4 | 2026-08-31 | `./build_deb.sh`; `sudo apt install ./pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb` | Verifies the source AppImage checksum, extracts to the native `/build` volume (NTFS modes are invalid for Debian control roots), emits and verifies the `.deb` plus sidecar. The exact final package passed apt upgrade, matching SHA-256, CLI, both driver listings, UART decoder and GUI startup on 64-bit Raspberry Pi OS Trixie; the prior candidate also passed remove/no-leftovers and reinstall. |
+| `verify_delivery_set.sh` | verified | Windows Git Bash | 2026-08-31 | `02_Tools/test/delivery_set_test.sh`; `sha256sum --check 07_Delivery/SHA256SUMS` | Fixture proves one exact same-revision artifact per five rows, verified sorted hashes, and fail-closed behavior for each missing row, a duplicate row, and mismatched AppImage provenance. It generated and re-verified the final five-row `b6d0e8e-dirty` manifest. |
+| `build_delivery_set.ps1` | verified | Windows 11 PowerShell + WSL2/Docker | 2026-08-31 | `.\build_delivery_set.ps1` | Completed the full six-phase coordinator under ConstrainedLanguage: Windows x86_64 staged build, Linux x86_64 tar and AppImage, aarch64 AppImage, arm64 Debian package, native Windows ZIP suite (11 passed, 0 failed, 1 environment skip), and final same-revision checksum gate. Emitted `DELIVERY_SET_COMPLETE revision=b6d0e8e-dirty`. |
+| `build_component.sh` | planned | WSL2 container | n/a | n/a | Not written, and no longer obviously needed - the target-specific builders and release coordinator cover the deliveries. |
+
+## aarch64 (Raspberry Pi 4/5) target - added 2026-08-31
+
+`arch_map.sh` now owns every architecture-dependent name, and
+`build_linux.sh`, `build_appimage.sh`, `build_image.sh` and
+`run_in_builder.sh` take `--arch`/`--platform aarch64`. That change
+postdates the verification dates in the table above, so what stands
+re-verified and what does not is recorded here rather than by quietly
+editing those rows:
+
+- **Verified 2026-08-31, Windows 11 Git Bash:** the full test suite
+  (`run_tests.sh`: 9 passed, 0 failed, 1 skipped) including
+  the new `arch_map_test.sh` (x86_64 names pinned byte-for-byte, aarch64
+  row, unmapped-arch failure), `arm64_tools_lock_test.sh` (aarch64
+  appimagetool/linuxdeployqt plus BOTH type-2 runtimes pinned https+sha256
+  in the lock, every Dockerfile download checksum-verified,
+  `--runtime-file` actually passed), `check_host_arm64_test.sh` (real Docker
+  execution: WARN with immutable remedy or PASS), the fail-closed thin-stage
+  gate, dirty-provenance test, and architecture-specific README test. The
+  only skip was the ARM runtime replay because Docker is unavailable directly
+  in Git Bash. The AEGIS-invoked WSL run reported 7 passed, 0 failed and 3
+  skipped (ARM without its per-boot binfmt registration plus the two
+  Windows-only tests); ARM runtime passed separately under emulation and on
+  the physical Pi.
+  `build_image.sh --image appimage --dry-run` for BOTH platforms stages
+  the context and assembles the pinned build args correctly; every new
+  tool digest was computed from the actual downloaded bytes AND matches
+  the digest GitHub's release API reports for the asset.
+- **Verified 2026-08-31, emulated on the WSL2 host:** the arm64 builder
+  image build (record 20260831T092716Z-appimage-arm64), the full emulated
+  aarch64 compile, and `07_Delivery/PulseView-aarch64.AppImage` itself -
+  ELF/AppImage identity via `arm64_appimage_smoke.sh`, then CLI version,
+  both project drivers, and uart decoder load (bundled Python) on bare
+  arm64 `debian:bookworm` AND `debian:trixie` containers with zero
+  packages installed, via extract-and-run on a magic-zeroed copy (the
+  pristine file cannot exec under qemu binfmt; a native Pi kernel does
+  not care). Suite: 6 passed, 0 failed, 0 skipped.
+- **Verified 2026-08-31 on physical hardware:** the final rebuilt artifact
+  with SHA-256
+  `dca82ac7f809adbb8b531d6f2c6070ea71f3ddbb90adc5577cd6d821e618bd73`
+  ran natively on a Raspberry Pi 4 Model B (4 GB, 64-bit Debian 13 Trixie).
+  The runtime smoke passed version, both project drivers and UART decoder;
+  pristine FUSE execution returned success; and PulseView remained running
+  for the eight-second GUI observation under labwc Wayland through XWayland.
+- **Verified 2026-08-31 on the same physical Pi:** the final 35 MB
+  `pulseview-ddp_0.5.0+gitb6d0e8e.dirty_arm64.deb` upgraded with `apt` as
+  arm64, provided standard `pulseview` and `sigrok-cli` commands, listed both
+  project drivers, loaded the UART decoder, matched manifest SHA-256
+  `c2f988acfe6df78769a8d66f61450ba8c28c23d761b1bd6cb03f915a6dc214a4`,
+  and kept the GUI process alive under the active labwc session. The preceding
+  package candidate also proved desktop/icon/udev installation and `apt remove`
+  with zero package-owned paths (`dpkg` state `rc`, the normal retained control
+  record), after which the final package was installed and left ready to use.
+- **Still not exercised:** capture with either physical instrument, because
+  `lsusb` showed neither the DSO-3062L nor ATK-DL16 attached to the Pi. The
+  thin aarch64 tarball was deliberately not built: the AppImage is the Pi
+  delivery.
+
+Three findings from the first emulated build attempt (2026-08-31), each of
+which cost a failed run to learn:
+
+- **AppImage-format tools cannot exec under qemu binfmt as published.**
+  The type-2 magic `AI\x02` at ELF offset 8 defeats qemu's binfmt_misc
+  magic match, so the emulated arm64 container died with "Exec format
+  error" the moment it touched linuxdeployqt - after the entire stack had
+  compiled. `Dockerfile.appimage` now zeroes those three padding bytes
+  after each tool's checksum verification; a native kernel never reads
+  them, and the shipped artifact keeps its own magic (its runtime file is
+  untouched).
+- **The qemu binfmt registration dies with the WSL VM.** It is per-boot:
+  a Docker Desktop idle restart between builds removed
+  `/proc/sys/fs/binfmt_misc/qemu-aarch64` and even plain aarch64 `bash`
+  stopped exec-ing. `check_host.sh`'s arm64 probe reports exactly this;
+  run it (or the tonistiigi/binfmt one-liner) before any emulated build.
+- **The Git Bash -> wsl.exe bridge swallows exit codes.** Even
+  `docker run --rm ubuntu:22.04 false` reports 0 through it. Builds driven
+  across that bridge are judged by an explicit success sentinel appended
+  to the log on `&&`, plus artifact presence - never by the exit code.
+
+One defect found by the new arm64 verification gates, present in BOTH
+architectures:
+
+- **Decoders were dead in the AppImage on almost every host.** libpython
+  ships in the bundle (it is an ELF dependency) but the Python stdlib is
+  not an ELF dependency of anything, so nothing bundled it, and AppRun
+  never set PYTHONHOME - embedded CPython then aborts srd_init with
+  "Could not find platform independent libraries" unless the host happens
+  to carry /usr/lib/python3.10 (i.e. Ubuntu 22.04 and nearly nothing
+  else; Raspberry Pi OS Bookworm ships 3.11, Trixie 3.13). The bare-
+  container "verified" runs of the x86_64 AppImage only ever exercised
+  --version and --scan, so the gap shipped. build_appimage.sh now copies
+  the stdlib into the AppDir before the closure pass and AppRun exports
+  PYTHONHOME. The rebuilt x86_64 AppImage now loads the UART decoder on bare
+  Ubuntu 22.04 and bare Debian Bookworm, and the rebuilt aarch64 AppImage does
+  the same under emulation and natively on the Pi.
+
+Two findings from the external review of this work, both real:
+
+- **linuxdeployqt release 11 DOES ship an aarch64 asset.** The first
+  design switched arm64 to linuxdeploy + its Qt plugin on the false
+  memory that no aarch64 linuxdeployqt exists; the review caught it, the
+  GitHub release API confirmed it, and both architectures now use the one
+  proven deployer. Kept here because the wrong version of this fact cost
+  a design round-trip and someone will assert it again.
+- **The "offline" AppImage packaging had a network fetch inside it.**
+  appimagetool downloads the type-2 runtime at packaging time unless
+  `--runtime-file` is passed - so every x86_64 AppImage built so far
+  pulled that runtime from GitHub, unpinned, mid-"offline"-build. Both
+  architectures' runtimes (tag 20251108) are now lock-pinned, baked into
+  the builder image, and passed explicitly.
 
 ## What the first dry run found
 

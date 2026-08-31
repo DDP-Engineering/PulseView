@@ -1,0 +1,241 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-31T08:16:39.307037Z",
+      "anchor_head": "5aa2f172c0095dea4077bcffb4af231420ad340d",
+      "anchor_id": "9ca7772a52ac6453",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "8480e22073fb0684bcf761eb2a60cd4401e4a04ccba9fa6f7d45067c26bfe3bb"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "51a4c9ebe7a6fbb11afffcb42ba885177b127cd81257cc0b27ce4d1faf36607b"
+          },
+          "path": "01_Documentation/Environment_Setup.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1888616fd24e2a4c262de4d1b5a3bfaf4aff743b6dbe5e4e360f165a0d650af9"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "4bdd121cd48c547b476578347906bedcf559c6d6114992666b9bda29a5fe0a65"
+          },
+          "path": "02_Tools/bootstrap/check_host.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "cb599bf61dd7537ad832a4afb29a136ac722b491874b6ed06c63adcb87bb9d01"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "8288b5af3eeea50a049367732538fd3ac49d1f7cc85e88d63233c5ca224b5311"
+          },
+          "path": "02_Tools/build/STATUS.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "09e7e1515254c12dd60ceeee30619b69b910cf10632f7ca018b3f02992185fd4"
+          },
+          "area": "source",
+          "before": null,
+          "path": "02_Tools/build/arch_map.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "32a81597de56653538dd993f0c819e2dc0df36cdc4cd48cdde02599d4279fb5f"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "b82307edb4ba4ba3748b20ed452e8bbc2e77845cdbad2b03cba86c2898012981"
+          },
+          "path": "02_Tools/build/build_appimage.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "4531fe14fa94bc1f365bfaf4fbcd8114fcb87923e5fa26eac302a9a1154745d8"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "a1bd39dce0d664ff27b20ad15cb5f6e6eabb4f05ea6e85acf6d3a0247de7b0d4"
+          },
+          "path": "02_Tools/build/build_image.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "f087cdc08db2a33d036830659fcf7c099da206810a99bce51f39309dbddbc381"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "05e92efbd4b4139fe47e7176882da3ba5fceae0b90d7462d08dfca56655eb785"
+          },
+          "path": "02_Tools/build/build_linux.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1adb8e8da12b8cbd9478b2b8bfe85b21ea7d98b1555b2f2fdff32e266e56de9c"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "db18b4112433b8a47ae4ef2bb772673583b6e87a030599bad05a899bea3491b4"
+          },
+          "path": "02_Tools/build/images/Dockerfile.appimage",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "c72da9269ed16fa8c1f97625b6aa12755972c3449ce39f0a8888eeb3ec13fddb"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "fd38af2ff7522aea423a5418c5777236c04b273b54c4e30124fc480f4ed87c9d"
+          },
+          "path": "02_Tools/build/load_image.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "eaa20fec714743e9a0553f4edbfafc7a624ba6dd8a8bd6f0e207e07a3725ec98"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "9ea45590ccdfcc987eb6b62b637c7c016f60b7f8f8be4f6261b46826b408e402"
+          },
+          "path": "02_Tools/build/run_in_builder.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5c1e6ea50371c9b730e0009874e876ff48046b03db270e6e5608832e50d752fc"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/arm64_appimage_smoke.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "10b26ba6917b983304283e5f857d1ca3166e009c8d1d5dd2fa39f6905a0834ca"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/arm64_tools_lock_test.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "afcc07d98cef466e9a141aa6cb2fda3059cf8c1b586d70a3904e6fc633599609"
+          },
+          "area": "tests",
+          "before": null,
+          "path": "02_Tools/test/check_host_arm64_test.sh",
+          "status": "added"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "4f458b890d2325c0fa2e2569bc961b46d7ebfaee2a09c53129b3249a5869e6aa"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "eb5e20fd234c7da0c4227171b21c784353978ea6243980d2027af08684b091d7"
+          },
+          "path": "02_Tools/upstream/upstreams.lock.toml",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "3b1da2a15b474718d863aa5a3abf8d0a178b663e337aa0ffe6d78b9eb0b59135"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "f716163efa2ebeff14deb740f9f94c3aa02f0230511e0993f8b077c88a5d68e3"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "bbb55df54af5f3a61c5785fc859d8cbbeab418b740f35e4211a773f444b32e02"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "66f9e1eac059bad7551a07893667baeb97fec05ace669c5dd6bcf5d4df001b24"
+          },
+          "path": "README.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 3,
+            "removed": 0,
+            "unchanged": 83
+          },
+          "source": {
+            "added": 1,
+            "modified": 9,
+            "removed": 0,
+            "unchanged": 1506
+          },
+          "tests": {
+            "added": 3,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 57
+          }
+        },
+        "status": {
+          "added": 4,
+          "modified": 12,
+          "removed": 0,
+          "unchanged": 1646
+        }
+      },
+      "current_head": "5aa2f172c0095dea4077bcffb4af231420ad340d",
+      "evolution_stage": "build",
+      "evolved_at": "2026-08-31T08:42:40.161760Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-efc19bd8"
+}

@@ -16,9 +16,18 @@
 #
 # It re-execs itself into the container, like build_windows_mxe.sh.
 #
-#   ./build_linux.sh            build everything and stage a tarball
+#   ./build_linux.sh                  build for the host architecture
+#   ./build_linux.sh --arch aarch64   build for Raspberry Pi 4/5 (arm64
+#                                     container; on an x86_64 host this
+#                                     needs qemu binfmt - check_host.sh
+#                                     reports whether it is set up)
 #
-# Output: 07_Delivery/staging/pulseview-linux-x86_64/ and a .tar.gz beside it.
+# Every architecture-dependent name comes from arch_map.sh - one shared
+# table, so this script has no per-arch fork. The aarch64 tarball targets
+# arm64 Ubuntu 24.04; Raspberry Pi OS Bookworm users should prefer the
+# aarch64 AppImage, whose older glibc floor covers Bookworm.
+#
+# Output: 07_Delivery/staging/<stage-name>/ and a .tar.gz beside it.
 
 set -euo pipefail
 
@@ -29,27 +38,44 @@ REPO="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 # Re-exec into the container unless already inside it
 # --------------------------------------------------------------------------
 if [ ! -f /.dockerenv ]; then
-    echo "==> launching ubuntu:24.04 build container"
+    ARCH_OVERRIDE="$(uname -m)"
+    PASS_ARGS=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --arch) ARCH_OVERRIDE="${2:?--arch needs a value}"; shift 2 ;;
+            *)      PASS_ARGS+=("$1"); shift ;;
+        esac
+    done
+    # shellcheck source=arch_map.sh
+    . "${SCRIPT_DIR}/arch_map.sh"
+    echo "==> launching ubuntu:24.04 build container (${SR_ARCH})"
     # Resolve the build revision on the host. libsigrok used to be its own
     # submodule checkout with its own HEAD; now it is plain files in this
     # repo, so the repo's own revision IS the driver revision.
-    HOST_REV="$(git -C "${REPO}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    HOST_REV="$(bash "${SCRIPT_DIR}/source_revision.sh" "${REPO}")"
     exec docker run --rm -i \
+        --platform "${SR_DOCKER_PLATFORM}" \
         -e "HDRIVER_REV=${HOST_REV}" \
         -v "${REPO}:/work" \
         -w /work \
         ubuntu:24.04 \
-        bash /work/02_Tools/build/build_linux.sh "$@"
+        bash /work/02_Tools/build/build_linux.sh \
+        ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 fi
 
 # --------------------------------------------------------------------------
 # Inside the container from here
 # --------------------------------------------------------------------------
 export DEBIAN_FRONTEND=noninteractive
+# Inside the container the machine architecture IS the target architecture
+# (the host side selected the container platform), so the mapping needs no
+# override here.
+# shellcheck source=arch_map.sh
+. /work/02_Tools/build/arch_map.sh
 SRC=/work/05_Software
 BUILD=/tmp/build
 PREFIX=/tmp/prefix
-STAGE_NAME=pulseview-linux-x86_64
+STAGE_NAME="${SR_STAGE_NAME}"
 STAGE=/work/07_Delivery/staging/${STAGE_NAME}
 JOBS="$(nproc)"
 
@@ -78,8 +104,8 @@ for c in libserialport libsigrok libsigrokdecode sigrok-cli pulseview; do
     cp -a "${SRC}/${c}" "${BUILD}/${c}"
 done
 
-export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/lib/x86_64-linux-gnu/pkgconfig"
-export LD_LIBRARY_PATH="${PREFIX}/lib:${PREFIX}/lib/x86_64-linux-gnu"
+export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/lib/${SR_LIBDIR}/pkgconfig"
+export LD_LIBRARY_PATH="${PREFIX}/lib:${PREFIX}/lib/${SR_LIBDIR}"
 
 build_autotools() {
     local c="$1"; shift
@@ -119,8 +145,8 @@ cp "${PREFIX}/bin/pulseview" "${PREFIX}/bin/sigrok-cli" "${STAGE}/bin/"
 # from the distro, listed as runtime deps in the README).
 cp -a "${PREFIX}"/lib/libsigrok*.so* "${STAGE}/lib/" 2>/dev/null || true
 cp -a "${PREFIX}"/lib/libserialport*.so* "${STAGE}/lib/" 2>/dev/null || true
-cp -a "${PREFIX}"/lib/x86_64-linux-gnu/libsigrok*.so* "${STAGE}/lib/" 2>/dev/null || true
-cp -a "${PREFIX}"/lib/x86_64-linux-gnu/libserialport*.so* "${STAGE}/lib/" 2>/dev/null || true
+cp -a "${PREFIX}/lib/${SR_LIBDIR}"/libsigrok*.so* "${STAGE}/lib/" 2>/dev/null || true
+cp -a "${PREFIX}/lib/${SR_LIBDIR}"/libserialport*.so* "${STAGE}/lib/" 2>/dev/null || true
 cp -a "${PREFIX}/share/libsigrokdecode" "${STAGE}/share/"
 
 # Launcher: set library and decoder paths relative to the extraction dir.
@@ -146,13 +172,15 @@ cat > "${STAGE}/60-hantek-dso3062l.rules" <<'UDEV'
 SUBSYSTEM=="usb", ATTRS{idVendor}=="04b5", ATTRS{idProduct}=="3062", MODE="0660", GROUP="plugdev", TAG+="uaccess"
 UDEV
 
-cat > "${STAGE}/README.txt" <<'RM'
-PulseView / sigrok-cli for the Hantek DSO-3062L (Linux x86_64)
+cat > "${STAGE}/README.txt" <<RM
+PulseView / sigrok-cli for the Hantek DSO-3062L (Linux ${SR_ARCH})
 ==============================================================
 
-Built natively against Ubuntu 24.04 libraries. Runs on Ubuntu 24.04 (incl.
-WSL) and compatible distributions once the runtime libraries below are
-installed.
+Built natively against Ubuntu 24.04 (${SR_ARCH}) libraries. Runs on Ubuntu
+24.04 (incl. WSL) and compatible distributions once the runtime libraries
+below are installed. On a Raspberry Pi 4/5 running Raspberry Pi OS Bookworm,
+prefer the aarch64 AppImage instead: this tarball's glibc is newer than
+Bookworm's and will not load there.
 
 Runtime dependencies (once):
   sudo apt install libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 \
@@ -182,14 +210,16 @@ RM
 # --------------------------------------------------------------------------
 # Tarball
 # --------------------------------------------------------------------------
+note "verifying staged runtime"
+bash /work/02_Tools/build/verify_linux_stage.sh "${STAGE}"
+
 note "packaging tarball"
 REV="${HDRIVER_REV:-unknown}"
-TAR="/work/07_Delivery/pulseview-$(date +%Y%m%d)-${REV}-linux-x64.tar.gz"
+TAR="/work/07_Delivery/pulseview-$(date +%Y%m%d)-${REV}-${SR_TARBALL_SUFFIX}.tar.gz"
 ( cd "${STAGE}/.." && tar czf "${TAR}" "${STAGE_NAME}" )
 ( cd "${STAGE}" && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS )
+( cd "$(dirname "${TAR}")" && sha256sum "$(basename "${TAR}")" > "$(basename "${TAR}").sha256" )
 
 note "done"
 ls -la "${TAR}"
 echo "staged: ${STAGE}"
-"${STAGE}/sigrok-cli" --version 2>&1 | head -2 || true
-"${STAGE}/sigrok-cli" --driver hantek-dso3062l --show 2>&1 | head -3 || true

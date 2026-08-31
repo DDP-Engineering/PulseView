@@ -30,9 +30,18 @@
 #
 # Run it from the host; it re-executes itself inside the builder image:
 #
-#   ./build_appimage.sh
+#   ./build_appimage.sh                  host-architecture AppImage
+#   ./build_appimage.sh --arch aarch64   Raspberry Pi 4/5 AppImage, in the
+#                                        arm64 builder image (on an x86_64
+#                                        host this needs qemu binfmt -
+#                                        check_host.sh reports whether it
+#                                        is set up)
 #
-# Output: 07_Delivery/PulseView-x86_64.AppImage
+# Architecture-dependent names come from arch_map.sh; the builder image for
+# a non-host architecture must have been built with
+# build_image.sh --image appimage --platform <arch> first.
+#
+# Output: 07_Delivery/<AppImage name from arch_map.sh>
 
 set -euo pipefail
 
@@ -42,14 +51,30 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Re-execute inside the container unless we are already in it
 # --------------------------------------------------------------------------
 if [ ! -x /usr/local/bin/appimagetool ]; then
+    ARCH_OVERRIDE="$(uname -m)"
+    PASS_ARGS=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --arch) ARCH_OVERRIDE="${2:?--arch needs a value}"; shift 2 ;;
+            *)      PASS_ARGS+=("$1"); shift ;;
+        esac
+    done
+    # shellcheck source=arch_map.sh
+    . "${SCRIPT_DIR}/arch_map.sh"
     exec "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
-        -- /work/02_Tools/build/build_appimage.sh "$@"
+        --platform "${SR_DOCKER_PLATFORM}" \
+        -- /work/02_Tools/build/build_appimage.sh \
+        ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 fi
 
 # --------------------------------------------------------------------------
 # Inside the container from here down
 # --------------------------------------------------------------------------
 export DEBIAN_FRONTEND=noninteractive
+# Inside the container the machine architecture IS the target architecture
+# (the host side selected the builder platform), so no override is needed.
+# shellcheck source=arch_map.sh
+. /work/02_Tools/build/arch_map.sh
 REPO=/work
 SRC="${REPO}/05_Software"
 BUILD="${BUILD_DIR:-/build}/appimage"
@@ -60,11 +85,11 @@ JOBS="$(nproc)"
 
 note() { printf '\n==> %s\n' "$*"; }
 
-REV="$(git -C "${REPO}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+REV="$(bash /work/02_Tools/build/source_revision.sh "${REPO}")"
 
 mkdir -p "${BUILD}" "${PREFIX}"
-export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/lib/x86_64-linux-gnu/pkgconfig"
-export LD_LIBRARY_PATH="${PREFIX}/lib:${PREFIX}/lib/x86_64-linux-gnu"
+export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/lib/${SR_LIBDIR}/pkgconfig"
+export LD_LIBRARY_PATH="${PREFIX}/lib:${PREFIX}/lib/${SR_LIBDIR}"
 
 # Sync into the build tree rather than build in place - same reasoning as
 # build_windows_mxe.sh: autotools writes configure/Makefiles/config.h into
@@ -127,7 +152,7 @@ cp -a "${PREFIX}/share/libsigrokdecode/." "${APPDIR}/usr/share/libsigrokdecode/"
 # that does not happen to have libusb installed, which is the whole thing
 # this AppImage exists to avoid.
 cp -a "${PREFIX}"/lib/lib*.so* "${APPDIR}/usr/lib/" 2>/dev/null || true
-cp -a "${PREFIX}"/lib/x86_64-linux-gnu/lib*.so* "${APPDIR}/usr/lib/" 2>/dev/null || true
+cp -a "${PREFIX}/lib/${SR_LIBDIR}"/lib*.so* "${APPDIR}/usr/lib/" 2>/dev/null || true
 
 cp "${SRC}/pulseview/contrib/org.sigrok.PulseView.desktop" \
     "${APPDIR}/usr/share/applications/pulseview.desktop"
@@ -141,7 +166,9 @@ cp "${APPDIR}/usr/share/icons/hicolor/48x48/apps/pulseview.png" "${APPDIR}/pulse
 
 # --------------------------------------------------------------------------
 # linuxdeployqt: walk both binaries' dependency closures, Qt plugins
-# included, and rewrite their rpaths to find the bundled copies.
+# included, and rewrite their rpaths to find the bundled copies. The same
+# tool on both architectures - release 11 ships an aarch64 asset too, and
+# the builder image installs the one matching its own platform.
 # --------------------------------------------------------------------------
 note "running linuxdeployqt"
 export VERSION="${REV}"
@@ -190,6 +217,9 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH:-}"
 export QT_PLUGIN_PATH="${HERE}/usr/plugins:${QT_PLUGIN_PATH:-}"
 export SIGROKDECODE_DIR="${HERE}/usr/share/libsigrokdecode/decoders"
+# The bundled stdlib for the bundled libpython - decoders die without it.
+export PYTHONHOME="${HERE}/usr"
+export PYTHONNOUSERSITE=1
 if [ "${1:-}" = "--cli" ]; then
     shift
     exec "${HERE}/usr/bin/sigrok-cli" "$@"
@@ -201,6 +231,38 @@ chmod +x "${APPDIR}/AppRun"
 # --------------------------------------------------------------------------
 # Package
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Bundle the Python standard library.
+#
+# linuxdeployqt bundles libpython3.x.so because libsigrokdecode links it -
+# but the STDLIB is not an ELF dependency, so nothing bundles it, and
+# embedded CPython then dies at srd_init ("Could not find platform
+# independent libraries") on any host whose /usr does not happen to carry
+# the exact same python3.x. That was every protocol decoder, silently dead
+# in the shipped AppImage; found by the arm64 bare-container decoder gate.
+# This runs BEFORE the closure pass so lib-dynload's C extensions get their
+# own dependencies (libssl, libffi...) closed and patched like everything
+# else. AppRun exports PYTHONHOME so libpython looks inside the bundle.
+# --------------------------------------------------------------------------
+note "bundling the python standard library"
+PYVER="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+PYSTD="/usr/lib/python${PYVER}"
+[ -d "${PYSTD}" ] || { echo "python stdlib not found at ${PYSTD}" >&2; exit 1; }
+cp -a "${PYSTD}" "${APPDIR}/usr/lib/python${PYVER}"
+# Drop what decoders can never need: tests, caches, build-config static
+# library, GUI/toolchain extras, and site/dist packages (decoders are
+# stdlib-only by libsigrokdecode's own requirement).
+rm -rf "${APPDIR}/usr/lib/python${PYVER}/test" \
+       "${APPDIR}/usr/lib/python${PYVER}/idlelib" \
+       "${APPDIR}/usr/lib/python${PYVER}/tkinter" \
+       "${APPDIR}/usr/lib/python${PYVER}/turtledemo" \
+       "${APPDIR}/usr/lib/python${PYVER}/ensurepip" \
+       "${APPDIR}/usr/lib/python${PYVER}/lib2to3" \
+       "${APPDIR}/usr/lib/python${PYVER}/dist-packages" \
+       "${APPDIR}/usr/lib/python${PYVER}"/config-*
+find "${APPDIR}/usr/lib/python${PYVER}" -name __pycache__ -type d \
+    -exec rm -rf {} + 2>/dev/null || true
+
 # --------------------------------------------------------------------------
 # Close the dependency graph ourselves.
 #
@@ -289,42 +351,26 @@ note "dependency closure complete"
 
 note "running appimagetool"
 mkdir -p "${OUT}"
-NAME="PulseView-x86_64.AppImage"
+NAME="${SR_APPIMAGE_NAME}"
 rm -f "${OUT}/${NAME}"
-/usr/local/bin/appimagetool "${APPDIR}" "${OUT}/${NAME}" >/dev/null
+# --runtime-file: without it appimagetool downloads the type-2 runtime from
+# GitHub at packaging time - a network fetch inside a build that must not
+# have one. The builder image bakes the pinned, checksum-verified runtime
+# for its own architecture at this path.
+[ -f /usr/local/lib/appimage/runtime ] \
+    || { echo "baked AppImage runtime missing - rebuild the builder image" >&2; exit 1; }
+/usr/local/bin/appimagetool --runtime-file /usr/local/lib/appimage/runtime \
+    "${APPDIR}" "${OUT}/${NAME}" >/dev/null
 chmod +x "${OUT}/${NAME}"
 
-cat > "${OUT}/README-AppImage.txt" <<RM
-PulseView / sigrok-cli for the Hantek DSO-3062L and ALIENTEK ATK DL16
-Linux x86_64 AppImage - built ${REV}
-======================================================================
-
-Fully self-contained: Qt5, glib, boost, libftdi, libusb, hidapi, libzip and
-python3 are all bundled inside the AppImage itself. Nothing needs to be
-installed - no apt, no network, no root.
-
-Verified on a bare ubuntu:22.04 container with zero packages installed:
-sigrok-cli runs with no host libraries at all. PulseView additionally needs
-the host's own graphics driver (libGL and an X11/Wayland display) - that is
-deliberate and universal to AppImages: those libraries have to match the
-kernel driver, so bundling them breaks hardware acceleration. Any machine
-with a screen already has them.
-
-Run:
-  chmod +x PulseView-x86_64.AppImage
-  ./PulseView-x86_64.AppImage                    # GUI
-  ./PulseView-x86_64.AppImage --cli --driver hantek-dso3062l --scan
-  ./PulseView-x86_64.AppImage --cli --driver atk-dl16 --scan
-
-Device access (once, needs root - the one thing that cannot be bundled,
-being a kernel-level permission rather than a library):
-  sudo cp 60-sigrok-instruments.rules /etc/udev/rules.d/
-  sudo udevadm control --reload && sudo udevadm trigger
-  (add yourself to the plugdev group if needed, then re-login)
-
-Capabilities and notes are identical to the Windows build; see the project
-protocol reference. Use -O srzip (not CSV) for triggered captures.
-RM
+# The x86_64 README keeps its historical name; other architectures get an
+# arch-suffixed file so building two architectures back to back cannot leave
+# one README describing the other's binary.
+README_NAME="README-AppImage.txt"
+[ "${SR_ARCH}" = "x86_64" ] || README_NAME="README-AppImage-${SR_ARCH}.txt"
+bash /work/02_Tools/build/write_appimage_readme.sh \
+    "${OUT}/${README_NAME}" "${SR_ARCH}" "${NAME}" "${REV}"
+( cd "${OUT}" && sha256sum "${NAME}" > "${NAME}.sha256" )
 # Both instruments. The DL16 rule was missing from the earlier Linux
 # delivery, which would have left it root-only.
 cat > "${OUT}/60-sigrok-instruments.rules" <<'UDEV'

@@ -1,0 +1,81 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+# One requirement = one independently verifiable behavior.
+# Lives at .agentic/requirements/<category>/<id>.toml
+# Required fields: schema, id, title, status, requirement, verification.
+
+schema = 1
+
+# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
+# and must match the category folder this file sits in.
+id = "REQ-REL-dae2e62f"
+
+title = "Reject incomplete or unchecked delivery sets"
+
+# draft while being written, active once it is built and tested,
+# retired when the behavior is deliberately removed.
+status = "active"
+
+# Self-contained prose: a reader with no other context must be able to
+# understand and check it. No ticket numbers, no run IDs, no references
+# to other requirements.
+#
+# Recommended shape - EARS. Pick the one pattern that fits; a stated
+# trigger or condition is what the test has to arrange, so surfacing it
+# here is what makes the behavior testable:
+#
+#   ubiquitous  The <system> shall <response>.
+#   event       When <trigger>, the <system> shall <response>.
+#   state       While <state>, the <system> shall <response>.
+#   unwanted    If <condition>, then the <system> shall <response>.
+#   optional    Where <feature is included>, the <system> shall <response>.
+#
+# Two "shall" clauses means two behaviors: split it into two requirements.
+# Do not contort prose to fit a pattern - a constraint that reads better
+# plainly is better plainly.
+requirement = """
+When a release output directory is finalized, the delivery-set verifier shall refuse to create its checksum manifest unless exactly one matching package exists for each of the five supported delivery targets and every listed SHA-256 digest verifies.
+"""
+
+# The observation that settles whether the behavior holds — not a
+# restatement of the requirement.
+#
+# Some behaviors no test can settle: a look-and-see judgement, an install
+# on clean hardware, a printed page. Start this field with "Manual:" or
+# "Inspection:" and name the method, and `check` records the requirement
+# as verified by hand instead of counting it among the tests still owed.
+# The prefix alone is not enough — it has to say what someone does.
+verification = "Exercise the verifier with a fixture containing all five package names and confirm it writes a sorted SHA256SUMS covering exactly those files, then remove each target in turn and add a duplicate target and confirm every invalid set fails without leaving a manifest."
+
+# Repo-relative, forward slashes. The source files this behavior lives in.
+affected_paths = [
+  "02_Tools/build/verify_delivery_set.sh",
+  "02_Tools/build/build_appimage.sh",
+  "02_Tools/build/build_linux.sh",
+  "02_Tools/build/package_windows.sh",
+  "02_Tools/build/write_appimage_readme.sh",
+  "02_Tools/test/delivery_set_test.sh",
+  "07_Delivery/README.md",
+]
+
+# "tests/path/test_file.py::test_name" entries. Kept current during build;
+# these select the impacted regression set.
+linked_tests = [
+  "02_Tools/test/delivery_set_test.sh",
+  "02_Tools/test/appimage_readme_test.sh",
+]
+
+# --- optional below this line ---
+
+# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
+spec = ""
+
+priority = "high"   # low | normal | high
+rationale = "The checksum manifest is both integrity evidence and the machine-checkable declaration that a release is complete."
+
+created = 2026-08-31
+updated = 2026-08-31

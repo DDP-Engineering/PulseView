@@ -101,13 +101,13 @@ fi
 # --------------------------------------------------------------------------
 
 if [ -z "${REV}" ]; then
-    REV="$(git -C "${REPO}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    REV="$(bash "${SCRIPT_DIR}/source_revision.sh" "${REPO}")"
 fi
 
 # A package labelled with a revision whose tree it does not match is a
 # provenance claim that cannot be checked later. Say so rather than let the
 # filename imply something untrue.
-if ! git -C "${REPO}" diff-index --quiet HEAD -- 2>/dev/null; then
+if [[ "${REV}" != *-dirty ]] && ! git -C "${REPO}" diff-index --quiet HEAD -- 2>/dev/null; then
     printf '\n'
     printf 'WARNING: the working tree has uncommitted changes.\n'
     printf '         This package will be labelled %s, which does not\n' "${REV}"

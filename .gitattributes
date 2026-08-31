@@ -54,6 +54,7 @@
 # This only stops the growth from here on. Deliverables committed before this
 # rule are still plain blobs in the existing history.
 07_Delivery/*.AppImage filter=lfs diff=lfs merge=lfs -text
+07_Delivery/*.deb filter=lfs diff=lfs merge=lfs -text
 07_Delivery/*.zip filter=lfs diff=lfs merge=lfs -text
 07_Delivery/*.tar.gz filter=lfs diff=lfs merge=lfs -text
 

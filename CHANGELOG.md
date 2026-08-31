@@ -15,6 +15,20 @@ whole vendored sigrok stack.
 
 ### Added - August 2026
 
+- **Native Raspberry Pi Debian installer.** `build_deb.sh` checksum-verifies
+  and extracts the tested aarch64 AppImage payload into `pulseview-ddp`, which
+  installs normal `pulseview`/`sigrok-cli` commands, the desktop menu entry and
+  icon, both project drivers, decoders, and udev rules without requiring FUSE.
+  The package was installed, GUI-launched, removed with zero owned-path
+  leftovers, and reinstalled on the physical Raspberry Pi 4.
+- **Five-package release coordinator and integrity gate.** Windows x86_64 ZIP,
+  Linux x86_64 AppImage and thin tarball, Raspberry Pi aarch64 AppImage and
+  arm64 `.deb` are now one explicit release matrix. The PowerShell owner command
+  sequences WSL/container and native Git Bash phases; finalization refuses
+  missing, duplicate, or mixed-revision rows and writes one verified
+  `SHA256SUMS` covering exactly the five packages. Every individual build also
+  emits a `.sha256` sidecar.
+
 - **Raspberry Pi 4/5 (aarch64) build target.** `build_appimage.sh --arch
   aarch64` and `build_linux.sh --arch aarch64` build the whole stack for
   arm64 Linux, natively on a Pi or emulated via qemu binfmt on the x86_64

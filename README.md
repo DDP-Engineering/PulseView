@@ -89,7 +89,7 @@ details, including what is not solved, are in
 | Drivers | 84 - 82 upstream, plus `hantek-dso3062l` and `atk-dl16` |
 | Decoders | 137, including a first-party 100BASE-FX networking stack |
 | Python | CPython 3.13.15, embedded in the Windows build |
-| Deliverables | Windows x86_64 zip, Linux x86_64 tarball, Linux AppImage |
+| Deliverables | Windows x86_64 ZIP; Linux x86_64 AppImage and tarball; Raspberry Pi aarch64 AppImage and Debian package |
 
 The two drivers are for the **Hantek DSO-3062L** mixed-signal oscilloscope and
 the **ALIENTEK ATK-DL16** logic analyzer, both written here from protocols
@@ -113,7 +113,13 @@ Ready-made packages are in [`07_Delivery/`](07_Delivery/):
 | `pulseview-*-windows-x64.zip` | Windows 10/11 x86_64. Unzip and run `pulseview.exe`. |
 | `PulseView-x86_64.AppImage` | Any Linux with glibc 2.35 or newer. `chmod +x` and run. Pass `--cli` to get `sigrok-cli` instead. See `README-AppImage.txt`. |
 | `pulseview-*-linux-x64.tar.gz` | Linux, thin - needs Qt5, glib and boost from the distro. |
+| `PulseView-aarch64.AppImage` | Raspberry Pi 4/5 with 64-bit Raspberry Pi OS. Install-free; `chmod +x` and run. |
+| `pulseview-ddp_*_arm64.deb` | Raspberry Pi 4/5 with 64-bit Raspberry Pi OS. Simplest install: `sudo apt install ./pulseview-ddp_*_arm64.deb`, then start PulseView from the application menu. |
 | `60-sigrok-instruments.rules` | Linux udev rules. Install to `/etc/udev/rules.d/` so both instruments are usable without root. |
+
+Each complete release also has `SHA256SUMS` covering exactly those five
+packages. Architecture-specific READMEs and the udev file support the packages
+but are not extra package targets.
 
 > **Clone with Git LFS.** The toolchain archive and the delivery packages are
 > LFS objects. A clone without LFS gets ~130-byte pointer files instead, and the
@@ -138,6 +144,19 @@ aarch64`. On an x86_64 host the arm64 container runs emulated - a one-time
 qemu binfmt install that `check_host.sh` explains. Details, including the
 glibc floor that makes the AppImage the right delivery for Raspberry Pi OS:
 [01_Documentation/Environment_Setup.md](01_Documentation/Environment_Setup.md).
+
+To build the complete required set from Windows, first prepare the builder
+images described there, then run:
+
+```powershell
+.\02_Tools\build\build_delivery_set.ps1 -Plan
+.\02_Tools\build\build_delivery_set.ps1
+```
+
+The coordinator compiles in WSL/container builders, verifies the Windows ZIP
+in native Git Bash, builds the Raspberry Pi `.deb` from the verified arm64
+AppImage payload, and writes `SHA256SUMS` only if all five packages carry the
+same source revision.
 
 Full prerequisites, both host roles, every build script and the known sharp
 edges: **[01_Documentation/Environment_Setup.md](01_Documentation/Environment_Setup.md)**.
