@@ -32,3 +32,15 @@ being a kernel-level permission rather than a library):
 
 Capabilities and notes are identical to the Windows build; see the project
 protocol reference. Use -O srzip (not CSV) for triggered captures.
+
+License:
+  PulseView, sigrok-cli, libsigrok and libsigrokdecode are free software
+  under the GNU General Public License, version 3 or later. This AppImage
+  also bundles Qt, glib, boost, libftdi, libusb, hidapi, libzip and CPython,
+  each under its own license; the full texts ship inside the image.
+
+  The complete corresponding source for everything in this AppImage - the
+  sigrok stack, this project's drivers and decoders, and the build scripts
+  that produced it - is the repository this package was built from, at
+  revision 66540df. There is no separate written offer to make: the
+  source is published alongside the binary.

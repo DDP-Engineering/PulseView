@@ -1,9 +1,11 @@
 #!/usr/bin/env pwsh
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 <#
 .SYNOPSIS
@@ -31,7 +33,7 @@
     Also write a JSON record of the run here.
 
 .PARAMETER Tag
-    Builder image to look for. Default hantek-builder-mingw:latest.
+    Builder image to look for. Default pulseview-builder-mingw:latest.
 
 .PARAMETER Distro
     WSL distribution the build host lives in. Default Ubuntu-24.04.
@@ -52,7 +54,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string] $ResultPath,
-    [string] $Tag = 'hantek-builder-mingw:latest',
+    [string] $Tag = 'pulseview-builder-mingw:latest',
     [string] $Distro = 'Ubuntu-24.04',
     [switch] $Install
 )
@@ -82,7 +84,7 @@ $PointerMaxBytes = 1024
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
 $LockFile = Join-Path $RepoRoot '02_Tools\upstream\upstreams.lock.toml'
-$Toolchain = Join-Path $RepoRoot '07_Delivery\toolchain\hantek-builder-mingw.tar'
+$Toolchain = Join-Path $RepoRoot '07_Delivery\toolchain\pulseview-builder-mingw.tar'
 
 # WSL writes UTF-16LE to a pipe unless told otherwise; without this every
 # string comparison against its output silently fails.

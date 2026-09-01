@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Load the saved builder image, so a fresh clone does not have to rebuild it.
 #
@@ -80,8 +82,8 @@ fi
 TAG_ARCH_SUFFIX=""
 [ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
 
-TAG="hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
-ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}.tar}"
+TAG="pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
+ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.tar}"
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."

@@ -1,5 +1,5 @@
 Copyright (c) 2026 DDP Engineering
-Licensed under PolyForm Noncommercial 1.0.0 (LICENSE.txt).
+Licensed under the GNU General Public License v3.0 or later (LICENSE.txt).
 
 PulseView for Raspberry Pi 4/5 - Debian installer
 =================================================

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Inspect the Linux build host and report whether it can build this project.
 #
@@ -22,8 +24,8 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 LOCK="${REPO_ROOT}/02_Tools/upstream/upstreams.lock.toml"
 
 RESULT=""
-IMAGE_TAG="hantek-builder-mingw:latest"
-ARM64_PROBE_IMAGE="${ARM64_PROBE_IMAGE:-hantek-builder-appimage-arm64:latest}"
+IMAGE_TAG="pulseview-builder-mingw:latest"
+ARM64_PROBE_IMAGE="${ARM64_PROBE_IMAGE:-pulseview-builder-appimage-arm64:latest}"
 BINFMT_IMAGE="tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
 
 # Disk needed for the image plus one build tree. The image alone is ~7.3 GB
@@ -36,7 +38,7 @@ Report whether this host can build the project. Changes nothing.
 
 Options:
   --result PATH   Also write a JSON record here.
-  --tag NAME      Builder image to look for. Default hantek-builder-mingw:latest.
+  --tag NAME      Builder image to look for. Default pulseview-builder-mingw:latest.
   -h, --help      This text.
 
 Exit status is 1 if any check FAILED, 0 otherwise. WARN does not fail.
