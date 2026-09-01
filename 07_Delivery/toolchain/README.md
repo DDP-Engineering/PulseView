@@ -1,8 +1,11 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # Saved builder images
@@ -36,14 +39,14 @@ Only build the image from source when the toolchain itself must change:
 
 ```sh
 02_Tools/build/build_image.sh --image mingw --skip-patch mxe_fixes.patch \
-    --save 07_Delivery/toolchain/hantek-builder-mingw.tar
+    --save 07_Delivery/toolchain/pulseview-builder-mingw.tar
 ```
 
 ## Contents
 
 | File | Holds |
 |---|---|
-| `hantek-builder-mingw.tar` | MXE cross-toolchain for Windows x86_64: gcc 11.5.0, Qt 5.15.19, glib 2.89.1 (held), glibmm 2.66.2, libusb 1.0.27 with the RAW_IO patch, plus host doxygen and NSIS. Also the pinned CPython 3.13.15 that libsigrokdecode embeds, at `/opt/sigrok-deps` |
+| `pulseview-builder-mingw.tar` | MXE cross-toolchain for Windows x86_64: gcc 11.5.0, Qt 5.15.19, glib 2.89.1 (held), glibmm 2.66.2, libusb 1.0.27 with the RAW_IO patch, plus host doxygen and NSIS. Also the pinned CPython 3.13.15 that libsigrokdecode embeds, at `/opt/sigrok-deps` |
 | `*.tar.sha256` | Checksum, verified by `load_image.sh` before loading |
 
 ## Notes

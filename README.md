@@ -1,8 +1,11 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # 2026 PulseView
@@ -206,8 +209,23 @@ convenient.
 
 ## Licensing
 
-Project-authored code and documentation are under the **PolyForm Noncommercial
-License 1.0.0** ([`LICENSE.txt`](LICENSE.txt)); commercial use requires a
-separate licence. The vendored sigrok components under `05_Software/` keep their
-own licences - GPL - and nothing here relicenses them. The distributed binaries
-are therefore GPL builds; `upstreams.lock.toml` is the provenance record.
+This repository is **GPL-3.0-or-later** by default
+([`LICENSE.txt`](LICENSE.txt)). That covers the vendored sigrok stack under
+`05_Software/`, the drivers and decoders this project added inside it, the build
+tooling in `02_Tools/`, and the packages in `07_Delivery/`. The drivers are
+compiled into libsigrok and the decoders run inside libsigrokdecode, so they are
+part of those GPL works and could not carry other terms.
+
+Three paths are independent works and are **PolyForm Noncommercial 1.0.0**
+instead ([`LICENSE-PolyForm.txt`](LICENSE-PolyForm.txt)): `.agentic/` - the
+AEGIS workflow - along with `00_Planning/` and
+`05_Software/protocol_probe/`. Commercial use of those requires a separate
+licence.
+
+Manufacturer-supplied reference material under `04_HardwareDocu/` is under its
+originator's terms and under neither of the above.
+
+[`LICENSING.md`](LICENSING.md) is the authoritative path-by-path map;
+[`upstreams.lock.toml`](02_Tools/upstream/upstreams.lock.toml) is the provenance
+record. *sigrok* and *PulseView* are the upstream project's names; this is an
+unaffiliated fork, not endorsed by it.
