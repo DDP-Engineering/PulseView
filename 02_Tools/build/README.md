@@ -1,8 +1,11 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # Build
@@ -40,7 +43,7 @@ libserialport, libsigrok, libsigrokdecode, sigrok-cli and PulseView.
 |---|---|
 | `.work/build-context/<image>/` | staged Docker context: MXE clone, patches |
 | `.work/logs/<build-id>/` | build log and provenance record |
-| container volume `hantek-build-<image>` | out-of-tree build trees |
+| container volume `pulseview-build-<image>` | out-of-tree build trees |
 | `07_Delivery/staging/<build-id>/` | candidate artifacts |
 | `07_Delivery/releases/<version>/` | verified releases |
 

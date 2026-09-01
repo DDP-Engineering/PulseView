@@ -1,8 +1,11 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # Environment setup
@@ -110,7 +113,7 @@ command and leaves it to you. Use `-WhatIf` to see what it would propose:
 ```
 
 Useful flags on both: `-Tag` / `--tag` names the builder image to look for
-(default `hantek-builder-mingw:latest`), and `-ResultPath` / `--result` writes a
+(default `pulseview-builder-mingw:latest`), and `-ResultPath` / `--result` writes a
 JSON record of the run.
 
 ### 3. Load the toolchain image
@@ -133,7 +136,7 @@ upstream hosts reachable. Only do it when the toolchain itself changes:
 
 `--skip-patch mxe_fixes.patch` is required, not optional - see
 [Known sharp edges](#known-sharp-edges). To also write a fresh offline archive,
-add `--save 07_Delivery/toolchain/hantek-builder-mingw.tar`. Regenerate that
+add `--save 07_Delivery/toolchain/pulseview-builder-mingw.tar`. Regenerate that
 archive only on a real toolchain change: Git LFS does not deduplicate between
 revisions, so each one costs another ~2.2 GB permanently.
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Run a command inside a builder image - the entry point for stage 2.
 #
@@ -49,7 +51,7 @@ Options:
   --tag NAME               Override the image tag.
   --engine docker|podman   Container engine. Default docker.
   --volume NAME            Named volume for /build.
-                           Default hantek-build-<image> plus the arch
+                           Default pulseview-build-<image> plus the arch
                            suffix for non-x86_64.
   --keep-volume            Do not warn about stale build state.
   --offline                Run with no network at all (--network none).
@@ -94,8 +96,8 @@ ARCH_OVERRIDE="${PLATFORM#linux/}"
 TAG_ARCH_SUFFIX=""
 [ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
 
-TAG="${TAG:-hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
-VOLUME="${VOLUME:-hantek-build-${IMAGE}${TAG_ARCH_SUFFIX}}"
+TAG="${TAG:-pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
+VOLUME="${VOLUME:-pulseview-build-${IMAGE}${TAG_ARCH_SUFFIX}}"
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."

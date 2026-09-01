@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Build a sigrok builder image - stage 1 of the two-stage build.
 #
@@ -54,8 +56,8 @@ Options:
                            Default: the host architecture. Only the
                            appimage image builds for aarch64; the mingw
                            cross-toolchain is x86_64-hosted.
-  --tag NAME               Image tag. Default hantek-builder-<image>:latest
-                           (x86_64) or hantek-builder-<image>-arm64:latest
+  --tag NAME               Image tag. Default pulseview-builder-<image>:latest
+                           (x86_64) or pulseview-builder-<image>-arm64:latest
   --engine docker|podman   Container engine. Default docker.
   --mxe-src PATH           Use an existing local MXE clone instead of
                            cloning from Gitea. For hosts without SSH
@@ -155,7 +157,7 @@ else:
 PYEOF
 }
 
-TAG="${TAG:-hantek-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
+TAG="${TAG:-pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest}"
 BUILD_ID="$(date -u +%Y%m%dT%H%M%SZ)-${IMAGE}${TAG_ARCH_SUFFIX}"
 CONTEXT="${CONTEXT_ROOT}/${IMAGE}${TAG_ARCH_SUFFIX}"
 LOG_DIR="${LOG_ROOT}/${BUILD_ID}"

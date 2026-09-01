@@ -1,8 +1,11 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # Changelog
@@ -12,6 +15,46 @@ Hantek DSO-3062L PulseView integration and now covers two instruments and the
 whole vendored sigrok stack.
 
 ## [Unreleased]
+
+### Changed - September 2026
+
+- **Relicensed the software to GPL-3.0-or-later, ahead of publication.** The
+  repository previously declared PolyForm Noncommercial 1.0.0 over everything,
+  including the vendored GPL sigrok stack. GPLv3 section 7 forbids adding a
+  restriction of that kind, so the claim was void as to those trees and could
+  not be published as written. `LICENSE.txt` is now the GPL-3.0 text and covers
+  `05_Software/` (including this project's `hantek-dso3062l` and `atk-dl16`
+  drivers and the added decoders, which compile into GPL works and could never
+  have carried other terms), `01_Documentation/`, `02_Tools/`, `06_SoftwareDocu/`
+  and `07_Delivery/`. Three independent paths keep PolyForm Noncommercial in the
+  new `LICENSE-PolyForm.txt`: `.agentic/`, `00_Planning/` and
+  `05_Software/protocol_probe/`. The new `LICENSING.md` is the authoritative
+  path-by-path map and governs where any file header disagrees.
+- **Binary packages now carry a licence and corresponding-source notice.** The
+  AppImage and `.deb` READMEs state the GPL terms and name the source revision,
+  which GPLv3 section 6 requires of a distributed binary. The builder images'
+  `org.opencontainers.image.licenses` label was corrected to `GPL-3.0-or-later`.
+- **`04_HardwareDocu/README.md` now separates vendor material from our own.**
+  The Hantek SDK, driver package and product manuals are manufacturer-supplied
+  reference material under their originator's terms - neither GPL nor PolyForm,
+  and not ours to license. The protocol analyses beside them are original work
+  and are GPL along with the drivers they document.
+
+### Renamed - September 2026
+
+- **The Windows cross-toolchain image is no longer named after one instrument.**
+  `hantek-builder-<image>` became `pulseview-builder-<image>` and the build
+  volume `hantek-build-<image>` became `pulseview-build-<image>`. Because
+  `docker load` restores the tag embedded at save time rather than the
+  archive's filename, renaming the file alone would have left the old tag
+  inside it; the archive was therefore re-saved under the new tag rather than
+  worked around in the loader. The image is bit-identical - digest
+  `sha256:9ae809d6c312484080b04a424850929ca302a2c3aab5a431d24b412a00551293`
+  before and after - and only the embedded repository tag differs. The
+  delivered archive is `07_Delivery/toolchain/pulseview-builder-mingw.tar`,
+  sha256 `1893cd83f335e5f755b5eae87959fe0a2348665db41a43056ea7fbab6659384e`.
+  The `hantek-dso3062l` driver keeps its name - that is a device driver, not
+  build infrastructure.
 
 ### Added - August 2026
 

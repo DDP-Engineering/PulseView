@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 set -euo pipefail
 
@@ -66,4 +68,16 @@ being a kernel-level permission rather than a library):
 
 Capabilities and notes are identical to the Windows build; see the project
 protocol reference. Use -O srzip (not CSV) for triggered captures.
+
+License:
+  PulseView, sigrok-cli, libsigrok and libsigrokdecode are free software
+  under the GNU General Public License, version 3 or later. This AppImage
+  also bundles Qt, glib, boost, libftdi, libusb, hidapi, libzip and CPython,
+  each under its own license; the full texts ship inside the image.
+
+  The complete corresponding source for everything in this AppImage - the
+  sigrok stack, this project's drivers and decoders, and the build scripts
+  that produced it - is the repository this package was built from, at
+  revision ${REV}. There is no separate written offer to make: the
+  source is published alongside the binary.
 RM
