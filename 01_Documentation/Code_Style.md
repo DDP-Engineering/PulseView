@@ -1,8 +1,11 @@
 ﻿<!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # Code Style
@@ -47,6 +50,13 @@ Docstrings carry no authorship or version tags (no `@author`, `@date`, or
 file-top copyright/license banner is the sole in-file attribution. Versioning
 is project-level only, tracked in the AEGIS payload version and the existing
 changelog.
+
+The banner to copy is the GPL one at the top of this file, which is correct for
+almost everywhere. Three paths take the PolyForm banner instead - `.agentic/`,
+`00_Planning/` and `05_Software/protocol_probe/`; copy it from an existing file
+there. Inside the vendored trees under `05_Software/`, use that project's own
+per-file header, not this one. [`LICENSING.md`](../LICENSING.md) is the map, and
+governs if anything disagrees.
 
 Required section markers where meaningful:
 

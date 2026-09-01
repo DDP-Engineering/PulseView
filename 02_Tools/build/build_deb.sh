@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 # See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Turn the verified Raspberry Pi AppImage payload into a native arm64 Debian
 # package. The installed package uses the extracted AppDir, so it has no FUSE
@@ -252,7 +254,7 @@ dpkg-deb --contents "${DEB}" >/dev/null
 
 cat > "${OUT}/README-RaspberryPi-deb.txt" <<EOF
 Copyright (c) 2026 DDP Engineering
-Licensed under PolyForm Noncommercial 1.0.0 (LICENSE.txt).
+Licensed under the GNU General Public License v3.0 or later (LICENSE.txt).
 
 PulseView for Raspberry Pi 4/5 - Debian installer
 =================================================
