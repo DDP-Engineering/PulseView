@@ -24,9 +24,11 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as _dt
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import re
@@ -39,7 +41,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -2974,7 +2976,7 @@ def mermaid_id(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "_", str(text)) or "node"
 
 
-def knowledge_components() -> list[tuple[str, str, list[str]]]:
+def knowledge_components(on_error=None) -> list[tuple[str, str, list[str]]]:
     """
     @brief Every component page as (stem, display name, claimed requirement ids).
     @details Only two things are read out of the prose, both by strict
@@ -2982,11 +2984,18 @@ def knowledge_components() -> list[tuple[str, str, list[str]]]:
              ids under `## Key behaviors`. The template calls those sections
              recommended rather than mandatory, so nothing load-bearing is
              parsed out of a page - a page missing its heading is still listed,
-             under its file name.
+             under its file name. A caller providing on_error may report and
+             skip unreadable pages; otherwise the existing error propagates.
     """
     components: list[tuple[str, str, list[str]]] = []
     for path in sorted((AGENTIC / "knowledge").glob("*.md")):
-        text = read_text(path)
+        try:
+            text = read_text(path)
+        except (UserError, OSError) as exc:
+            if on_error is None:
+                raise
+            on_error(path, exc)
+            continue
         heading = re.search(r"^# (.+)$", text, re.MULTILINE)
         name = heading.group(1).strip() if heading else path.stem
         claimed: list[str] = []
@@ -3098,6 +3107,228 @@ def cmd_diagram(args: argparse.Namespace) -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8", newline="\n")
     print(f"diagram written to {rel(target)}")
+    return 0
+
+
+#: the folder order a traceability record is written in — first appearance in
+#: CATEGORIES, which is the order `req` documents, so the export and the CLI
+#: reference cannot drift apart.
+TRACE_CATEGORIES = list(dict.fromkeys(
+    folder for folder, _code in CATEGORIES.values()))
+
+#: (CSV header, Markdown header) per column, in output order. The CSV name is
+#: the requirement's own TOML key, so the file is self-describing against the
+#: records it came from and diffs against them cleanly; the Markdown name is
+#: the label a reviewer or an assessor reads.
+TRACE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("id", "Requirement ID"),
+    ("category", "Category"),
+    ("status", "Status"),
+    ("coverage", "Coverage"),
+    ("component", "Component"),
+    ("title", "Title"),
+    ("requirement", "Requirement"),
+    ("verification", "Verification"),
+    ("spec", "Spec"),
+    ("test_count", "Tests"),
+    ("linked_tests", "Verified By"),
+    ("path_count", "Files"),
+    ("affected_paths", "Implemented In"),
+)
+
+
+def flat(value: object) -> str:
+    """@brief One record field as a single line, however TOML wrapped it."""
+    return " ".join(str(value or "").split())
+
+
+def trace_rows(records: list[tuple[str, Path, dict]],
+               components: list[tuple[str, str, list[str]]]) -> list[dict]:
+    """
+    @brief One row per requirement, ordered by category and then by id.
+    @details List columns stay lists here and are joined by each renderer,
+             because the separator belongs to the format rather than to the
+             record. Nothing is shortened anywhere in this path: `summary`
+             and `brief` bound their values because they are resume views for
+             a context-limited reader, whereas this is a durable artifact
+             whose whole point is completeness, and a clipped path list reads
+             as the whole list to the person it was written for.
+             Every status is carried, draft and retired included — they are
+             part of what the register holds, and dropping either would
+             misreport it.
+    """
+    owner: dict[str, str] = {}
+    for _stem, name, claimed in components:
+        for rid in claimed:
+            owner.setdefault(rid, name)
+
+    rows: list[dict] = []
+    for _relpath, path, data in records:
+        rid = str(data.get("id", "") or "")
+        placement = path.relative_to(AGENTIC / "requirements").parts
+        category = placement[0] if len(placement) > 1 else "(no category)"
+        tests = str_list(data.get("linked_tests"))
+        paths = str_list(data.get("affected_paths"))
+        rows.append({
+            "id": rid,
+            "category": category,
+            "status": flat(data.get("status")),
+            # never re-derived: `check` and the diagram read the same
+            # classifier, so three readers of one record cannot disagree
+            "coverage": coverage_class(data),
+            "component": owner.get(rid, "(no knowledge page)"),
+            "title": flat(data.get("title")),
+            "requirement": flat(data.get("requirement")),
+            "verification": flat(data.get("verification")),
+            "spec": flat(data.get("spec")),
+            "test_count": str(len(tests)),
+            "linked_tests": tests,
+            "path_count": str(len(paths)),
+            "affected_paths": paths,
+        })
+    # Unknown or absent category folders sort last without hiding their rows.
+    return sorted(rows, key=lambda row: (
+        TRACE_CATEGORIES.index(row["category"])
+        if row["category"] in TRACE_CATEGORIES else len(TRACE_CATEGORIES),
+        row["id"]))
+
+
+def trace_cell(row: dict, key: str, joiner: str) -> str:
+    """@brief One column of one row, with list columns joined for the format."""
+    value = row[key]
+    return joiner.join(value) if isinstance(value, list) else str(value)
+
+
+def render_trace_csv(rows: list[dict]) -> str:
+    """
+    @brief The traceability record as comma-separated values.
+    @details Header row and data only — no summary block, no preamble, so a
+             spreadsheet's autofilter and sort apply to the whole file. The
+             standard-library writer owns the quoting rules, which is what
+             keeps a statement holding a comma, a quote or a line break from
+             silently becoming extra columns.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow([name for name, _label in TRACE_COLUMNS])
+    for row in rows:
+        writer.writerow([trace_cell(row, name, "; ")
+                         for name, _label in TRACE_COLUMNS])
+    return buffer.getvalue()
+
+
+def trace_markdown_text(value: object) -> str:
+    """
+    @brief Literal, single-line cell text with no active inline Markdown.
+    @details Entities preserve backslashes, table delimiters and markup as
+             text; renderer-owned list breaks are inserted only afterwards.
+    """
+    return "".join(f"&#{ord(char)};" if char in "&<>\\`*_[]|~" else char
+                   for char in flat(value))
+
+
+def render_trace_md(rows: list[dict], unreadable: list[str]) -> str:
+    """
+    @brief The traceability record as a Markdown table under a summary block.
+    @details Each scalar and list entry is flattened and escaped as literal
+             text before list entries are joined with renderer-owned `<br>`
+             breaks. User text cannot add table cells, HTML or inline markup.
+    """
+    counts: dict[str, int] = {}
+    for row in rows:
+        counts[row["coverage"]] = counts.get(row["coverage"], 0) + 1
+    by_category: dict[str, int] = {name: 0 for name in TRACE_CATEGORIES}
+    for row in rows:
+        by_category[row["category"]] = by_category.get(row["category"], 0) + 1
+    # a folder outside the documented set is still counted where a reader can
+    # see it: it is carried in the table and in the total, so leaving it out
+    # of the breakdown would print a line that does not add up to its own total
+    listed = TRACE_CATEGORIES + sorted(set(by_category) - set(TRACE_CATEGORIES))
+
+    total = f"{len(rows)} requirement" + ("" if len(rows) == 1 else "s")
+    if unreadable:
+        total += f" — {len(unreadable)} file(s) unreadable and not listed"
+    lines = [
+        "# Requirements Traceability Matrix",
+        "",
+        total + " - " + ", ".join(
+            f"{name} {counts.get(name, 0)}" for name, _f, _s in COVERAGE_CLASSES),
+        "",
+        # a category with nothing in it is still named: an empty security or
+        # NFR register is a fact worth seeing, not an absence worth hiding
+        "by category — " + ", ".join(
+            f"{trace_markdown_text(name)} {by_category.get(name, 0)}" for name in listed),
+        "",
+        "| " + " | ".join(label for _name, label in TRACE_COLUMNS) + " |",
+        "|" + "---|" * len(TRACE_COLUMNS),
+    ]
+    for row in rows:
+        cells = ["<br>".join(trace_markdown_text(entry) for entry in row[name])
+                 if isinstance(row[name], list) else trace_markdown_text(row[name])
+                 for name, _label in TRACE_COLUMNS]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def cmd_trace(args: argparse.Namespace) -> int:
+    """
+    @brief Emit the requirement register as a flat traceability record.
+    @details The third reader of the register, and the only one that leaves
+             the repository: `diagram` groups it into a picture that stops
+             being legible past a few dozen nodes, `explain` answers about one
+             path, and this narrows nothing. Because it is handed on rather
+             than read in place, it is also the only one owing an escaping and
+             encoding contract.
+             A requirement file that will not parse is named on stderr and
+             omitted rather than dropped in silence — `check` is the authority
+             on findings and already errors on that file, so this stays
+             advisory, but an export that quietly under-reports is worse than
+             one that admits the gap.
+    """
+    findings: dict[str, list[str]] = {}
+
+    def note(level: str, _rule: str, relpath: str, message: str) -> None:
+        if level == "ERROR":
+            findings.setdefault(relpath, []).append(message)
+
+    records = scan_requirements(note, lambda _p: False)
+    listed = {relpath for relpath, _path, _data in records}
+    unreadable = [path for path in findings if path not in listed]
+    for path, messages in findings.items():
+        label = ("listed with validation errors" if path in listed
+                 else "not listed, does not parse")
+        print(f"warning: {label}: {path}: {'; '.join(messages)}", file=sys.stderr)
+
+    knowledge_errors: list[str] = []
+
+    def knowledge_error(path: Path, error: Exception) -> None:
+        """@brief Report missing ownership evidence without discarding rows."""
+        knowledge_errors.append(rel(path))
+        print(f"warning: knowledge page unavailable: {rel(path)}: {error}; "
+              "component claims may be incomplete", file=sys.stderr)
+
+    rows = trace_rows(records, knowledge_components(on_error=knowledge_error))
+    if knowledge_errors:
+        for row in rows:
+            if row["component"] == "(no knowledge page)":
+                row["component"] = "(knowledge incomplete)"
+
+    if args.format == "csv":
+        text = render_trace_csv(rows)
+        encoding = "utf-8-sig"
+    else:
+        text = render_trace_md(rows, unreadable)
+        encoding = "utf-8"
+
+    if not args.out:
+        print(text, end="")
+        return 0
+    target = Path(args.out)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # the byte-order mark on the CSV is what stops a spreadsheet guessing the
+    # system code page; the register already holds characters it guesses wrong
+    target.write_text(text, encoding=encoding, newline="\n")
+    print(f"trace written to {rel(target)}")
     return 0
 
 
@@ -3449,6 +3680,13 @@ def build_parser() -> argparse.ArgumentParser:
     diagram.add_argument("--task", help="restrict to one journal's requirements")
     diagram.add_argument("--out", help="write UTF-8 to this path instead of stdout")
     diagram.set_defaults(func=cmd_diagram)
+
+    trace = subs.add_parser(
+        "trace", help="export the requirement register as a traceability matrix")
+    trace.add_argument("--format", choices=("md", "csv"), default="md",
+                       help="output format (default: md)")
+    trace.add_argument("--out", help="write to this path instead of stdout")
+    trace.set_defaults(func=cmd_trace)
 
     explain = subs.add_parser(
         "explain", help="show what governs one repository path")

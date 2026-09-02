@@ -2,7 +2,7 @@
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
-See the LICENSE.txt in the .agentic folder for full license details.
+See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
@@ -40,6 +40,7 @@ network.
 | `summary` | Print a compact recorded stage snapshot without writes. | Before resuming and after recording a stage completion or pause. |
 | `report` | Append a delivery summary to a task journal. | After validation and before the delivery commit or pull request. |
 | `diagram` | Draw the requirement register as a Mermaid coverage map. | In review or handover, when the question is where verification is thin. |
+| `trace` | Export the requirement register as a traceability matrix. | In audit, review or handover, when the whole register has to leave the repository. |
 | `explain` | Show which requirements and tasks govern one path. | Reading unfamiliar code, or before changing a file you did not write. |
 
 ## General help and version
@@ -637,6 +638,77 @@ python .agentic/aegis.py diagram --task TASK-8b12
 python .agentic/aegis.py diagram --out docs/coverage.mmd
 ```
 
+## `trace`
+
+```text
+python .agentic/aegis.py trace [--format {md,csv}] [--out PATH]
+```
+
+**Description:** Export the whole requirement register as a flat traceability
+matrix — one row per requirement, whatever its status. Each row carries the
+identifier, category, status, coverage class, claiming component, title,
+statement, verification method, spec reference, and the complete linked-test
+and affected-path lists with their counts.
+
+The coverage class is the same verdict `check` and `diagram` reach for that
+record, read from the one shared classifier rather than derived again.
+
+Rows are ordered by category — in the order the `req` table above lists them —
+and then by identifier, so two runs over unchanged files produce identical
+bytes. Nothing is truncated in either format: `summary` and `brief` bound
+their output because they are resume views for a context-limited reader, while
+this is a durable artifact whose point is completeness.
+
+A requirement file that does not parse is named on stderr and left out of the
+table rather than dropped in silence, and the Markdown summary counts it. The
+exit status stays 0; `check` is the authority on findings and already reports
+that file as a `req-parse` error.
+
+Readable files with validation errors remain listed; their warnings are
+separate from omitted-file counts. Category is the first folder below
+`requirements/`, including for nested files; a file directly in that root is
+marked `(no category)`. An unreadable knowledge page is warned about without
+discarding requirement rows, and otherwise unclaimed rows are marked
+`(knowledge incomplete)` because ownership could not be fully determined.
+
+| Option | Effect |
+|---|---|
+| `--format md` | A Markdown table under separate coverage and category summary paragraphs. Escapes literal text, including pipes and markup; flattens whitespace within each list entry, then joins entries with `<br>`. Files use UTF-8. |
+| `--format csv` | Header row and data only. Standard CSV quoting; joins list columns with `; `. Files use UTF-8 with a byte-order mark. |
+| `--out PATH` | Write to a file, creating parent folders, instead of printing. The suffix does not select the format; use `--format csv` for CSV. |
+
+The CSV header names are the requirement TOML keys, so the file is
+self-describing against the records it came from. The Markdown headers are
+human labels, because that is the copy a reviewer or an assessor reads.
+
+CSV preserves field values without formula neutralization. A spreadsheet may
+interpret text beginning with `=`, `+`, `-` or `@` as a formula; import the CSV
+with columns treated as text when reviewing untrusted records. The BOM controls
+encoding, not cell interpretation. Joined lists are display values, not a
+reversible list encoding: an entry containing `; ` is indistinguishable from
+that separator. Counts describe the source entries, not a split on `; `.
+
+`--format csv --out` writes a byte-order mark because that is what stops a
+spreadsheet application guessing the system code page; the register already
+holds characters that guess wrongly. As with `diagram`, `--out` exists because
+printing is not portable — a console under a legacy code page mangles the
+characters on the way out, and redirecting stdout to a file inherits the same
+problem.
+
+**When to use:** In an audit, a review, or a handover, when someone needs the
+whole register outside the repository — the third reader of the same data.
+`diagram` groups it into a picture that stops being legible past a few dozen
+requirements, `explain` answers about one path, and this narrows nothing.
+
+**Examples:**
+
+```text
+python .agentic/aegis.py trace
+python .agentic/aegis.py trace --format csv
+python .agentic/aegis.py trace --out docs/traceability-matrix.md
+python .agentic/aegis.py trace --format csv --out docs/traceability-matrix.csv
+```
+
 ## `explain`
 
 ```text
@@ -671,7 +743,7 @@ python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 
 | Situation | Exit behavior |
 |---|---|
-| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `report`, `diagram`, or `explain` succeeds | Exit 0. |
+| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `report`, `diagram`, `trace`, or `explain` succeeds | Exit 0. |
 | Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |
