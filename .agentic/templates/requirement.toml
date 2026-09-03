@@ -34,15 +34,20 @@ status = "draft"
 #   unwanted    If <condition>, then the <system> shall <response>.
 #   optional    Where <feature is included>, the <system> shall <response>.
 #
-# Two "shall" clauses means two behaviors: split it into two requirements.
+# Two independently verifiable responses need two requirements. Split when
+# either clause can vary, fail, change, or be checked independently; keep an
+# inseparable atomic outcome together. Final prose normally has one "shall".
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
 State exactly one behavior here.
 """
 
-# The observation that settles whether the behavior holds — not a
-# restatement of the requirement.
+# The observation that settles whether the behavior holds - not a
+# restatement of the requirement. Work out setup, input or trigger, action,
+# observable oracle, and a relevant boundary or failure case before reducing
+# them to concise prose here. Do not introduce conditions absent from the
+# requirement or its linked spec.
 #
 # Some behaviors no test can settle: a look-and-see judgement, an install
 # on clean hardware, a printed page. Start this field with "Manual:" or

@@ -39,6 +39,31 @@ software implementation they carry remains subject to AEGIS.
 | 5 | validate | `.agentic/steps/5_validate.md` | Review and reconcile the candidate, then prove it as the final action. |
 | 6 | deliver | `.agentic/steps/6_deliver.md` | Present the validated candidate, report, commit, and publish. |
 
+## Semantic analysis protocol
+
+Frame, specify and design use the same compact analysis cycle before their
+workflow administration. The stage files define the artifact each cycle
+produces:
+
+1. **Analyze** the request and selected repository evidence. Read the smallest
+   sufficient set of linked sources rather than filling the context window.
+2. **Challenge** the emerging account for contradictions, missing actors or
+   triggers, boundary and failure cases, hidden constraints, and unsupported
+   assumptions. Ask only decision-blocking questions; preserve other gaps as
+   explicit unknowns.
+3. **Write** the durable stage artifact using its named structure. Classify
+   material claims as `STATED` by the user, `OBSERVED` in repository evidence,
+   `INFERRED` from those facts, or `UNKNOWN`. Cite paths for observed facts.
+4. **Audit** the artifact for completeness, internal consistency, traceability,
+   invented behavior, and unresolved decisions before advancing the stage.
+
+This is an evidence and output protocol, not a request to expose private model
+reasoning. Never silently turn an inference or unknown into product behavior.
+Record the decision or ask the human when it would materially change scope,
+observable behavior, compatibility, security, data handling, or verification.
+Use the journal and linked artifacts as the durable result; conversational
+reasoning and a large context window are not durable evidence.
+
 **Quick path.** For a small fix or change: `frame → build → validate → deliver`.
 Decide this in `frame`, record `path: quick` in the journal header, and
 say why in the log. Everything else uses the full path.

@@ -9,8 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Stage 3 — design
 
 **Purpose:** Write a short design note for non-trivial work, so that
-`build` has one decision-free path to follow and a reviewer can see why
-the shape was chosen.
+`build` has a sufficiently constrained implementation path, material open
+decisions remain explicit, and a reviewer can see why the shape was chosen.
 
 **Read first:**
 
@@ -43,56 +43,74 @@ shortened reporting without reviewing the full journal information.
 
 **Steps:**
 
-1. Decide whether a note is needed at all — see "Skip when". If it is
-   not, log that judgement in one line and move on.
-2. Write the note in the journal under a `## Design` heading. Keep it
-   under 30 lines; it is a decision record, not a document.
-3. Cover, in this order: components touched, the interface change (public
-   functions, commands, formats), data or storage decisions, and the one
-   alternative you rejected with the reason.
-4. Cite the requirement ID next to each decision, so a later reader can
-   trace a choice back to the behavior that forced it.
-5. Name the test seams: the place a failing test will attach for each
-   requirement. `build` starts from these.
-6. List the files you expect to create or modify, and update each
-   requirement's `affected_paths` to match.
-   When the parent uses child tasks, define non-overlapping child scopes and
-   requirement links here. Integration ownership remains with the parent.
-7. For each component whose internal shape this task changes, open its
-   `.agentic/knowledge/<component>.md` and revise the `## Architecture`
-   diagram to the shape it will have **after the change** — new nodes and
-   arrows drawn as intended, removed ones taken out. Say in one line under
-   the diagram that it is the intended shape and name this task, so a
-   reader between design and delivery is not misled by a picture of code
-   that does not exist yet; drop that line at `validate`, once the code
-   matches. A component with no page yet, or a task that only changes
-   behavior inside an existing shape, owes nothing here — say which in
-   the log and move on.
-8. Keep requirement-specific detail in the spec instead of the journal
-   when it belongs to the behavior rather than to this task.
-9. Run `python .agentic/aegis.py check`; fix errors.
-10. Tick the checklist, set `stage: build`, and **replace
-    `## Done checklist`** with the build stage's "Done when" list from
-    `4_build.md` — the checklist always shows the current stage's items.
+1. Decide whether a note is needed; see Skip when. If not, record the reason in
+   the journal and mark every coverage-table row `no design impact`.
+2. **Analyze** the Frame, requirements, specs, current component knowledge, and
+   representative implementation seams. **Challenge** contradictions,
+   infeasible constraints, implicit coupling, missing failure behavior, and
+   unresolved decisions before choosing a shape.
+3. Write the note under the journal's existing `## Design` heading. 30 lines is the default,
+   not a hard limit: use the shortest record that makes
+   the known implementation path sufficiently constrained. Add proportionate
+   depth when the task changes an interface, data or state, trust boundary,
+   concurrency, dependency, migration, compatibility, deployment, or recovery.
+4. Cover the applicable parts in this order:
+
+   - **Requirements coverage** - each ID maps to a decision or `no design impact`.
+   - **Component responsibilities** - ownership and boundaries.
+   - **Interfaces and contracts** - inputs, outputs, defaults, and errors.
+   - **Data ownership and state transitions** - persistence, lifecycle, and units.
+   - **Execution flow** - the primary path and material asynchronous work.
+   - **Failure recovery** - partial failure, retries, cleanup, and idempotency.
+   - **Security and trust boundaries** - only where relevant.
+   - **Concurrency and ordering** - only where relevant.
+   - **Compatibility and migration** - rollout, rollback, or deliberate break.
+   - **Observability and operations** - evidence needed to diagnose behavior.
+   - **Test seams** - where each requirement's failing and regression tests attach.
+   - **Alternatives and tradeoffs** - meaningful rejected options and reasons.
+   - **Expected files**, **Risks**, and **Open decisions**.
+
+5. Cite the forcing requirement ID next to every requirement-driven decision;
+   cite a named technical constraint for decisions that no requirement forces.
+   Never convert an open product decision into an implementation choice.
+6. Update the journal's `## Requirement coverage` table so every requirement
+   names its design decision, test seam, or `no design impact`.
+7. List expected files and update each requirement's `affected_paths`.
+   For child tasks, define non-overlapping child scopes and requirement links;
+   integration ownership remains with the parent.
+8. When component structure will change, add a compact `### Proposed
+   architecture - TASK-<id>` diagram to this task's Design. Use searchable
+   code names and directional edges. During design, do not replace the current diagram
+   in `.agentic/knowledge/<component>.md`; validate reconciles that canonical
+   current-state page after the built code matches. Behavior-only changes may
+   state that no architecture drawing is owed.
+9. Keep requirement-specific format, protocol, algorithm, or edge behavior in
+   the linked spec rather than duplicating it in the task design.
+10. **Audit** traceability, feasibility, interfaces, state ownership, failure
+    behavior, compatibility, verification seams, risks, and open decisions.
+    Run `python .agentic/aegis.py check` and fix format errors.
+11. Tick the checklist, set `stage: build`, and replace
+    `## Done checklist` with the build stage's Done when list.
 
 **Outputs:**
 
 - `## Design` section in the task journal.
-- Revised `## Architecture` diagrams on the knowledge pages of components
-  whose shape this task changes, drawn as they will be afterwards.
+- Proposed architecture in the task journal where component structure changes;
+  canonical current-state knowledge remains unchanged until validate.
 - Updated `affected_paths` on the linked requirements.
 - Updated spec sections where the detail belongs to the behavior.
 
 **Done when:**
 
 - [ ] design note written, or its absence justified in one line
-- [ ] interface, data, and rejected alternative covered
-- [ ] each decision cites a requirement ID
-- [ ] test seams named for every requirement
+- [ ] applicable component, interface, state, failure, security, concurrency,
+      compatibility, migration, observability, and operational effects covered
+- [ ] each decision cites a requirement ID or named technical constraint
+- [ ] every requirement maps to a decision and test seam, or no design impact
+- [ ] meaningful alternatives, risks, and open decisions recorded
 - [ ] `affected_paths` match the expected file list
-- [ ] `## Architecture` revised to the shape it will have after the change,
-      for every component whose structure this task changes — or logged as
-      owing nothing
+- [ ] proposed architecture is in the task when structure changes; current
+      component knowledge remains true until validate
 - [ ] `stage: build`
 
 **Skip when:** The quick path; or the work is a single-file change with no

@@ -54,6 +54,38 @@ opened: 2026-01-01
 
 - [ ] copy the "Done when" list from the current step file here
 
+## Frame
+
+Problem:
+Desired outcome:
+Actors:
+Primary scenario:
+Examples:
+Counterexamples:
+In scope:
+Out of scope:
+Constraints:
+Success signals:
+Evidence:
+Assumptions:
+Unknowns:
+Decision-blocking questions:
+Proposed behaviors:
+Path and reason:
+
+## Requirement coverage
+
+<!-- A broad Frame outcome may produce several atomic behavior rows. Each
+atomic behavior maps to exactly one requirement. Keep this table current
+through design.
+| Frame outcome | Atomic behavior | Requirement | Positive case | Boundary or failure | Verification | Design decision or no impact |
+|---|---|---|---|---|---|---|
+-->
+
+## Design
+
+<!-- Filled at design when the task is non-trivial; otherwise record why skipped. -->
+
 ## Log
 
 - 2026-01-01 frame: <scope agreed, exclusions, chosen path and why>

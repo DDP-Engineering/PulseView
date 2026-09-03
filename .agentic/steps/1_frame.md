@@ -41,57 +41,98 @@ This stage's required full reads still apply. Use linked requirements and
 source as needed, not the whole register. Do not act on missing, stale, or
 shortened reporting without reviewing the full journal information.
 
+## Frame card
+
+Use the semantic analysis protocol in `.agentic/AGENTS.md`, then fill the
+journal's `## Frame` section. Keep entries concise, but preserve every material
+unknown instead of completing the picture by invention:
+
+```text
+Problem:
+Desired outcome:
+Actors:
+Primary scenario: trigger -> system action -> observable result
+Examples:
+Counterexamples:
+In scope:
+Out of scope:
+Constraints:
+Success signals:
+Evidence: STATED; OBSERVED with paths; INFERRED; UNKNOWN
+Assumptions:
+Unknowns:
+Decision-blocking questions:
+Proposed behaviors:
+Path and reason:
+```
+
 **Steps:**
 
-1. Restate the ask in one or two sentences, in your own words. Name what
-   is in scope and, explicitly, what is not.
-2. Locate the area: which components and which files this will touch.
-   Skim them; do not edit anything yet.
-3. Choose the path. Take the **quick path** (`frame → build → validate → deliver`)
-   only when all of these hold: no new externally observable behavior, no
-   new interface or data format, no new dependency, an existing
-   requirement already covers the behavior you are changing, and the
-   change touches no security- or data-handling behavior - those always
-   take the full path. Otherwise take the full path.
-   Decide here whether the work is large enough for optional children. Use
-   children only for independently scoped work that can remain an ordinary
-   governed task; keep small or tightly coupled work in the parent.
-4. Establish the branch. If you are on the repo's default branch, create
-   a task branch now (`git checkout -b task/<short-slug>`, or the repo's
-   own naming convention). The journal's `branch:` header must match
-   `git branch --show-current` — later sessions verify this on resume.
-5. Create the journal:
+1. **Analyze.** Extract the user's problem, desired outcome, actors, primary
+   scenario, examples, constraints, success signals, explicit scope, and
+   exclusions. Preserve the user's terms where changing them could change
+   meaning.
+2. Locate the smallest sufficient repository evidence: relevant knowledge
+   pages, existing requirements, interfaces, and representative source or
+   tests. Record repository claims as `OBSERVED` with paths; mark conclusions
+   as `INFERRED`. Do not edit product files.
+3. **Challenge.** Look for contradictions between the request, existing
+   behavior, requirements, and repository rules. Identify missing triggers,
+   observers, boundaries, failure cases, permissions, compatibility effects,
+   security or data concerns, and assumptions. Ask only decision-blocking
+   questions; carry other gaps as `UNKNOWN`.
+4. Draft the Frame card before performing branch or journal administration.
+   Include at least one concrete example or record that none was supplied,
+   and add a counterexample when it materially clarifies the boundary.
+5. Choose the path. Take the **quick path** only when all of these hold: no
+   new externally observable behavior, no new interface or data format, no
+   new dependency, an existing requirement already covers the behavior, and
+   no security- or data-handling behavior changes. Otherwise take the full
+   path. Record one row per criterion as `criterion | yes | no | evidence`;
+   any `no` or unknown selects the full path.
+6. Decide whether the work is large enough for optional children. Use children
+   only for independently scoped work that can remain an ordinary governed
+   task; keep small or tightly coupled work in the parent.
+7. Establish the branch. If you are on the repository's default branch, create
+   a task branch now (`git checkout -b task/<short-slug>`, or the repository's
+   convention), unless current user or repository instructions explicitly
+   require the existing branch. Record that exception. The journal's
+   `branch:` header must match `git branch --show-current`.
+8. Create the journal:
    `python .agentic/aegis.py task "<title>" --type feature`
    (`--type fix` or `--type change` as appropriate).
-6. Fill the journal header: `stage`, `type`, `path`, `branch`, `opened`.
-   Leave `requirements:` empty until `specify` (quick path: fill it now
-   with the existing requirement IDs you will touch).
-7. Write the scope, the exclusions, and the path decision with its reason
-   into `## Log` as one or two lines.
-8. List the requirements you expect to create or update, one line each,
-   in the log — these are the proposal you present at the checkpoint.
-9. Copy the "Done when" checklist below into `## Done checklist`.
-10. Checkpoint mode: present the scope, the chosen path, and the proposed
-    requirements, and wait for a yes before continuing. Autopilot: log the
-    same three things and continue without stopping.
-11. Set `stage: specify` (full path) or `stage: build` (quick path), and
-    **replace `## Done checklist`** with the next stage's "Done when" list
-    (from `2_specify.md`, or `4_build.md` on the quick path). The
-    checklist always shows the current stage's items — that is what
-    resume relies on.
+9. Fill the journal header and copy the provisional Frame card into its
+   `## Frame` section. Leave `requirements:` empty until `specify`
+   (quick path: fill it now with the existing requirement IDs).
+10. Write the scope, exclusions, material unknowns, and path decision into
+    `## Log` as concise append-only lines.
+11. List the behaviors you expect to create or update requirements for, one
+    line each, in the log.
+12. **Audit.** Check that every material claim is classified, every proposed
+    behavior supports a success signal, no unknown became invented behavior,
+    and scope, exclusions, examples, and path agree. Copy the Done checklist.
+13. Checkpoint mode: present the Frame card, chosen path, proposed behaviors,
+    assumptions, and decision-blocking questions, and wait for a yes. Describe
+    the result as scope acceptance, not implementation. Autopilot logs the same
+    information and continues.
+14. Set `stage: specify` (full path) or `stage: build` (quick path), and
+    replace `## Done checklist` with the next stage's Done when list.
 
 **Outputs:**
 
-- `.agentic/tasks/TASK-<id>.md` — created, header filled, first log lines
-  written, checklist copied in.
+- `.agentic/tasks/TASK-<id>.md` - created with a complete header, durable
+  Frame card, evidence classifications, first log lines, and current checklist.
 
 **Done when:**
 
-- [ ] scope and exclusions written in the log
+- [ ] Frame card states the problem, outcome, actors, scenario, scope,
+      examples, constraints, success signals, evidence, and unknowns
+- [ ] material claims classified as stated, observed, inferred, or unknown
+- [ ] contradictions and decision-blocking questions resolved or presented
 - [ ] path chosen (`full` or `quick`) with its reason logged
 - [ ] task branch established; `branch:` header matches the checkout
 - [ ] task journal created with a complete header
-- [ ] expected requirements listed
+- [ ] proposed behaviors map to the desired outcome and success signals
 - [ ] scope confirmed (checkpoint mode) or logged (autopilot)
 - [ ] `stage:` advanced
 

@@ -55,7 +55,8 @@ flowchart TD
 
 One or two sentences under the diagram for what it does not show, or for
 the constraint that explains an odd shape. Keep this drawn as the code is
-now; a task that changes the shape updates it in the same task.
+now. A task records a proposed shape in its design, then updates this current
+diagram at validate after the implementation matches.
 
 ## Files
 

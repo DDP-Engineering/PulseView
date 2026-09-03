@@ -35,3 +35,9 @@ These are the natural seeds for the failing test written in build.
 What must be true for this spec to be considered satisfied, phrased so it
 can be checked. This refines the requirement's `verification` field; it
 never contradicts it.
+
+## Assumptions and open decisions
+
+Name material assumptions, unresolved choices, and the evidence needed to
+settle them. Do not choose product behavior merely to make the spec complete.
+Leave this section empty only when the behavior and all boundaries are known.

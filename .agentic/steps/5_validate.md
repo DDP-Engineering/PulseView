@@ -90,10 +90,13 @@ verdict or green suite does not replace integration proof in the parent.
    or file set materially changed, update or create
    `.agentic/knowledge/<component>.md` from the template. Keep **Purpose**,
    **Public interface**, **Key behaviors**, **Architecture**, and **Files**
-   true. Where `design` drew the architecture as it was going to be, check
-   the built code against it now: reconcile any difference in the diagram's
-   favor only if the code is right, and delete the line naming it an intended
-   shape — from here the page describes what exists.
+   true. Read any `### Proposed architecture - TASK-<id>` diagram from the
+   task's Design and compare it with the built code. Update the component
+   page's `## Architecture` diagram to the resulting current-state
+   implementation. Retain the task proposal as historical design evidence;
+   never delete it. If the built code differs from the proposal, record the
+   justified deviation or decision. When no proposal exists, derive the
+   current-state diagram directly from the built code.
 4. Re-read each requirement. Confirm its status and prose describe the built
    behavior, its verification matches the observation, and all affected paths
    and linked tests are current. Correct them now.

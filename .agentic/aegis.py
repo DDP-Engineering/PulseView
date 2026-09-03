@@ -41,7 +41,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.9.1"
+VERSION = "0.10.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
