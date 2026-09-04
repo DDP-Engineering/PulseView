@@ -84,11 +84,18 @@ Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot gran
 optional explicit review records two independent verdicts and uses a bounded fix
 and re-review loop; disabled review never disables existing validation.
 
-At stage completion or pause, update the journal's `## Stage report` fields
-from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and
-copy the block before detail. Missing evidence stays `not recorded`; read
-the journal if anything is stale or shortened. This adds no approval stops
-and never replaces immediate deviation notices or full delivery evidence.
+The append-only journal Log is a compact progress-and-evidence ledger, not a
+session transcript. Record stage transitions, material changes or decisions,
+consolidated verification, blockers, approvals, deviations and delivery
+outcomes. Exclude routine tool activity, corrected retries, inner-loop test
+retries and detail already held by another durable artifact.
+
+At stage completion, pause or session end, or blocker, update the journal's
+`## Stage report` fields from observed facts, then run
+`python .agentic/aegis.py summary TASK-<id>` and copy the block before detail.
+Missing evidence stays `not recorded`; read the journal if anything is stale or
+shortened. This adds no approval stops and never replaces immediate deviation
+notices or full delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in
@@ -98,9 +105,10 @@ its findings and self-correct; nothing here blocks you mid-flight.
 Say a deviation out loud when you record one, as one line -
 `DEVIATION <stage>: <what> - <why accepted, or what it costs>` - then carry
 on. It never pauses the work and autopilot never suppresses it. You owe one
-for an accepted `check` warning, a non-zero exit or a verification you
-skipped, an unexpected `anchor`/`evolution` report, a manual method standing
-in for an automatable test, a retired requirement, and unrequested work found
-in review.
+only when the candidate, agreed scope/design/contract, or confidence in
+required verification materially departs from plan: for example, accepted
+relevant findings, skipped or weakened verification, retired requirements,
+accepted unexpected candidate files, or unrequested work. Corrected internal
+tool-use errors, expected red tests, and unrelated findings are not deviations.
 
 <!-- AEGIS:END -->

@@ -16,11 +16,17 @@ decisions remain explicit, and a reviewer can see why the shape was chosen.
 
 - The task journal `.agentic/tasks/TASK-<id>.md`.
 - Every requirement listed on its `requirements:` line, and their specs.
+- `python .agentic/aegis.py components` when boundaries or adjacent ownership
+  leave an in-scope component page unnamed.
 - The knowledge page for each component you will touch:
-  `.agentic/knowledge/<component>.md`.
+  `.agentic/knowledge/<component>.md`. Use `## Change map` for the relevant
+  edit-and-test seam when present, then check the named exact source and tests.
+  For a legacy page without Routing, use its available sections only as
+  provisional orientation and leave migration to validation.
 
-**Stage report (completion or pause):** After updating the log, header and
-checklist, refresh the single `## Stage report` section in this task journal:
+**Stage report (completion or pause):** At this boundary, record only durable
+events allowed by the journal contract, update the header and checklist, and
+refresh the single `## Stage report` section in this task journal:
 At every stage transition or pause, append any new Ruling and refresh the Handoff;
 also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
@@ -35,8 +41,9 @@ stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
 **Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
-the journal header/checklist and relevant log entries (scope, user limits,
-unresolved issues, decisions and evidence); follow links to needed records.
+the journal header/checklist, dedicated durable sections, and relevant log
+entries (stage outcomes, blockers, material changes and consolidated evidence);
+follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
 source as needed, not the whole register. Do not act on missing, stale, or
 shortened reporting without reviewing the full journal information.
@@ -44,11 +51,13 @@ shortened reporting without reviewing the full journal information.
 **Steps:**
 
 1. Decide whether a note is needed; see Skip when. If not, record the reason in
-   the journal and mark every coverage-table row `no design impact`.
-2. **Analyze** the Frame, requirements, specs, current component knowledge, and
-   representative implementation seams. **Challenge** contradictions,
-   infeasible constraints, implicit coupling, missing failure behavior, and
-   unresolved decisions before choosing a shape.
+   `## Design` and mark every coverage-table row `no design impact`.
+2. **Analyze** the Frame, requirements, specs, current component knowledge,
+   and representative implementation seams. Preserve the page's boundaries
+   and invariants; use its `## Change map` only as a route, then verify the
+   exact implementation. **Challenge** contradictions, infeasible constraints,
+   implicit coupling, missing failure behavior, and unresolved decisions
+   before choosing a shape.
 3. Write the note under the journal's existing `## Design` heading. 30 lines is the default,
    not a hard limit: use the shortest record that makes
    the known implementation path sufficiently constrained. Add proportionate
@@ -89,8 +98,10 @@ shortened reporting without reviewing the full journal information.
 10. **Audit** traceability, feasibility, interfaces, state ownership, failure
     behavior, compatibility, verification seams, risks, and open decisions.
     Run `python .agentic/aegis.py check` and fix format errors.
-11. Tick the checklist, set `stage: build`, and replace
-    `## Done checklist` with the build stage's Done when list.
+11. Append one concise `design` outcome line pointing to `## Design` and any
+    linked spec; do not copy decisions into the Log. Tick the checklist, set
+    `stage: build`, and replace `## Done checklist` with the build stage's Done
+    when list.
 
 **Outputs:**
 
@@ -115,4 +126,5 @@ shortened reporting without reviewing the full journal information.
 
 **Skip when:** The quick path; or the work is a single-file change with no
 new interface, data format, or dependency; or the spec already answers
-"how". Skipping is a judgement you record, not a step you silently drop.
+"how". Skipping is a judgement recorded in `## Design` and the concise design
+outcome, not a step silently dropped.

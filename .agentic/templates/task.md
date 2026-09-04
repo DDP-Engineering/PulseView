@@ -28,15 +28,28 @@ the block, no comments between the lines — so it stays machine-readable.
   opened        YYYY-MM-DD
 
 Header lines are edited in place; log lines are only ever appended.
-Keep each log line to one sentence.
+The Log is a progress-and-evidence ledger, not an activity transcript. Append
+only durable events that change the task's stage, scope, engineering outcome,
+verification status, authority, or ability to proceed: stage transitions;
+material scope or implementation decisions not already captured elsewhere;
+consolidated automated or manual verification results; material discoveries;
+blockers; approvals; deviations; and delivery outcomes.
+
+Do not log routine searches, reads, edits, internal tool mechanics or corrected
+command retries, and do not copy requirements, designs, specifications,
+knowledge pages, Rulings, Handoff, or Stage report content into the Log. A
+failed command belongs only when it exposes a candidate problem, changes the
+implementation or tests, or remains an accepted verification limitation. Keep
+each entry concise and self-contained; reference durable artifacts instead of
+repeating them. Existing entries remain append-only under later contracts.
 
 Stage report is one replaceable latest snapshot, not an evidence store.
 Use plain one-line fields with no fences or bullets inside that section.
 stage is the reported stage; current must match the journal header after any
 transition. result is in_progress | completed | paused | blocked | skipped.
-Keep all observations and decisions in the append-only Log as well.
 Leave unknown fields blank; summary prints not recorded, never an assumed pass.
-Refresh after work or decisions even if current has not changed.
+Refresh at a stage transition, pause or session end, blocker, or completed
+validation or delivery outcome. Do not refresh after routine work.
 -->
 
 # TASK-0000 — <one-line title>

@@ -18,10 +18,18 @@ requirement alone is not enough to build from.
 - `.agentic/templates/requirement.toml` and `.agentic/templates/spec.md`.
 - Existing requirements whose `affected_paths` touch the same files — you
   may be updating one rather than writing a new one.
-- The knowledge page for each component in scope.
+- `python .agentic/aegis.py components` when the frame did not already name
+  every component page needed for the behavior being specified.
+- The knowledge page for each component in scope. Read its
+  `## Purpose and boundaries`, `## Public interface`, `## Invariants`, and
+  `## Key behaviors` sections before confirming each claim against the exact
+  source and tests. If a legacy page lacks one or more sections, use only the
+  available sections, do not infer the missing claims, and record page
+  reconciliation as in-scope validation work.
 
-**Stage report (completion or pause):** After updating the log, header and
-checklist, refresh the single `## Stage report` section in this task journal:
+**Stage report (completion or pause):** At this boundary, record only durable
+events allowed by the journal contract, update the header and checklist, and
+refresh the single `## Stage report` section in this task journal:
 At every stage transition or pause, append any new Ruling and refresh the Handoff;
 also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
@@ -36,8 +44,9 @@ stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
 **Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
-the journal header/checklist and relevant log entries (scope, user limits,
-unresolved issues, decisions and evidence); follow links to needed records.
+the journal header/checklist, dedicated durable sections, and relevant log
+entries (stage outcomes, blockers, material changes and consolidated evidence);
+follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
 source as needed, not the whole register. Do not act on missing, stale, or
 shortened reporting without reviewing the full journal information.
@@ -100,8 +109,10 @@ shortened reporting without reviewing the full journal information.
     overlapping behavior, a semantic conflict with existing requirements,
     inconsistent terminology, unhandled boundaries, and verification that
     merely restates prose. Resolve or preserve every material unknown.
-12. Put every requirement ID on the journal's `requirements:` line and log
-    what was created, revised, reused, or retired.
+12. Put every requirement ID on the journal's `requirements:` line. Append one
+    consolidated `specify` outcome line with created, revised, reused, and
+    retired counts; name individual IDs only for a retirement or material scope
+    change. Keep requirement detail in the files and coverage table.
 13. **Audit.** Read the requirements as a set in coverage-table order and
     confirm that every atomic behavior maps to exactly one requirement and
     satisfying all requirements would satisfy the accepted Frame without
@@ -125,7 +136,8 @@ itself is a normal task (`--type change`) whose scope says so.
 
 - `.agentic/requirements/<category>/REQ-*.toml` - new or updated.
 - `.agentic/specs/REQ-*.md` - only where genuinely needed.
-- Journal `requirements:` line, `## Requirement coverage`, and log updated.
+- Journal `requirements:` line and `## Requirement coverage` updated, with one
+  consolidated specify outcome in the Log.
 
 **Done when:**
 
@@ -149,4 +161,4 @@ itself is a normal task (`--type change`) whose scope says so.
 **Skip when:** The quick path — `frame` already named the existing
 requirements, and `build` will update them. Also skip for a change with no
 externally observable effect (a refactor fully covered by existing
-requirements); log that judgement in one line.
+requirements); include that judgement in the consolidated specify outcome.

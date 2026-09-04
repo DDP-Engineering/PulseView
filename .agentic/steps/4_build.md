@@ -18,8 +18,9 @@ requirement links current so that set stays correct.
 - Every requirement on its `requirements:` line, and their specs.
 - The existing tests for the files you are about to touch.
 
-**Stage report (completion or pause):** After updating the log, header and
-checklist, refresh the single `## Stage report` section in this task journal:
+**Stage report (completion or pause):** At this boundary, record only durable
+events allowed by the journal contract, update the header and checklist, and
+refresh the single `## Stage report` section in this task journal:
 At every stage transition or pause, append any new Ruling and refresh the Handoff;
 also refresh the Handoff for a blocker or session end.
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
@@ -34,8 +35,9 @@ stale records and read omitted details before continuing. Preserve existing
 approval stops and immediate deviation notices; this report adds no new stop.
 
 **Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
-the journal header/checklist and relevant log entries (scope, user limits,
-unresolved issues, decisions and evidence); follow links to needed records.
+the journal header/checklist, dedicated durable sections, and relevant log
+entries (stage outcomes, blockers, material changes and consolidated evidence);
+follow links to needed records.
 This stage's required full reads still apply. Use linked requirements and
 source as needed, not the whole register. Do not act on missing, stale, or
 shortened reporting without reviewing the full journal information.
@@ -53,6 +55,9 @@ integrated proof.
 
 1. Pick one requirement. Work it to green before starting the next - do
    not open several at once.
+   If implementation exposes an additional component not named in the design,
+   run `python .agentic/aegis.py components`, read the selected page and exact
+   seams, and log the scope effect before editing that component.
 2. Write or extend a test that expresses that requirement's
    `verification` and fails for the right reason. Write the test
    **before** you touch any implementation file. Where `verification`
@@ -62,13 +67,16 @@ integrated proof.
 3. Run the test and watch it fail. Confirm the failure is the one you
    expect (missing behavior), not a typo, an import error, or a bad
    fixture.
-4. Record the observed failure in `## Log` before implementing. Include the
-   **exact test selector or command**, its **non-zero exit code**, and the
-   **expected missing-behavior failure reason**:
+4. Before implementing a meaningful behavior increment, record one consolidated
+   observed failure in `## Log`. Related requirements that share the same test
+   seam may use one record. Include their IDs, the **exact test selector or command**,
+   its **non-zero exit code**, and the **expected missing-behavior failure reason**:
    `- <date> build red: command=\`pytest -q tests/x.py::test_y\`; exit=1;`
    ` expected missing behavior=<reason>.`
-   Keep it reproducible but short; do not paste the full traceback. This is
-   an agent-authored journal record, not independent proof. For a
+   Keep it reproducible but short; do not paste the full traceback or create a
+   separate line per requirement when one run demonstrates the same gap. Do
+   not log a typo, import error, bad fixture, tool failure, or corrected retry.
+   This is an agent-authored journal record, not independent proof. For a
    `Manual:`/`Inspection:` method, record a **manual observation** after the
    implementation instead: method, action, and observed result.
 5. Run `python .agentic/aegis.py anchor --task TASK-<id>` after the expected
@@ -95,17 +103,21 @@ integrated proof.
    `affected_paths` you touched, so it is fast enough to run after every
    edit. `--base HEAD` narrows it further to what you have not committed
    yet — without it the basis is the whole branch, which on a long-lived
-   branch selects most of the suite. Repeat steps 2–8 until the
+   branch selects most of the suite. Do not log each inner-loop retry. When the
+   behavior increment is green, append one consolidated result naming the
+   command, exit zero, and covered requirements. Repeat steps 2–8 until the
    requirement is done.
 9. Move to the next requirement and repeat from step 1.
 10. When all requirements are green, run
     `python .agentic/aegis.py evolution --task TASK-<id>`. Review every added,
     modified, and removed path, then run `python .agentic/aegis.py check`.
-   Fix what it flags, or record in one log line which warning you accept
-   and why — and state it as a deviation notice in the conversation at the
-   same time, per `AGENTS.md`. An `evolution` report that does not match
-   what you expected — no changed files, or a file set the design note
-   never named — is itself a deviation: say so rather than moving on.
+   Fix what it flags, or record in one log line which warning remains and why;
+   state it as a deviation notice only when accepting that finding materially
+   limits the candidate or its verification, per `AGENTS.md`; unrelated or
+   corrected findings are ordinary evidence. Reconcile an unexpected
+   `evolution` report.
+   It becomes a deviation only if you accept candidate files or omissions that
+   materially depart from the agreed scope or design.
 11. Tick the checklist, set `stage: validate`, and **replace
     `## Done checklist`** with the validate stage's "Done when" list from
     `5_validate.md` — the checklist always shows the current stage's items.
@@ -114,14 +126,16 @@ integrated proof.
 
 - New and changed tests, and the implementation that satisfies them.
 - Updated `affected_paths`, `linked_tests`, `status` on each requirement.
-- Journal log lines: one reproducible red-test record per automated
-  requirement, a manual observation where applicable, plus accepted warnings.
+- Journal log lines: one reproducible red result and one final focused green
+  result per meaningful behavior increment, a consolidated manual observation
+  where applicable, plus material accepted warnings.
 
 **Done when:**
 
-- [ ] each automated requirement has a pre-implementation red record with
-      exact selector or command, non-zero exit, and expected failure reason;
-      each manual requirement has a post-implementation observation
+- [ ] each automated behavior increment has a pre-implementation red record
+      with requirement IDs, exact selector or command, non-zero exit, and
+      expected failure reason, plus one final focused green result; each manual
+      increment has a consolidated post-implementation observation
 - [ ] repository anchor recorded after red and evolution reviewed after implementation
 - [ ] implementation makes those tests pass
 - [ ] `test --impacted` green

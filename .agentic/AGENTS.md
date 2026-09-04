@@ -118,9 +118,10 @@ yours to write.
 2. Compare `git branch --show-current` with the journal's `branch:` line.
    On a mismatch, stop and reconcile first — check out the recorded
    branch, or say so if it does not exist here — before touching anything.
-3. Read its `stage:` line and relevant log entries: agreed scope, user/Git
-   limits, unresolved issues, decisions, and latest evidence; open the step
-   file for that stage from the table above. Follow references to complete
+3. Read its `stage:` line, dedicated Frame/Design/Rulings/Handoff sections as
+   applicable, and relevant log entries: stage outcomes, blockers, material
+   changes, and consolidated evidence; open the step file for that stage from
+   the table above. Follow references to complete
    evidence, not just the last few lines of a long log. A missing, stale,
    or shortened summary requires journal review before continuing.
 4. Continue at the first unticked item of `## Done checklist`. The
@@ -184,18 +185,47 @@ DEVIATION <stage>: <what> — <why accepted, or what it costs>
 
 Then carry on: stating one never pauses the work and never waits for a
 reply. Autopilot does not suppress them either — the mode that removes the
-frame stop is exactly the one where silence costs most. Say one when you
-accept a `check` warning, when a command exits non-zero or you skip or
-cannot run a verification you owed, when `anchor` or `evolution` reports
-something other than what you expected, when a `Manual:`/`Inspection:`
-method stands in for a test that could have been automated, when you retire
-a requirement, and when diff review turns up work nobody asked for.
+frame stop is exactly the one where silence costs most.
 
-The journal line you would have written anyway is still written. The notice
+A deviation exists only when the candidate, agreed scope, design or contract,
+or confidence in required verification materially differs from what was
+planned or required. Say one when you accept a current-task finding that
+affects the candidate or its evidence, skip or replace required verification,
+weaken or remove a test, accept an implementation that departs from the agreed
+design, retire a requirement, accept unexpected candidate files, or retain
+unrequested work found in review.
+
+Do not use `DEVIATION` for recoverable internal tool-use errors — bad shell
+quoting, a failed search, a rejected atomic patch, a mistyped path, or a
+transient command failure — when they are corrected or rerun without changing
+the candidate, scope, or verification evidence. An expected failing test in
+the red phase is ordinary test-first evidence, not a deviation. Pre-existing
+or unrelated findings are reported with validation evidence, not promoted to
+current-task deviations.
+
+Record the material deviation in the journal Log as durable history. The notice
 is its twin, not its replacement — a journal is read afterwards, and by then
 the human has already paid for not knowing. `DEVIATION` is deliberately not
 `WARNING`: `check` prints `WARN` and `NOTE` for its own findings, and your
 judgement should not be mistaken for the tool's.
+
+## Journal log
+
+The append-only `## Log` is a progress-and-evidence ledger, not a session or
+tool transcript. Record only durable events that change the task's stage,
+scope, engineering outcome, verification status, authority, or ability to
+proceed: stage transitions; material scope or implementation decisions not
+already captured in Rulings, Design, or a spec; consolidated automated or
+manual verification results; material discoveries; blockers; approvals;
+deviations; and delivery outcomes.
+
+Do not log routine reads, searches, edits, tool mechanics, corrected command
+retries, or repeated content already held by another journal section or linked
+artifact. A failed command belongs only when it exposes a candidate problem,
+changes the implementation or tests, or remains an accepted verification
+limitation. Consolidate related test results by meaningful behavior increment;
+do not append every inner-loop retry. Keep entries concise and link to the
+durable detail instead of copying it. Existing entries are never rewritten.
 
 ## Rulings and handoffs
 
@@ -215,14 +245,16 @@ Handoff adds an approval stop.
 
 ## Stage reporting
 
-At each stage completion or pause, present one compact report **before any
-detailed explanation**. Reporting does not introduce approval stops: the two
+At each stage completion, pause or session end, or blocker, present one compact
+report **before any detailed explanation**. Reporting does not introduce
+approval stops: the two
 ordinary checkpoints, adoption approvals, and explicit user limits still
 apply. Immediate `DEVIATION` notices remain immediate; do not defer them to
 the report. Do not report after every command.
 
-After recording evidence and decisions in `## Log`, update the journal's
-single `## Stage report` section using the plain fields in `templates/task.md`:
+At that boundary, record any durable event that belongs in `## Log`, then
+update the journal's single `## Stage report` section using the plain fields in
+`templates/task.md`:
 `stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
 `needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`.
 It is a replaceable latest snapshot; the log stays append-only. Review fields
@@ -295,6 +327,7 @@ to use each command are in `.agentic/CLI.md`.
 python .agentic/aegis.py status                 # open tasks, or one task's state
 python .agentic/aegis.py brief TASK-<id>         # bounded durable resume view
 python .agentic/aegis.py summary TASK-<id>       # compact recorded stage report
+python .agentic/aegis.py components              # component titles and page paths
 python .agentic/aegis.py task "<title>"         # new task journal
 python .agentic/aegis.py req <cat> "<title>"    # new requirement file
 python .agentic/aegis.py check                  # advisory report, always exits 0

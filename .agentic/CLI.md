@@ -35,6 +35,7 @@ network.
 | `evolution` | Compare the repository with its active task anchor. | After implementation and after any later validation edit. |
 | `status` | List open tasks or inspect one journal. | Before starting or resuming work, and whenever the next step is unclear. |
 | `brief` | Print a deterministic bounded resume view from durable files. | First when resuming, especially with a small-context model. |
+| `components` | List component knowledge titles and page paths. | Before choosing which component page to read. |
 | `check` | Run the heuristic governance catalog. | During work for feedback; with `--strict --run` at the validation or CI boundary. |
 | `test` | Run a command configured in `.agentic/aegis.toml`. | During build and validation, optionally recording the result in a journal. |
 | `summary` | Print a compact recorded stage snapshot without writes. | Before resuming and after recording a stage completion or pause. |
@@ -342,6 +343,34 @@ full journal whenever detail is omitted or the current stage requires it.
 Use `brief` first for re-entry, then read the current step file and the
 handoff's `must_read` paths. Use `summary` when you need the latest bound stage
 report projection; use the full journal for durable history and evidence.
+
+## `components`
+
+```text
+python .agentic/aegis.py components
+```
+
+**Description:** Read `.agentic/knowledge/*.md` titles and print one
+tab-separated bounded printable title and lexical repository-relative page
+path per component, ordered by path. The first level-one heading is the title;
+a headingless page uses its filename stem so it remains discoverable. Body
+sections are not parsed. A link that resolves outside the knowledge directory,
+a resolution loop, or a non-printable catalogue path is rejected without
+partial output. An empty catalogue prints
+`no component knowledge pages`. The command writes nothing and accepts no
+arguments.
+
+**When to use:** Before selecting component knowledge during frame, specify,
+or design; when build or validation reveals an additional component; and when
+adoption needs an inventory of pages already present. The list helps choose a
+page but does not infer ownership or replace its Routing section, exact source,
+or focused tests.
+
+**Example:**
+
+```text
+python .agentic/aegis.py components
+```
 
 ## Coordinated workflow records
 
@@ -743,7 +772,7 @@ python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 
 | Situation | Exit behavior |
 |---|---|
-| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `report`, `diagram`, `trace`, or `explain` succeeds | Exit 0. |
+| `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `components`, `report`, `diagram`, `trace`, or `explain` succeeds | Exit 0. |
 | Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |

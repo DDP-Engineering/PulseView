@@ -41,7 +41,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -172,11 +172,18 @@ Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot gran
 optional explicit review records two independent verdicts and uses a bounded fix
 and re-review loop; disabled review never disables existing validation.
 
-At stage completion or pause, update the journal's `## Stage report` fields
-from observed facts, then run `python .agentic/aegis.py summary TASK-<id>` and
-copy the block before detail. Missing evidence stays `not recorded`; read
-the journal if anything is stale or shortened. This adds no approval stops
-and never replaces immediate deviation notices or full delivery evidence.
+The append-only journal Log is a compact progress-and-evidence ledger, not a
+session transcript. Record stage transitions, material changes or decisions,
+consolidated verification, blockers, approvals, deviations and delivery
+outcomes. Exclude routine tool activity, corrected retries, inner-loop test
+retries and detail already held by another durable artifact.
+
+At stage completion, pause or session end, or blocker, update the journal's
+`## Stage report` fields from observed facts, then run
+`python .agentic/aegis.py summary TASK-<id>` and copy the block before detail.
+Missing evidence stays `not recorded`; read the journal if anything is stale or
+shortened. This adds no approval stops and never replaces immediate deviation
+notices or full delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in
@@ -186,10 +193,11 @@ its findings and self-correct; nothing here blocks you mid-flight.
 Say a deviation out loud when you record one, as one line -
 `DEVIATION <stage>: <what> - <why accepted, or what it costs>` - then carry
 on. It never pauses the work and autopilot never suppresses it. You owe one
-for an accepted `check` warning, a non-zero exit or a verification you
-skipped, an unexpected `anchor`/`evolution` report, a manual method standing
-in for an automatable test, a retired requirement, and unrequested work found
-in review.
+only when the candidate, agreed scope/design/contract, or confidence in
+required verification materially departs from plan: for example, accepted
+relevant findings, skipped or weakened verification, retired requirements,
+accepted unexpected candidate files, or unrequested work. Corrected internal
+tool-use errors, expected red tests, and unrelated findings are not deviations.
 """
 
 
@@ -2957,6 +2965,7 @@ COVERAGE_CLASSES = (
 
 #: how wide a requirement title may be before the node label truncates it.
 LABEL_WIDTH = 38
+COMPONENT_TITLE_WIDTH = 80
 
 
 def mermaid_label(text: str) -> str:
@@ -2976,6 +2985,78 @@ def mermaid_id(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "_", str(text)) or "node"
 
 
+def lexical_repo_path(path: Path) -> str:
+    """@brief A repository-relative path that does not resolve symlinks."""
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def catalogue_path(path: Path) -> str:
+    """@brief A printable lexical path safe as one catalogue output field."""
+    value = lexical_repo_path(path)
+    if not value or any(not char.isprintable() for char in value):
+        raise UserError(
+            "component knowledge page path contains non-printable characters")
+    return value
+
+
+def knowledge_page_texts(on_error=None) -> list[tuple[Path, str]]:
+    """
+    @brief Read catalogue pages without interpreting their prose.
+    @details A link may alias another page inside the knowledge directory, but
+             may not turn a file elsewhere into component knowledge. Callers
+             receive the lexical catalogue path so output never exposes or
+             substitutes a resolved target path.
+    """
+    pages: list[tuple[Path, str]] = []
+    knowledge = AGENTIC / "knowledge"
+    resolved_knowledge = knowledge.resolve()
+    for path in sorted(knowledge.glob("*.md")):
+        try:
+            path_label = catalogue_path(path)
+            try:
+                resolved_path = path.resolve()
+            except RuntimeError as exc:
+                raise UserError(
+                    f"{path_label} cannot be resolved: {exc}") from None
+            if not resolved_path.is_relative_to(resolved_knowledge):
+                raise UserError(
+                    f"{path_label} resolves outside "
+                    f"{catalogue_path(knowledge)}")
+            pages.append((path, read_text(path)))
+        except (UserError, OSError) as exc:
+            if on_error is None:
+                raise
+            on_error(path, exc)
+    return pages
+
+
+def component_title(value: str, fallback: str) -> str:
+    """@brief One bounded printable component-catalogue title field."""
+    def normalized(text: str) -> str:
+        return " ".join("".join(char if char.isprintable() else " "
+                                 for char in text).split())
+
+    clean = normalized(value) or normalized(fallback) or "component"
+    if len(clean) <= COMPONENT_TITLE_WIDTH:
+        return clean
+    return clean[:COMPONENT_TITLE_WIDTH - 1] + "…"
+
+
+def knowledge_titles() -> list[tuple[str, str]]:
+    """@brief Every page's safe display title and lexical catalogue path."""
+    titles: list[tuple[str, str]] = []
+    for path, text in knowledge_page_texts():
+        path_label = catalogue_path(path)
+        heading = re.search(r"^# (.+)$", text, re.MULTILINE)
+        raw_title = heading.group(1).strip() if heading else path.stem
+        titles.append((component_title(raw_title, path.stem),
+                       path_label))
+    return titles
+
+
 def knowledge_components(on_error=None) -> list[tuple[str, str, list[str]]]:
     """
     @brief Every component page as (stem, display name, claimed requirement ids).
@@ -2988,14 +3069,7 @@ def knowledge_components(on_error=None) -> list[tuple[str, str, list[str]]]:
              skip unreadable pages; otherwise the existing error propagates.
     """
     components: list[tuple[str, str, list[str]]] = []
-    for path in sorted((AGENTIC / "knowledge").glob("*.md")):
-        try:
-            text = read_text(path)
-        except (UserError, OSError) as exc:
-            if on_error is None:
-                raise
-            on_error(path, exc)
-            continue
+    for path, text in knowledge_page_texts(on_error=on_error):
         heading = re.search(r"^# (.+)$", text, re.MULTILINE)
         name = heading.group(1).strip() if heading else path.stem
         claimed: list[str] = []
@@ -3008,6 +3082,17 @@ def knowledge_components(on_error=None) -> list[tuple[str, str, list[str]]]:
                     claimed.append(rid)
         components.append((path.stem, name, claimed))
     return components
+
+
+def cmd_components(_args: argparse.Namespace) -> int:
+    """@brief List every component knowledge page by display name and path."""
+    titles = knowledge_titles()
+    if not titles:
+        print("no component knowledge pages")
+        return 0
+    for name, path in titles:
+        print(f"{name}\t{path}")
+    return 0
 
 
 def diagram_scope(args: argparse.Namespace,
@@ -3303,8 +3388,9 @@ def cmd_trace(args: argparse.Namespace) -> int:
 
     def knowledge_error(path: Path, error: Exception) -> None:
         """@brief Report missing ownership evidence without discarding rows."""
-        knowledge_errors.append(rel(path))
-        print(f"warning: knowledge page unavailable: {rel(path)}: {error}; "
+        relpath = lexical_repo_path(path)
+        knowledge_errors.append(relpath)
+        print(f"warning: knowledge page unavailable: {relpath}: {error}; "
               "component claims may be incomplete", file=sys.stderr)
 
     rows = trace_rows(records, knowledge_components(on_error=knowledge_error))
@@ -3670,6 +3756,10 @@ def build_parser() -> argparse.ArgumentParser:
     brief = subs.add_parser("brief", help="print a bounded durable resume brief")
     brief.add_argument("task", help="TASK-<id> or <id>")
     brief.set_defaults(func=cmd_brief)
+
+    components = subs.add_parser(
+        "components", help="list component knowledge titles and paths")
+    components.set_defaults(func=cmd_components)
 
     diagram = subs.add_parser(
         "diagram", help="draw the requirement register as a Mermaid coverage map")

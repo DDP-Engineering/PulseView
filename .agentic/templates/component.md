@@ -8,23 +8,56 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 <!--
 Component knowledge page, at .agentic/knowledge/<component>.md, one per
-component. This is what a session loads instead of re-reading the whole
-component's source, so keep it short, current, and true. Updated at
-validate whenever the component's behavior, interface, or file set changed.
-Sections below are recommended, not mandatory.
+component. This is the orientation route a session loads before inspecting
+the implementation, so keep it short, current, and true. It reduces broad
+discovery; it never replaces verification against the implementation. The
+exact source and tests remain authoritative.
+
+Updated at validate whenever the component's routing, boundary, invariant,
+behavior, interface, architecture, or file set changed. Keep the standard
+sections below. `Change map` is conditional as described in that section.
 -->
 
 # <component name>
 
-## Purpose
+## Routing
+
+Name the request signals that select this page: domain terms, public names,
+commands, events, and owned paths. Give the first source entry point and the
+focused test location for this component. Name the nearest page or component
+for requests that sound similar but belong elsewhere.
+
+This section should let an agent decide quickly whether the component owns the
+work and where exact inspection starts. It should not summarize the internals.
+
+## Purpose and boundaries
 
 Two or three sentences: what this component is responsible for, and what
-it deliberately is not responsible for.
+it deliberately is not responsible for. State which adjacent component owns
+each important excluded responsibility.
 
 ## Public interface
 
 How the rest of the system uses it — entry points, exported functions or
 classes, commands, input and output formats. Not the internals.
+
+## Invariants
+
+List the properties a safe change must preserve: ordering, precedence,
+authority, compatibility, failure, security, or data rules. Include only
+claims supported by current source, tests, or durable requirements. Prefer a
+small set of load-bearing rules over a behavior inventory.
+
+## Change map
+
+Keep this section when the component has multiple independent edit-and-test
+seams. Omit it for a simple component where Routing and Files already identify
+one obvious seam. Map request shapes to searchable source symbols or files and
+focused verification; do not duplicate a call graph or full test inventory.
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| `<request shape>` | `<searchable symbol or file>` | `<test file or selector>` |
 
 ## Key behaviors
 
@@ -60,7 +93,10 @@ diagram at validate after the implementation matches.
 
 ## Files
 
-- `src/<component>/<file>.py` — one line on its role.
+- `src/<component>/<file>.py` — one line on its implementation role.
+- `tests/<component>/test_<behavior>.py` — one line on the behavior seam it
+  verifies.
 
-Keep this list complete: it is how a reader finds the code, and stale
-entries are the first sign the page has drifted.
+Keep the owned implementation and focused test list complete: it is how a
+reader confirms the route, and stale entries are the first sign the page has
+drifted.
