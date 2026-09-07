@@ -10,9 +10,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Bootstrap automation contract
 
-This is the P0 contract for P1 bootstrap tools. The two host checks are
-implemented; everything else in the table below is still a plan and must not
-be reported as an available command.
+Implemented host inspection and local builder restoration live here. The
+remaining tools in the table are still plans and must not be reported as
+available commands.
+
+`clone_upstreams.py` was withdrawn from the plan on 2026-09-06. It existed to
+materialize submodules at locked commits, and the sigrok stack stopped being
+submodules in August 2026 - `05_Software/` is plain files that a normal clone
+already carries, and `check_host.sh` verifies the vendored trees are present
+rather than checking submodule drift. Nothing is left for it to do. Where the
+prose below still describes submodule materialization it describes a design
+that no longer applies to this repository.
 
 ## Tools
 
@@ -20,13 +28,41 @@ be reported as an available command.
 |---|---|---|
 | `check_host.sh` | **Implemented 2026-08-17.** Inspect Linux/build-host prerequisites and versions | None |
 | `check_host.ps1` | **Implemented 2026-08-24.** Inspect Windows prerequisites and versions | None by default; `-Install` offers winget remediation per item |
-| `clone_upstreams.py` | Materialize approved submodules and build-only clones at locked commits | Explicit `--apply` only |
-| `verify_upstreams.py` | Verify URLs, commits, roles, forks, and dirty states | None |
-| `create_build_workspace.py` | Create bounded ignored build directories | Explicit target only |
+| `ensure_build_environment.sh` | **Implemented 2026-09-05.** Validate, locally restore, or explicitly rebuild one builder image | Loads a verified local archive; an accepted fallback builds locally from online pinned inputs |
+| `ensure_build_environment.ps1` | **Implemented 2026-09-05.** Windows/WSL entry point for the same workflow | Same as the shell implementation |
+| `verify_upstreams.py` | **Planned.** Verify URLs, commits, roles, and dirty states | None |
+| `create_build_workspace.py` | **Planned.** Create bounded ignored build directories | Explicit target only |
 
 Each implemented script gets the project legal header, follows
 `01_Documentation/Code_Style.md`, has focused tests, and is recorded in the
 folder's future `STATUS.md` ledger.
+
+### ensure_build_environment
+
+This is the normal command after `git lfs pull`. It first validates the image
+already installed in Docker or Podman. If none is usable, it verifies every
+local multipart archive part against its manifest, reconstructs the temporary
+Docker archive under `.work/bootstrap/`, loads it, removes the temporary whole
+archive, and runs an offline health check.
+
+```sh
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform x86_64
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform aarch64
+```
+
+On Windows, PowerShell maps the checkout into WSL and invokes the same code:
+
+```powershell
+.\02_Tools\bootstrap\ensure_build_environment.ps1 -Image mingw
+```
+
+The command never runs `git lfs pull` and never publishes anything. Missing,
+pointer-only, truncated, or corrupt parts cause an actionable error. In an
+interactive terminal it then offers to run `build_image.sh` using the online
+inputs and integrity pins in `upstreams.lock.toml`. Use `--rebuild`/`-Rebuild`
+to accept that path non-interactively or `--no-rebuild`/`-NoRebuild` to forbid
+it. A local rebuild stays only in the developer's container engine.
 
 ### check_host.sh
 
@@ -35,7 +71,7 @@ if anything failed. It changes nothing, needs no privileges, and prints the
 exact operator command for each missing prerequisite rather than running it.
 
 ```sh
-02_Tools/bootstrap/check_host.sh [--result PATH] [--tag IMAGE]
+bash 02_Tools/bootstrap/check_host.sh [--result PATH] [--tag IMAGE]
 ```
 
 It covers: WSL detection and repository location, git, docker and the
@@ -74,9 +110,9 @@ Three behaviours are deliberate. **Git Bash is located by rejecting
 `C:\Windows\System32\bash.exe`**, which is the WSL launcher that PATH resolves
 first on any machine with WSL enabled; using it would run the host-side tests
 inside the distro, where the Windows `.exe` cannot execute. **The toolchain
-archive is checked by size, not presence** - a Git LFS pointer is a few hundred
-bytes where 2.2 GB should be, and left undetected it surfaces much later as a
-corrupt archive. And the script **avoids constructs that PowerShell
+archive is checked by size, not presence** - Git LFS pointers are a few hundred
+bytes where large parts should be, and left undetected they surface much later
+as a corrupt archive. And the script **avoids constructs that PowerShell
 ConstrainedLanguage mode blocks**, so it still runs on a managed host; a
 readiness check that cannot run on a locked-down machine is not much of a
 readiness check.

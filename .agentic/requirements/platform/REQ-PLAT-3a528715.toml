@@ -1,0 +1,52 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-3a528715"
+
+title = "Honor the selected container engine in every build-environment entry point"
+
+status = "active"
+
+requirement = """
+Where a build-environment entry point runs a container engine, the system shall
+use the engine named by the BUILDER_ENGINE environment variable or an explicit
+engine option, and shall not hardcode one engine while its documentation offers
+a choice.
+"""
+
+verification = """
+Set BUILDER_ENGINE to a recording stub on PATH and run check_host.sh and
+build_linux.sh. Both must invoke the stub rather than docker; build_linux.sh
+must forward the selection and recognize both Docker and Podman container
+markers, and check_host.sh must not recommend starting Docker for a different
+selected engine. Inspect the remaining entry points and confirm each accepts
+the same option and default.
+"""
+
+affected_paths = [
+    "02_Tools/test/container_engine_contract_test.sh",
+    "02_Tools/build/build_linux.sh",
+    "02_Tools/bootstrap/check_host.sh",
+    "02_Tools/build/README.md",
+]
+
+linked_tests = [
+    "02_Tools/test/container_engine_contract_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+build_image.sh, ensure_build_environment.sh, run_in_builder.sh, load_image.sh and
+save_image_parts.sh all accepted --engine docker|podman while check_host.sh and
+build_linux.sh hardcoded docker.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

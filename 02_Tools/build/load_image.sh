@@ -30,6 +30,7 @@ IMAGE="mingw"
 PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
 ARCHIVE=""
+ARCHIVE_EXPLICIT=0
 FORCE=0
 
 usage() {
@@ -56,7 +57,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --image)    IMAGE="${2:-}"; shift 2 ;;
         --platform) PLATFORM="${2:-}"; shift 2 ;;
-        --archive)  ARCHIVE="${2:-}"; shift 2 ;;
+        --archive)  ARCHIVE="${2:-}"; ARCHIVE_EXPLICIT=1; shift 2 ;;
         --engine)   ENGINE="${2:-}"; shift 2 ;;
         --force)    FORCE=1; shift ;;
         -h|--help)  usage; exit 0 ;;
@@ -84,6 +85,17 @@ TAG_ARCH_SUFFIX=""
 
 TAG="pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
 ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.tar}"
+MANIFEST="${REPO_ROOT}/07_Delivery/toolchain/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.manifest.toml"
+
+# Multipart Git LFS archives are the current format. Keep the legacy single-
+# tar loader below for old checkouts and explicit --archive paths.
+if [ "${ARCHIVE_EXPLICIT}" -eq 0 ] && [ -f "${MANIFEST}" ]; then
+    ENSURE_ARGS=(--image "${IMAGE}" --platform "${SR_ARCH}" \
+        --engine "${ENGINE}" --manifest "${MANIFEST}" --no-rebuild)
+    [ "${FORCE}" -eq 1 ] && ENSURE_ARGS+=(--force-restore)
+    exec bash "${REPO_ROOT}/02_Tools/bootstrap/ensure_build_environment.sh" \
+        "${ENSURE_ARGS[@]}"
+fi
 
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
@@ -95,7 +107,7 @@ fi
 
 [ -f "${ARCHIVE}" ] || die "archive not found: ${ARCHIVE}
   Either this clone predates the archive, or it was never generated.
-  Build the toolchain instead: 02_Tools/build/build_image.sh --image ${IMAGE}"
+  Build the toolchain instead: bash 02_Tools/build/build_image.sh --image ${IMAGE}"
 
 # An unsmudged LFS pointer is a small text file beginning with a version line.
 # Detecting it here turns a baffling 'unexpected EOF' from docker load into an

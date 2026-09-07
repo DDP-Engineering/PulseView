@@ -1,0 +1,50 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-2faf1abc"
+
+title = "Fail closed on incomplete or misdescribed builder archives"
+
+status = "active"
+
+requirement = """
+If a builder archive part named by the manifest is missing, is a Git LFS pointer
+file, or the joined archive does not match the manifest digest, then the restore
+shall stop without loading an image and shall name the specific failure and its
+remedy.
+"""
+
+verification = """
+With a recording container-engine stub, drive the restore three times: once with
+a manifest part deleted, once with that part replaced by Git LFS pointer text,
+and once with the manifest archive digest altered so the parts verify but the
+joined archive does not. Each run must exit non-zero, must name the affected
+part or the archive digest, must not invoke engine load, and must leave no
+reconstructed archive behind.
+"""
+
+affected_paths = [
+    "02_Tools/test/build_environment_archive_test.sh",
+    "02_Tools/bootstrap/ensure_build_environment.sh",
+]
+
+linked_tests = [
+    "02_Tools/test/build_environment_archive_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+The existing archive test covered part corruption, malformed manifests and
+already-installed images, but never exercised the missing-part, LFS-pointer or
+whole-archive digest branches that the restore already contained.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

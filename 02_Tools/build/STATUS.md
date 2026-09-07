@@ -88,7 +88,10 @@ Not built by this probe, and needed for a real package: `sigrok-firmware`,
 | `run_in_builder.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-17 | `./run_in_builder.sh --image mingw -- bash /work/.work/probe-verify.sh` | Drove the whole stock-sigrok build. Its first run failed on a root-owned `/build`; fixed in the image, not the script. |
 | `build_windows_mxe.sh` | verified | WSL2 container | 2026-08-23 | `./build_windows_mxe.sh --offline --clean --stage` | Full clean build with the network denied: 84 drivers, 132 decoder directories, both executables, CPython 3.13.15. Does not build firmware, dumps, or the NSIS installers. |
 | `02_Tools/test/windows_python_smoke.sh` | verified | Windows 11 host | 2026-08-23 | `02_Tools/test/windows_python_smoke.sh` | Host-side, not a build step: it runs `sigrok-cli.exe`, which the MXE image cannot do (no Wine). Runs on Windows directly or on Linux with wine; exits 77 where it can run neither. |
-| `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-23 | `./load_image.sh --image mingw --force` | Checksum-verifies and loads the 2.2 GB archive. Detects an unsmudged Git LFS pointer and says so. Re-run against the regenerated archive: the loaded image is the same id that was built and proved, and its baked Python digests re-verify inside the container. |
+| `load_image.sh` | verified | WSL2 Ubuntu 24.04 | 2026-09-05 | `./load_image.sh --image mingw --force` | Compatibility entry point that delegates default image restores to `ensure_build_environment.sh`; explicit legacy single archives remain supported for older checkouts. |
+| `save_image_parts.sh` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-09-05 | generated all three manifests and five 1 GiB-or-smaller parts from the installed mingw, AppImage amd64 and AppImage arm64 builders | Local-only export; publishes nothing. The reconstructed mingw archive retained the former whole-archive SHA-256 exactly. |
+| `bootstrap/ensure_build_environment.sh` | verified | WSL2 Ubuntu 24.04 + Docker | 2026-09-05 | fixture suite plus forced real restores of the mingw and both AppImage archives | Verifies every part, reconstructed size/hash, exact archived image ID or current builder-recipe label, and an offline health probe. Cross-architecture arm64 health is reported as identity-only when binfmt execution is unavailable. |
+| `bootstrap/ensure_build_environment.ps1` | verified | Windows 11 + WSL2 Ubuntu 24.04 | 2026-09-05 | default invocation plus a relative `-Manifest` path | Loads or builds locally only; no LFS fetch and no publication behavior. |
 | `bootstrap/check_host.sh` | verified | WSL2 Ubuntu 24.04 | 2026-08-31 | `02_Tools/bootstrap/check_host.sh` | Read-only. ARM readiness now requires successful execution of the local linux/arm64 builder image; failure prints the immutable binfmt image digest recorded in the lock. |
 | `bootstrap/check_host.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\bootstrap\check_host.ps1` | The Windows counterpart. Reported ready with 0 warnings on the development host, and was written in PowerShell ConstrainedLanguage-safe form after the first run failed on `New-Object`, `[pscustomobject]` and `[math]::Floor` under a managed policy. Probes Docker from inside WSL, not from Windows. Rejects `System32\bash.exe` when locating Git Bash. `-Install` is opt-in and prompts per package; `-WhatIf` installs nothing. |
 | `02_Tools/test/run_tests.ps1` | verified | Windows 11 host | 2026-08-24 | `.\02_Tools\test\run_tests.ps1` | PowerShell entry point to the bash suite: 2 passed, 0 failed, 0 skipped, matching a direct `bash run_tests.sh`. Forwards the exit code verbatim, including 77. Exits 77 itself when Git Bash is absent. Verified against a `-Test` single run and a deliberately wrong staging dir. |
@@ -619,25 +622,25 @@ from outside it.
 ```sh
 git clone ssh://git@192.168.1.15:2222/dpasare/2026_Pulseview.git
 cd 2026_Pulseview
-git lfs pull                              # the 2.2 GB toolchain image
-02_Tools/bootstrap/check_host.sh          # reports what is missing
-02_Tools/build/load_image.sh --image mingw
-02_Tools/build/build_windows_mxe.sh --stage
-02_Tools/build/package_windows.sh         # suite-gated; writes the zip
+git lfs pull                              # multipart builder images
+bash 02_Tools/bootstrap/check_host.sh          # reports what is missing
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
+bash 02_Tools/build/build_windows_mxe.sh --stage
+bash 02_Tools/build/package_windows.sh         # suite-gated; writes the zip
 ```
 
 No `git submodule update` step: the sigrok stack was folded into this
 repository as plain files in August 2026, so the clone above already carries
 every source it builds. `git lfs pull` replaces the step that used to matter
-- without it the toolchain archive is a ~130-byte pointer file and
-`load_image.sh` says so rather than failing obscurely.
+- without it the toolchain parts are small pointer files and
+`ensure_build_environment.sh` names the affected part.
 
 For Linux:
 
 ```sh
-02_Tools/build/build_linux.sh             # thin tarball, needs distro libs
-02_Tools/build/build_image.sh --image appimage
-02_Tools/build/build_appimage.sh          # self-contained AppImage
+bash 02_Tools/build/build_linux.sh             # thin tarball, needs distro libs
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform x86_64
+bash 02_Tools/build/build_appimage.sh          # self-contained AppImage
 ```
 
 `check_host.sh` is read-only by contract: it names the missing prerequisite
@@ -654,7 +657,7 @@ which passes `--network none` to the container - the build had no network
 interface at all, so a forgotten download could not have quietly succeeded:
 
 ```
-./build_windows_mxe.sh --offline --clean --stage
+bash build_windows_mxe.sh --offline --clean --stage
 ```
 
 It produced 82 drivers, 132 decoders, `sigrok-cli.exe` and `pulseview.exe`.
@@ -695,25 +698,20 @@ below true for a clone rather than only for this machine.
 Nothing in the Windows path depends on a third-party host any more, and the
 sigrok sources cannot expire at all now that they live in this repository.
 
-The Linux AppImage image is the remaining exposure: building it downloads two
-packaging tools from GitHub. Both are checksum-verified, so they cannot change
-underneath us - but they could disappear. That only affects rebuilding the
-appimage *builder image*; once built, `build_appimage.sh` needs no network.
-Saving that image to `07_Delivery/toolchain/` the way the mingw one is would
-close it, at the cost of another multi-gigabyte LFS object.
+An accepted online AppImage-builder rebuild downloads its pinned packaging
+tools from GitHub. Both are checksum-verified, so they cannot change underneath
+us, but they could disappear. The normal restore path no longer has that
+exposure: both AppImage architectures are now present as verified LFS parts.
 
 ### What is deliberately not solved
 
-**apt package versions are not pinned.** A from-source image rebuild in a
-year gets whatever Bookworm serves then. This matters far less than it
-sounds, because the image archive means the rebuild is rare - and pinning
-every apt version would break the moment a security update lands.
+**apt package versions are not individually pinned.** Container base images
+are now digest-pinned in `upstreams.lock.toml`, while a local online rebuild
+gets the packages currently served by that Debian or Ubuntu release. The
+multipart archive is the byte-exact restoration path.
 
-**LFS storage grows per revision.** Git LFS does not deduplicate between
-versions, so each regenerated archive costs another ~2.2 GB permanently.
-Regenerate on a real toolchain change, not on every image rebuild. Two
-revisions exist as of 2026-08-23 - the original and the CPython one - so the
-LFS store now holds about 4.7 GB of toolchain archive.
+**LFS storage grows when content changes.** Regenerate image parts only on a
+real toolchain change, not when an image was merely loaded again.
 
 **The build is repeatable, not bit-reproducible.** Two builds from the same
 inputs produce working binaries, not identical ones. Nothing here sets
@@ -724,11 +722,5 @@ is a substantially larger job than making the build repeatable.
 
 | Needed | For | Blocking |
 |---|---|---|
-| An SSH key for the WSL user, registered in Gitea | cloning MXE inside WSL | the Windows artifact, unless `--mxe-src` is used |
-| `appimagetool` version and SHA-256 in `upstreams.lock.toml` | `Dockerfile.appimage` | the Linux artifact |
 | The two CPython artifacts mirrored | `libsigrokdecode` on Windows | not blocking. They are pinned by SHA-256 and carried in the image, so they cannot change underneath us and a build does not fetch them; only a from-source image rebuild would, and only python.org can serve them |
-| A recorded base-image digest for both Dockerfiles | reproducibility | not blocking; the first build records one |
-
-The SSH key is an operator action. Generating one inside WSL and adding the
-public half to Gitea is the clean fix; copying a private key across from the
-Windows home directory is not, and the script says so rather than offering it.
+| Debian/Ubuntu repository snapshots or a package cache | bit-identical from-source image reconstruction | not blocking; exact restoration uses the archived image instead |

@@ -1,0 +1,260 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-09-06T18:13:53.385699Z",
+      "anchor_head": "bcf7e93414dbca640abf8e4b47802b57c5794b84",
+      "anchor_id": "53126dd0495a1e60",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": null,
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "f68294765af12459926c21b5bb49da778b413721360bef076b06380d6c685b9b"
+          },
+          "path": ".pi/tasks/session-13364-13364/bf71c065e.json",
+          "status": "removed"
+        },
+        {
+          "after": null,
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "dc2863fac75daf9caa38c2c10b51e3334ccc127727a95d0e535afb50f17e39a4"
+          },
+          "path": ".pi/tasks/session-13364-13364/bf71c065e.output",
+          "status": "removed"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "390c86917ab3c430ce880ada2f874e5fb4ceb3bde3768295349fff4dbe7e5714"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "c5bfbc2506457f0b77ab0700bb8c0af86b8b572e7b8ee6ad713dd1e81fa29828"
+          },
+          "path": "01_Documentation/Environment_Setup.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "3aedde3badc52954652b0a67643b7dc69e3ce5bc5a4c3b4ad0721afe5f3cf849"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "2bfce81fd74f3f4609c6ebbb74e2e5787ea80ab864e6d59d0d7fc09b7927792a"
+          },
+          "path": "01_Documentation/Testing.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "c3853564a51083e48d4f237124743dd7314aed5e7173f8badfa013f58f3eccde"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "e8996d77003039b7e844aec0f3d1720a73943da4527c268eaf914a5efe4a2906"
+          },
+          "path": "02_Tools/bootstrap/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "d7644d637d01b1a49e0f417b38d046a7b7e013c711dd643ef1004cb5d22b88b1"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "302fe440dc61897decdd5bd9a20182cbf2b47b08d911be71ddb2834ef4c34b0a"
+          },
+          "path": "02_Tools/bootstrap/check_host.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "f2a50b1d199ced9fd4e2dd41a2f5c22db0c37f94a11def99cf4dbf4cb17f0d9b"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "29a7cf24038ada152744e3217fcc4a76390ff9aa9facea556bae1d1d83171931"
+          },
+          "path": "02_Tools/build/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "25d284f484868ae055693ddc11aff619e73fccfb0174a19c38e71d51fc49312c"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "46925e3c26ffc4540011da720ae03c3c20c05052a9bd5c747fa1d1bf3fd20138"
+          },
+          "path": "02_Tools/build/STATUS.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "2ff766135168f8a355d1aded86d9c4913d06fd9099aed600492ca55b0bbd4974"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "09f1618262c5184c616b8af5aa3819be4b959932aa945ff166295c574186ea83"
+          },
+          "path": "02_Tools/build/build_appimage.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "a5ca428d2bb3cbf930fdf4eaea53d43921d64c5fc6afe0333f6cf9bfdbcb6eeb"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "5dc324a05c7e5a018dce265d5544902d25850c002bcfe3b2d9a116989e1286fd"
+          },
+          "path": "02_Tools/build/build_linux.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "f91251b55e01856b1a01426392c04e702702d23dd68f54d8c478eb13c3a9a4d0"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "e68b75ff57387bb31168bd1d64dca74267cc0d3a35936b0b927b213d810c636d"
+          },
+          "path": "02_Tools/build/build_windows_mxe.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "db4dd2089a7ccce2a17bdfa73a8ada63e5fc94c0e40ce5d3392dc1ce4e6f1e55"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "3147b3ddabb6aebfa8c48287dd211f3df282a1297b80e009c1af4b2a0157cdb5"
+          },
+          "path": "02_Tools/build/images/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "5d3549345e6a2cc4781e969e1402222bbad216da423ac4fd6cf886c86d6e5fa1"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "b63d9ed8465023c345859d0c2570fd350867a0ba37b740122811eb9d8faa888a"
+          },
+          "path": "02_Tools/build/load_image.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "97d295218182e3f81db95bffca4d32761eebe9569e0303358e67c27e3942a839"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "8c60be353a8a152523cdb4f5947d0f7991ace7f46e66a6770023d82bdab5438b"
+          },
+          "path": "02_Tools/build/package_windows.sh",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "21076fba6125bad570676c76153e3f278d379ae1bd0294ec3ce615895e870ab6"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "f34d993be1a03898a8d09543ede38df5caae53b40a611987cc4ea11be420caef"
+          },
+          "path": "07_Delivery/toolchain/README.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "e176e9bf380135f0fe40045dae49758cb393875e8df0dbd61a37412b5751f225"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "54db1a4ee64281be361f5e926dbe957af46ab047b91671ee6c4fcf79dc71a980"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "2c2b015eda143a3ed4db024aed5506ab5f91f9838291f0b616b3265c73925dc8"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "c699d4ca5ef821aeb5244488f0653f0891a937e0e0dfc3a061694c595a4f4466"
+          },
+          "path": "README.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 5,
+            "removed": 2,
+            "unchanged": 100
+          },
+          "source": {
+            "added": 0,
+            "modified": 10,
+            "removed": 0,
+            "unchanged": 1517
+          },
+          "tests": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 72
+          }
+        },
+        "status": {
+          "added": 0,
+          "modified": 15,
+          "removed": 2,
+          "unchanged": 1689
+        }
+      },
+      "current_head": "bcf7e93414dbca640abf8e4b47802b57c5794b84",
+      "evolution_stage": "build",
+      "evolved_at": "2026-09-06T19:25:56.001707Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-e968d069"
+}

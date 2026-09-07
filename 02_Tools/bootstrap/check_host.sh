@@ -15,7 +15,7 @@
 #
 # Run it inside the Linux build host - on Windows that means WSL:
 #
-#   wsl -d Ubuntu-24.04 -- /mnt/f/2026_PulseView/02_Tools/bootstrap/check_host.sh
+#   wsl -d Ubuntu-24.04 -- bash /mnt/f/2026_PulseView/02_Tools/bootstrap/check_host.sh
 
 set -uo pipefail
 
@@ -24,6 +24,8 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 LOCK="${REPO_ROOT}/02_Tools/upstream/upstreams.lock.toml"
 
 RESULT=""
+ENGINE="${BUILDER_ENGINE:-docker}"
+TOOLCHAIN_DIR="${REPO_ROOT}/07_Delivery/toolchain"
 IMAGE_TAG="pulseview-builder-mingw:latest"
 ARM64_PROBE_IMAGE="${ARM64_PROBE_IMAGE:-pulseview-builder-appimage-arm64:latest}"
 BINFMT_IMAGE="tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
@@ -37,9 +39,16 @@ usage() {
 Report whether this host can build the project. Changes nothing.
 
 Options:
-  --result PATH   Also write a JSON record here.
-  --tag NAME      Builder image to look for. Default pulseview-builder-mingw:latest.
-  -h, --help      This text.
+  --result PATH         Also write a JSON record here.
+  --tag NAME            Builder image to look for.
+                        Default pulseview-builder-mingw:latest.
+  --engine docker|podman  Container engine to probe. Default docker, or
+                        BUILDER_ENGINE when that is set. Docker is the engine
+                        this project verifies its builds on; Podman is
+                        accepted by the scripts but not verified.
+  --toolchain-dir PATH  Where the builder archive manifests and parts live.
+                        Default 07_Delivery/toolchain.
+  -h, --help            This text.
 
 Exit status is 1 if any check FAILED, 0 otherwise. WARN does not fail.
 EOF
@@ -47,8 +56,10 @@ EOF
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --result) RESULT="${2:-}"; shift 2 ;;
-        --tag)    IMAGE_TAG="${2:-}"; shift 2 ;;
+        --result)         RESULT="${2:-}"; shift 2 ;;
+        --tag)            IMAGE_TAG="${2:-}"; shift 2 ;;
+        --engine)         ENGINE="${2:-}"; shift 2 ;;
+        --toolchain-dir)  TOOLCHAIN_DIR="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'unknown option: %s (try --help)\n' "$1" >&2; exit 2 ;;
     esac
@@ -105,8 +116,55 @@ check_tool() {
     return 1
 }
 
+engine_install_remedy() {
+    case "$(basename -- "${ENGINE}")" in
+        docker)
+            printf '%s' 'Install Docker Engine inside this distribution - see 01_Documentation/Environment_Setup.md. Docker Desktop with WSL integration is an alternative.'
+            ;;
+        podman)
+            printf '%s' 'Install Podman with: sudo apt-get install podman'
+            ;;
+        *)
+            printf 'Install the selected container engine %s, or choose one with --engine.' "${ENGINE}"
+            ;;
+    esac
+}
+
+engine_reachability_remedy() {
+    case "$(basename -- "${ENGINE}")" in
+        docker)
+            printf '%s' 'Start it: sudo service docker start. With Docker Desktop instead, enable WSL integration for this distro.'
+            ;;
+        *)
+            printf 'Run `%s info` and correct the engine or connection error it reports.' "${ENGINE}"
+            ;;
+    esac
+}
+
 check_tool git "git" "sudo apt-get install git"
-check_tool docker "docker" "Install Docker Engine, or Docker Desktop with WSL integration enabled."
+check_tool "${ENGINE}" "${ENGINE}" "$(engine_install_remedy)"
+
+# The bootstrap reads the upstream lock and every archive manifest with
+# tomllib, so the prerequisite is an interpreter that can import it - standard
+# library from CPython 3.11. A 3.10 host has a python3 and still cannot run
+# ensure_build_environment.sh; saying so here is the whole point of this check.
+# shellcheck source=../build/python_env.sh
+. "${REPO_ROOT}/02_Tools/build/python_env.sh"
+PY_STATUS="$(sr_python_status)"
+PY_KIND="${PY_STATUS%%|*}"
+PY_PATH="${PY_STATUS#*|}"; PY_PATH="${PY_PATH%%|*}"
+PY_VERSION="${PY_STATUS##*|}"
+case "${PY_KIND}" in
+    ok)
+        report PASS "python (tomllib)" "${PY_VERSION} at ${PY_PATH}" ;;
+    old)
+        report FAIL "python (tomllib)" \
+            "${PY_VERSION} at ${PY_PATH} cannot import tomllib" \
+            "CPython ${SR_PYTHON_MIN} or newer is required: $(sr_python_remedy)" ;;
+    *)
+        report FAIL "python (tomllib)" "no interpreter on PATH" \
+            "CPython ${SR_PYTHON_MIN} or newer is required: $(sr_python_remedy)" ;;
+esac
 
 # Git LFS carries the saved toolchain image. Without it a clone silently gets
 # pointer files instead of the archive - a failure that surfaces much later,
@@ -130,20 +188,111 @@ else
 fi
 
 # --------------------------------------------------------------------------
-printf '\nDocker\n'
+printf '\nContainer engine\n'
 
-if command -v docker >/dev/null 2>&1; then
-    if docker info >/dev/null 2>&1; then
-        report PASS "docker daemon" "reachable"
-        if docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
+if command -v "${ENGINE}" >/dev/null 2>&1; then
+    if "${ENGINE}" info >/dev/null 2>&1; then
+        report PASS "engine daemon" "${ENGINE} reachable"
+        if "${ENGINE}" image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
             report PASS "builder image" "${IMAGE_TAG} present"
         else
             report WARN "builder image" "${IMAGE_TAG} not present" \
-                "Load the archive, or build it: 02_Tools/build/build_image.sh --image mingw"
+                "Run bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw"
         fi
     else
-        report FAIL "docker daemon" "not reachable" \
-            "Start Docker. If using Docker Desktop, enable WSL integration for this distro."
+        report FAIL "engine daemon" "${ENGINE} not reachable" \
+            "$(engine_reachability_remedy)"
+    fi
+fi
+
+# --------------------------------------------------------------------------
+printf '\nBuilder archives\n'
+
+# Presence and pointer detection only. The manifests are ordinary Git content
+# and are always present; the parts are Git LFS objects and are exactly what a
+# clone without LFS silently replaces with a 130-byte pointer. Full checksum
+# verification is ensure_build_environment.sh's job and costs gigabytes of
+# reads - this has to stay cheap enough to run on every host check.
+if [ ! -d "${TOOLCHAIN_DIR}" ]; then
+    report FAIL "toolchain archive" "no such directory: ${TOOLCHAIN_DIR}"
+else
+    archive_detail=""
+    archive_status="PASS"
+    archive_remedy=""
+    manifest_count=0
+    for manifest in "${TOOLCHAIN_DIR}"/*.manifest.toml; do
+        [ -f "${manifest}" ] || continue
+        manifest_count=$((manifest_count + 1))
+        stem="$(basename -- "${manifest}" .manifest.toml)"
+
+        if [ "${PY_KIND}" != "ok" ]; then
+            archive_status="FAIL"
+            archive_detail="${archive_detail}${archive_detail:+; }${stem}: cannot read manifest without Python ${SR_PYTHON_MIN}+"
+            continue
+        fi
+
+        parts_text="$("${PY_PATH}" - "${manifest}" 2>/dev/null <<'PYEOF'
+import sys
+import tomllib
+
+sys.stdout.reconfigure(newline="\n")
+with open(sys.argv[1], "rb") as stream:
+    data = tomllib.load(stream)
+parts = data.get("part", [])
+if not parts:
+    raise SystemExit("manifest contains no archive parts")
+for part in parts:
+    print(part["file"])
+PYEOF
+        )" || {
+            archive_status="FAIL"
+            archive_detail="${archive_detail}${archive_detail:+; }${stem}: invalid or empty part manifest"
+            continue
+        }
+
+        parts=()
+        while IFS= read -r part_file; do
+            [ -n "${part_file}" ] && parts+=("${part_file}")
+        done <<< "${parts_text}"
+
+        total=0
+        manifest_problem=""
+        for part_file in "${parts[@]}"; do
+            case "${part_file}" in
+                */*|*\\*|''|.|..)
+                    manifest_problem="unsafe part name ${part_file}"
+                    break
+                    ;;
+            esac
+            part="${TOOLCHAIN_DIR}/${part_file}"
+            if [ ! -f "${part}" ]; then
+                manifest_problem="missing ${part_file}"
+                archive_remedy="git lfs install && git lfs pull"
+                break
+            fi
+            size="$(wc -c < "${part}" | tr -d ' ')"
+            total=$((total + size))
+            if [ "${size}" -lt 1024 ] \
+               && head -1 "${part}" 2>/dev/null | grep -q '^version https://git-lfs'; then
+                manifest_problem="${part_file} is a Git LFS pointer"
+                archive_remedy="git lfs install && git lfs pull"
+                break
+            fi
+        done
+
+        if [ -n "${manifest_problem}" ]; then
+            archive_status="FAIL"
+            archive_detail="${archive_detail}${archive_detail:+; }${stem}: ${manifest_problem}"
+        else
+            archive_detail="${archive_detail}${archive_detail:+; }${stem}: ${#parts[@]} parts, $((total / 1048576)) MB"
+        fi
+    done
+
+    if [ "${manifest_count}" -eq 0 ]; then
+        report WARN "toolchain archive" "no builder manifests in ${TOOLCHAIN_DIR}"
+    else
+        report "${archive_status}" "toolchain archive" "${archive_detail}" \
+            "${archive_remedy}"
     fi
 fi
 
@@ -158,17 +307,17 @@ printf '\narm64 build capability\n'
 #
 # ARM64_PROBE_IMAGE is overridable so tests and hosts with another known-local
 # arm64 image do not need to mutate the image store.
-if command -v docker >/dev/null 2>&1 \
-   && docker info >/dev/null 2>&1 \
-   && docker run --rm --pull never --platform linux/arm64 \
+if command -v "${ENGINE}" >/dev/null 2>&1 \
+   && "${ENGINE}" info >/dev/null 2>&1 \
+   && "${ENGINE}" run --rm --pull never --platform linux/arm64 \
         --entrypoint /usr/bin/true "${ARM64_PROBE_IMAGE}" >/dev/null 2>&1; then
     report PASS "arm64 containers" \
-        "Docker executed linux/arm64 (${ARM64_PROBE_IMAGE})"
+        "${ENGINE} executed linux/arm64 (${ARM64_PROBE_IMAGE})"
 else
     report WARN "arm64 containers" \
-        "Docker could not execute local probe image ${ARM64_PROBE_IMAGE}" \
+        "${ENGINE} could not execute local probe image ${ARM64_PROBE_IMAGE}" \
         "Needed only for aarch64 builds. Ensure the probe image exists, then enable emulation once per boot with:
-        docker run --privileged --rm ${BINFMT_IMAGE} --install arm64"
+        ${ENGINE} run --privileged --rm ${BINFMT_IMAGE} --install arm64"
 fi
 
 # --------------------------------------------------------------------------
@@ -249,17 +398,28 @@ fi
 # --------------------------------------------------------------------------
 printf '\nCapacity\n'
 
-DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
-AVAIL_GB="$(df -BG --output=avail "${DOCKER_ROOT}" 2>/dev/null | tail -1 | tr -dc '0-9')"
+# Docker and Podman expose different storage-root fields. An unavailable or
+# unfamiliar engine falls back to that engine family's conventional path.
+case "$(basename -- "${ENGINE}")" in
+    podman)
+        ENGINE_ROOT="$("${ENGINE}" info --format '{{.Store.GraphRoot}}' 2>/dev/null || true)"
+        [ -n "${ENGINE_ROOT}" ] || ENGINE_ROOT=/var/lib/containers/storage
+        ;;
+    *)
+        ENGINE_ROOT="$("${ENGINE}" info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
+        [ -n "${ENGINE_ROOT}" ] || ENGINE_ROOT=/var/lib/docker
+        ;;
+esac
+AVAIL_GB="$(df -BG --output=avail "${ENGINE_ROOT}" 2>/dev/null | tail -1 | tr -dc '0-9')"
 if [ -n "${AVAIL_GB}" ]; then
     if [ "${AVAIL_GB}" -ge "${NEED_GB}" ]; then
-        report PASS "disk (docker)" "${AVAIL_GB} GB free, need ~${NEED_GB} GB"
+        report PASS "disk (engine)" "${AVAIL_GB} GB free, need ~${NEED_GB} GB"
     else
-        report FAIL "disk (docker)" "${AVAIL_GB} GB free, need ~${NEED_GB} GB" \
+        report FAIL "disk (engine)" "${AVAIL_GB} GB free, need ~${NEED_GB} GB" \
             "The image is ~7.3 GB unpacked and the build tree adds several more."
     fi
 else
-    report WARN "disk (docker)" "could not determine free space at ${DOCKER_ROOT}"
+    report WARN "disk (engine)" "could not determine free space at ${ENGINE_ROOT}"
 fi
 
 CORES="$(nproc 2>/dev/null || echo 0)"

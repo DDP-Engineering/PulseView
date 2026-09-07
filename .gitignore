@@ -56,10 +56,10 @@ dist/
 # Verified releases under 07_Delivery/releases/ are tracked deliberately.
 07_Delivery/staging/
 
-# 07_Delivery/toolchain/ is NOT ignored. The saved builder image lives there
-# and is tracked through Git LFS (see .gitattributes), because it is what
-# makes a clone buildable without reaching MXE's 117 upstream download hosts.
-# Its logs and scratch are still output, though.
+# 07_Delivery/toolchain/ is NOT ignored. The saved builder images live there
+# as manifests plus Git LFS parts (see .gitattributes), because they make a
+# clone buildable without reaching the upstream package hosts. Their logs and
+# scratch are still output, though.
 07_Delivery/toolchain/*.log
 07_Delivery/toolchain/tmp/
 

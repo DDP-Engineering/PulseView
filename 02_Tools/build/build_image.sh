@@ -60,8 +60,7 @@ Options:
                            (x86_64) or pulseview-builder-<image>-arm64:latest
   --engine docker|podman   Container engine. Default docker.
   --mxe-src PATH           Use an existing local MXE clone instead of
-                           cloning from Gitea. For hosts without SSH
-                           access to the mirror.
+                           cloning the locked canonical source online.
   --save PATH              Also write a `docker save` tarball to PATH.
                            Relative paths resolve against the repo root.
   --pkg-jobs N             MXE package-level parallelism. Default nproc/4.
@@ -133,8 +132,12 @@ TAG_ARCH_SUFFIX=""
 command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
 
-PY="$(command -v python3 || command -v python)" \
-    || die "python3 is required to read the lock file"
+# The lock is TOML, read with tomllib: the prerequisite is an interpreter that
+# can import it, not merely one that exists. See 02_Tools/build/python_env.sh.
+# shellcheck source=python_env.sh
+. "${SCRIPT_DIR}/python_env.sh"
+sr_require_python || exit 1
+PY="${SR_PYTHON}"
 
 [ -f "${LOCK}" ] || die "lock file missing: ${LOCK}"
 
@@ -174,15 +177,15 @@ printf '=== staging context for %s\n' "${IMAGE}"
 
 if [ "${IMAGE}" = "mingw" ]; then
     MXE_COMMIT="$(lock_get source mxe commit)"
-    MXE_URL="$(lock_get source mxe fork_url)"
+    MXE_URL="$(lock_get source mxe canonical_url)"
     note "MXE pin ${MXE_COMMIT:0:12} from ${MXE_URL}"
 
-    # Cloned on the host so the image never needs credentials or a route to
-    # github.com. Uses your existing SSH access to Gitea.
+    # Cloned on the host so the image build itself receives no credentials.
+    # The full commit pin is checked before anything enters the context.
     MXE_SRC="${CONTEXT}/mxe"
     if [ -n "${MXE_SRC_LOCAL}" ]; then
-        # Escape hatch for a host that cannot reach Gitea. Clone from a local
-        # path instead; git hardlinks the objects, so this is cheap.
+        # Escape hatch for an offline host or an existing approved clone.
+        # Git hardlinks local objects where possible, so this is cheap.
         [ -d "${MXE_SRC_LOCAL}/.git" ] \
             || die "--mxe-src ${MXE_SRC_LOCAL} is not a git clone"
         note "using local MXE clone ${MXE_SRC_LOCAL}"
@@ -190,6 +193,7 @@ if [ "${IMAGE}" = "mingw" ]; then
         git clone "${MXE_SRC_LOCAL}" "${MXE_SRC}"
     elif [ -d "${MXE_SRC}/.git" ]; then
         note "updating existing MXE clone"
+        git -C "${MXE_SRC}" remote set-url origin "${MXE_URL}"
         git -C "${MXE_SRC}" fetch --prune origin
     else
         # Probe first. A clone that fails on credentials halfway through
@@ -197,24 +201,15 @@ if [ "${IMAGE}" = "mingw" ]; then
         # second and lets us say something useful.
         note "checking access to ${MXE_URL}"
         if ! git ls-remote --heads "${MXE_URL}" >/dev/null 2>"${LOG_DIR}/ls-remote.err"; then
-            printf 'error: cannot reach the MXE mirror as this user.\n\n' >&2
+            printf 'error: cannot reach the canonical MXE source.\n\n' >&2
             sed 's/^/  /' "${LOG_DIR}/ls-remote.err" >&2
             cat >&2 <<EOF
 
-  This host has no usable SSH identity for the Gitea server. Note that WSL
-  has its own home directory: keys set up under Windows are not visible here.
+  The local rebuild fallback needs internet access to the URL recorded in
+  upstreams.lock.toml. Restore connectivity and retry, or clone the pinned MXE
+  source somewhere already reachable and point at it:
 
-  Fix it in one of these ways, then re-run:
-
-    1. Give this host its own key (recommended):
-         ssh-keygen -t ed25519 -C "\$(whoami)@\$(hostname) hantek build"
-         cat ~/.ssh/id_ed25519.pub
-       then add that public key to Gitea under Settings -> SSH Keys.
-
-    2. Clone MXE wherever you already have access, and point at it:
          ./build_image.sh --image mingw --mxe-src /path/to/mxe
-
-  Do not copy a private key between hosts to work around this.
 EOF
             exit 1
         fi
@@ -288,7 +283,8 @@ EOF
   and links against another."
     note "windows python ${PY_VERSION} sha256 ${PY_EMBED_SHA256:0:12}..."
 
-    BASE_IMAGE="debian:bookworm-slim"
+    BASE_IMAGE="$(lock_get artifact builder-base-debian-bookworm-slim url)"
+    BASE_IMAGE="${BASE_IMAGE#docker://}"
     BUILD_ARGS+=(
         --build-arg "MXE_COMMIT=${MXE_COMMIT}"
         --build-arg "MXE_QT5_FREEZE=${QT5_FREEZE}"
@@ -332,7 +328,8 @@ else
     note "${AIT_LOCK} ${AIT_VERSION} sha256 ${AIT_SHA256:0:12}..."
     note "${LDQT_LOCK} ${LDQT_VERSION} sha256 ${LDQT_SHA256:0:12}..."
     note "${RUNTIME_LOCK} ${RUNTIME_VERSION} sha256 ${RUNTIME_SHA256:0:12}..."
-    BASE_IMAGE="ubuntu:22.04"
+    BASE_IMAGE="$(lock_get artifact builder-base-ubuntu-22.04 url)"
+    BASE_IMAGE="${BASE_IMAGE#docker://}"
     BUILD_ARGS+=(
         --build-arg "APPIMAGETOOL_VERSION=${AIT_VERSION}"
         --build-arg "APPIMAGETOOL_URL=${AIT_URL}"
@@ -346,6 +343,28 @@ else
     )
 fi
 
+# A locally rebuilt image has a different image ID from the saved archive, but
+# it must still be recognizable as the exact recipe in this checkout. This
+# content hash excludes host UID/GID and all generated build output.
+#
+# The effective options go in too, not just the files: --skip-patch,
+# --qt5-freeze and --glib-version each produce a materially different image
+# from the same Dockerfile, so an identity blind to them would label them
+# identically. Anything passed here must match what this run actually builds.
+SPEC_ARGS=(--image "${IMAGE}" --platform "${SR_ARCH}")
+if [ "${IMAGE}" = "mingw" ]; then
+    if [ "${QT5_FREEZE}" -eq 1 ]; then SPEC_ARGS+=(--qt5-freeze); fi
+    if [ -n "${GLIB_VERSION}" ]; then
+        SPEC_ARGS+=(--glib-version "${GLIB_VERSION}")
+    fi
+    for skipped_patch in ${SKIP_PATCHES}; do
+        SPEC_ARGS+=(--skip-patch "${skipped_patch}")
+    done
+fi
+BUILDER_SPEC="$(bash "${SCRIPT_DIR}/builder_spec.sh" "${SPEC_ARGS[@]}")"
+BUILD_ARGS+=(--build-arg "BUILDER_SPEC=${BUILDER_SPEC}")
+note "builder recipe ${BUILDER_SPEC:0:12}..."
+
 cp "${IMAGES_DIR}/Dockerfile.${IMAGE}" "${CONTEXT}/Dockerfile"
 if [ "${IMAGE}" = "mingw" ]; then
     for helper in mxe-build.sh mxe-glib-hold.sh; do
@@ -353,9 +372,10 @@ if [ "${IMAGE}" = "mingw" ]; then
     done
 fi
 
-# Pin the base by digest rather than tag, so a rebuild months from now starts
-# from the same bytes. The tag is only used to discover the digest.
-printf '=== resolving base image\n'
+# Base references come from the lock and normally already contain a digest.
+# Pull and inspect them anyway so a malformed or unavailable pin fails before
+# the multi-hour build starts and the provenance record names the exact bytes.
+printf '=== verifying base image\n'
 if [ "${DRY_RUN}" -eq 0 ]; then
     "${ENGINE}" pull --platform "${SR_DOCKER_PLATFORM}" "${BASE_IMAGE}" >/dev/null
     BASE_PINNED="$("${ENGINE}" image inspect --format '{{index .RepoDigests 0}}' \
@@ -366,8 +386,13 @@ fi
 if [ -n "${BASE_PINNED}" ]; then
     note "${BASE_PINNED}"
 else
-    BASE_PINNED="${BASE_IMAGE}"
-    note "digest unresolved, falling back to tag ${BASE_IMAGE}"
+    case "${BASE_IMAGE}" in
+        *@sha256:*)
+            BASE_PINNED="${BASE_IMAGE}"
+            note "${BASE_PINNED} (locked; not pulled in dry run)"
+            ;;
+        *) die "base image has no resolvable digest: ${BASE_IMAGE}" ;;
+    esac
 fi
 
 BUILD_ARGS+=(
@@ -400,6 +425,7 @@ IMAGE_ID="$("${ENGINE}" image inspect --format '{{.Id}}' "${TAG}")"
     printf 'base         %s\n' "${BASE_PINNED}"
     printf 'engine       %s (%s)\n' "${ENGINE}" "$("${ENGINE}" --version)"
     printf 'platform     %s\n' "${SR_DOCKER_PLATFORM}"
+    printf 'builder_spec %s\n' "${BUILDER_SPEC}"
     printf 'host         %s\n' "$(uname -srm)"
     if [ "${IMAGE}" = "mingw" ]; then
         printf 'mxe_commit   %s\n' "${MXE_COMMIT}"

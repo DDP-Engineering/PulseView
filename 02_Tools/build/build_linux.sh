@@ -10,19 +10,28 @@
 # Native Linux x86_64 build of the sigrok stack with the DSO-3062L driver.
 #
 # Unlike the Windows path (MXE cross-compile from a baked image), this builds
-# natively against distribution libraries. It runs inside an ubuntu:24.04
-# container so the host needs no dev packages and no sudo - Docker provides
+# natively against distribution libraries. It runs inside an Ubuntu 24.04
+# container so the host needs no dev packages and no sudo - the engine provides
 # root in the container. The base matches a common WSL Ubuntu, so the result
 # runs there after the runtime libraries are installed (listed in the emitted
 # README).
 #
+# The base is pinned by digest in upstreams.lock.toml, like every other build
+# path. What is *not* pinned is the apt transaction below: linking natively
+# against distribution libraries means installing them at build time, from
+# whatever the Ubuntu archive currently serves. The current thin-tarball path
+# therefore needs the network on every run. Making it offline would require a
+# separately archived builder or a pinned package snapshot/cache; neither is
+# part of this delivery. See 02_Tools/build/README.md.
+#
 # It re-execs itself into the container, like build_windows_mxe.sh.
 #
-#   ./build_linux.sh                  build for the host architecture
-#   ./build_linux.sh --arch aarch64   build for Raspberry Pi 4/5 (arm64
-#                                     container; on an x86_64 host this
-#                                     needs qemu binfmt - check_host.sh
-#                                     reports whether it is set up)
+#   bash build_linux.sh                  build for the host architecture
+#   bash build_linux.sh --arch aarch64   build for Raspberry Pi 4/5 (arm64
+#                                        container; on an x86_64 host this
+#                                        needs qemu binfmt - check_host.sh
+#                                        reports whether it is set up)
+#   bash build_linux.sh --print-base     print the pinned base and exit
 #
 # Every architecture-dependent name comes from arch_map.sh - one shared
 # table, so this script has no per-arch fork. The aarch64 tarball targets
@@ -39,28 +48,82 @@ REPO="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 # --------------------------------------------------------------------------
 # Re-exec into the container unless already inside it
 # --------------------------------------------------------------------------
-if [ ! -f /.dockerenv ]; then
+if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
     ARCH_OVERRIDE="$(uname -m)"
+    ENGINE="${BUILDER_ENGINE:-docker}"
+    LOCK="${REPO}/02_Tools/upstream/upstreams.lock.toml"
+    PRINT_BASE=0
     PASS_ARGS=()
     while [ $# -gt 0 ]; do
         case "$1" in
-            --arch) ARCH_OVERRIDE="${2:?--arch needs a value}"; shift 2 ;;
-            *)      PASS_ARGS+=("$1"); shift ;;
+            --arch)       ARCH_OVERRIDE="${2:?--arch needs a value}"; shift 2 ;;
+            --engine)     ENGINE="${2:?--engine needs a value}"; shift 2 ;;
+            --lock)       LOCK="${2:?--lock needs a value}"; shift 2 ;;
+            --print-base) PRINT_BASE=1; shift ;;
+            *)            PASS_ARGS+=("$1"); shift ;;
         esac
     done
     # shellcheck source=arch_map.sh
     . "${SCRIPT_DIR}/arch_map.sh"
-    echo "==> launching ubuntu:24.04 build container (${SR_ARCH})"
+
+    # Fail on the engine before anything expensive or observable happens. A
+    # missing engine used to surface as "docker: command not found" from the
+    # middle of a launch line, which said nothing about --engine.
+    command -v "${ENGINE}" >/dev/null 2>&1 || {
+        printf 'error: container engine %s not found.\n' "${ENGINE}" >&2
+        printf '  Run this inside WSL, where the engine lives, or select\n' >&2
+        printf '  another with --engine or BUILDER_ENGINE.\n' >&2
+        exit 1
+    }
+
+    # The base image is pinned by digest in the lock, like the mingw and
+    # AppImage builders. A floating tag would leave the one build path that
+    # ships a distro-linked tarball with no reproducible starting point.
+    # shellcheck source=python_env.sh
+    . "${SCRIPT_DIR}/python_env.sh"
+    sr_require_python || exit 1
+    [ -f "${LOCK}" ] || { printf 'error: lock file missing: %s\n' "${LOCK}" >&2; exit 1; }
+
+    BASE_IMAGE="$("${SR_PYTHON}" - "${LOCK}" <<'PYEOF'
+import sys
+import tomllib
+
+WANTED = "builder-base-ubuntu-24.04"
+with open(sys.argv[1], "rb") as stream:
+    data = tomllib.load(stream)
+for item in data.get("artifact", []):
+    if item.get("name") == WANTED:
+        url = item.get("url", "")
+        if not url.startswith("docker://"):
+            raise SystemExit(f"{WANTED} has no docker:// url")
+        print(url[len("docker://"):])
+        break
+else:
+    raise SystemExit(
+        f"no artifact named '{WANTED}' in the lock.\n"
+        "  The native Linux build needs its base pinned by digest. Record it\n"
+        "  in 02_Tools/upstream/upstreams.lock.toml before building."
+    )
+PYEOF
+    )" || exit 1
+
+    if [ "${PRINT_BASE}" -eq 1 ]; then
+        printf '%s\n' "${BASE_IMAGE}"
+        exit 0
+    fi
+
+    echo "==> launching ${BASE_IMAGE} build container (${SR_ARCH})"
     # Resolve the build revision on the host. libsigrok used to be its own
     # submodule checkout with its own HEAD; now it is plain files in this
     # repo, so the repo's own revision IS the driver revision.
     HOST_REV="$(bash "${SCRIPT_DIR}/source_revision.sh" "${REPO}")"
-    exec docker run --rm -i \
+    exec "${ENGINE}" run --rm -i \
         --platform "${SR_DOCKER_PLATFORM}" \
         -e "HDRIVER_REV=${HOST_REV}" \
+        -e "BUILDER_ENGINE=${ENGINE}" \
         -v "${REPO}:/work" \
         -w /work \
-        ubuntu:24.04 \
+        "${BASE_IMAGE}" \
         bash /work/02_Tools/build/build_linux.sh \
         ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 fi

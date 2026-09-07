@@ -13,7 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | File | Produces | Base |
 |---|---|---|
 | `Dockerfile.mingw` | Windows x86_64 executables and NSIS installer, via MXE | `debian:bookworm-slim` |
-| `Dockerfile.appimage` | Linux x86_64 AppImage | `ubuntu:22.04` |
+| `Dockerfile.appimage` | Linux AppImage, x86_64 and aarch64 | `ubuntu:22.04` |
 
 Do not run `docker build` on these directly. Use `../build_image.sh`, which
 stages the context, resolves pins from `upstreams.lock.toml`, and records
@@ -23,15 +23,10 @@ the container holds no credentials and no route to github.com.
 
 ## Base image pinning
 
-Both files default to a tag, not a digest. `build_image.sh` pulls the tag,
-resolves it to a digest, and builds against the digest, recording it in
-`.work/logs/<build-id>/record.txt`.
-
-Once a build has succeeded, copy that digest into the `ARG BASE_IMAGE` default
-so the file is self-pinning. Placeholder digests are not used here: a
-fabricated digest that happens to be syntactically valid is worse than an
-honest tag, because it fails at pull time with a confusing error instead of
-being visibly unfinished.
+The Dockerfiles retain readable tag defaults for direct inspection, but the
+supported `build_image.sh` path reads immutable digest references from
+`upstreams.lock.toml`, selects the requested platform, verifies that the base
+can be pulled, and records the exact reference in `.work/logs/<build-id>/`.
 
 ## What lives in an image
 
@@ -47,8 +42,9 @@ That split is what makes the second and every later build take minutes.
 | Argument | Default | Effect |
 |---|---|---|
 | `MXE_QT5_FREEZE` | `0` | `1` reproduces upstream's Qt 5.7 freeze for Windows XP. This project does not claim XP support. |
-| `MXE_APPLY_SIGROK_PATCHES` | `1` | `0` builds a plain MXE, to isolate a patch that will not apply. |
-| `PKG_JOBS` x `SUB_JOBS` | `6` x `4` | MXE parallelism. The product is the real load; keep it at or under the core count. |
+| `MXE_PATCHES` | empty | Space-separated patch filenames to apply, in order. `build_image.sh` computes it from `--skip-patch` / `--no-sigrok-patches` and verifies each one applies before the build starts. |
+| `MXE_GLIB_VERSION` | `2.89.1` | Holds glib at this version; the newest that builds glibmm. `--glib-version` overrides it. |
+| `PKG_JOBS` x `SUB_JOBS` | `6` x `4` in the Dockerfile | MXE parallelism. `build_image.sh` passes `nproc/4` x `4` unless told otherwise. The product is the real load; keep it at or under the core count. |
 | `MXE_COMMIT` | `unrecorded` | Verified against the staged clone's `HEAD`. A mismatch fails the build. |
 
 `Dockerfile.appimage`:
@@ -57,6 +53,19 @@ That split is what makes the second and every later build take minutes.
 |---|---|---|
 | `APPIMAGETOOL_VERSION` | none | Required. From the lock's artifact table. |
 | `APPIMAGETOOL_SHA256` | none | Required. An unverified download is not accepted into a release toolchain. |
+
+Both are inputs to the builder recipe identity: `builder_spec.sh` hashes the
+Dockerfile, the lock, `build_image.sh`, the helper scripts, the effective
+options and the bytes of every patch selected, so two images that differ in any of them
+carry different `io.ddp.builder.spec` labels.
+
+## The aarch64 AppImage builder
+
+`Dockerfile.appimage` builds for `linux/arm64` as well, selected with
+`build_image.sh --image appimage --platform aarch64`. Only the lock entry
+names differ by architecture; appimagetool, linuxdeployqt and the type-2
+runtime all ship aarch64 assets. On an x86_64 host this needs qemu binfmt -
+`check_host.sh` reports whether it is registered.
 
 ## The Ubuntu 22.04 choice
 

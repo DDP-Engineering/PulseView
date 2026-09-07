@@ -1,0 +1,54 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-e0da0179"
+
+title = "Derive builder recipe identity from effective build options and patch content"
+
+status = "active"
+
+requirement = """
+When a builder image is built or validated, the system shall derive the
+recorded builder recipe identity from the effective build options and from the
+bytes of every patch selected for that build, in addition to the pinned inputs,
+Dockerfile, and host-side build driver, so that two builds whose images differ
+in those choices never carry the same identity.
+"""
+
+verification = """
+Run builder_spec.sh for the mingw builder with no options and record the
+digest. Re-run it four times, changing exactly one thing each time: a different
+patch selection, the Qt5 freeze enabled, a custom glib version, one byte
+appended to a selected patch file, and one byte appended to a copy of the
+host-side build driver. Each run must print a digest different from the
+baseline and from the others, and re-running the baseline afterwards must
+reproduce the original digest exactly.
+"""
+
+affected_paths = [
+    "02_Tools/test/builder_spec_identity_test.sh",
+    "02_Tools/build/builder_spec.sh",
+    "02_Tools/build/build_image.sh",
+    "02_Tools/bootstrap/ensure_build_environment.sh",
+]
+
+linked_tests = [
+    "02_Tools/test/builder_spec_identity_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+builder_spec.sh previously omitted effective options, patch bytes, and the
+host-side driver that assembles the context and arguments, so materially
+different images could carry one identity.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

@@ -126,13 +126,16 @@ RUN set -eux; \
     mkdir -p /work /out /build; \
     chown -R "${USER_UID}:${USER_GID}" /work /out /build
 
+ARG BUILDER_SPEC=unrecorded
+
 LABEL org.opencontainers.image.title="sigrok Linux AppImage builder" \
       org.opencontainers.image.description="Ubuntu 22.04 toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView as a Linux AppImage (x86_64 or aarch64)" \
       org.opencontainers.image.licenses="GPL-3.0-or-later" \
       io.ddp.appimagetool.version="${APPIMAGETOOL_VERSION}" \
       io.ddp.linuxdeployqt.version="${LINUXDEPLOYQT_VERSION}" \
       io.ddp.appimage-runtime.version="${APPIMAGE_RUNTIME_VERSION}" \
-      io.ddp.glibc.floor="2.35"
+      io.ddp.glibc.floor="2.35" \
+      io.ddp.builder.spec="${BUILDER_SPEC}"
 
 USER ${USER_UID}:${USER_GID}
 WORKDIR /work

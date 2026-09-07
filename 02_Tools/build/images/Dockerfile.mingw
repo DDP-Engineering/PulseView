@@ -116,8 +116,9 @@ ENV MXE_TARGET=${MXE_TARGET} \
     PKG_JOBS=${PKG_JOBS} \
     SUB_JOBS=${SUB_JOBS}
 
-# MXE arrives from the host, already cloned from the Gitea mirror and detached
-# at the pinned commit. Nothing here talks to github.com.
+# MXE arrives from the host after build_image.sh clones the canonical upstream
+# and detaches it at the commit pinned in upstreams.lock.toml. The container
+# build itself performs no source checkout.
 COPY mxe/ ${MXE_DIR}/
 COPY patches/ /tmp/patches/
 COPY mxe-build.sh /usr/local/bin/mxe-build
@@ -349,6 +350,8 @@ RUN set -eux; \
     mkdir -p /opt/mxe/.ccache; \
     chown -R "${USER_UID}:${USER_GID}" /opt/mxe/.ccache
 
+ARG BUILDER_SPEC=unrecorded
+
 LABEL org.opencontainers.image.title="sigrok Windows cross-builder" \
       org.opencontainers.image.description="MXE toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView for Windows x86_64" \
       org.opencontainers.image.licenses="GPL-3.0-or-later" \
@@ -356,7 +359,8 @@ LABEL org.opencontainers.image.title="sigrok Windows cross-builder" \
       io.ddp.mxe.target="${MXE_TARGET}" \
       io.ddp.mxe.qt5_freeze="${MXE_QT5_FREEZE}" \
       io.ddp.mxe.patches="${MXE_PATCHES}" \
-      io.ddp.python.version="${PY_VERSION}"
+      io.ddp.python.version="${PY_VERSION}" \
+      io.ddp.builder.spec="${BUILDER_SPEC}"
 
 USER ${USER_UID}:${USER_GID}
 WORKDIR /work

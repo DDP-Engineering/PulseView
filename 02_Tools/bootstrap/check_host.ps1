@@ -77,14 +77,16 @@ $WhatIfPreference = $false
 # unpacked; the build volume reaches a few GB more. Matches check_host.sh.
 $NeedGb = 30
 
-# A Git LFS pointer file is a few hundred bytes of text. The real archive is
-# ~2.2 GB. Anything under this threshold is a pointer, not a toolchain.
+# A Git LFS pointer file is a few hundred bytes of text. Real archive parts are
+# much larger. Anything under this threshold is a pointer, not toolchain data.
 $PointerMaxBytes = 1024
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
 $LockFile = Join-Path $RepoRoot '02_Tools\upstream\upstreams.lock.toml'
 $Toolchain = Join-Path $RepoRoot '07_Delivery\toolchain\pulseview-builder-mingw.tar'
+$ToolchainDir = Join-Path $RepoRoot '07_Delivery\toolchain'
+$ToolchainManifest = Join-Path $ToolchainDir 'pulseview-builder-mingw.manifest.toml'
 
 # WSL writes UTF-16LE to a pipe unless told otherwise; without this every
 # string comparison against its output silently fails.
@@ -327,7 +329,7 @@ if ($distroOk) {
             Report PASS 'builder image' ('{0} present' -f $Tag)
         } else {
             Report WARN 'builder image' ('{0} not present' -f $Tag) `
-                ("Load the saved archive:`nwsl -d {0} -- ./02_Tools/build/load_image.sh --image mingw" -f $Distro)
+                ("Restore or rebuild it:`nwsl -d {0} -- bash ./02_Tools/bootstrap/ensure_build_environment.sh --image mingw" -f $Distro)
         }
     } else {
         Report FAIL 'docker daemon' ('not reachable from {0}' -f $Distro) `
@@ -366,9 +368,24 @@ if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
     Report FAIL 'git repository' 'not a git checkout'
 }
 
-# The failure this catches surfaces much later otherwise, as a corrupt archive
-# rather than a missing tool - so check the bytes, not just the filename.
-if (Test-Path -LiteralPath $Toolchain) {
+# The current format is a manifest plus Git LFS-sized parts. Keep recognizing
+# the former single tar so older checkouts still receive an accurate result.
+if (Test-Path -LiteralPath $ToolchainManifest) {
+    $parts = @(Get-ChildItem -LiteralPath $ToolchainDir -File -Filter `
+        'pulseview-builder-mingw.tar.part-*' -ErrorAction SilentlyContinue)
+    $pointers = @($parts | Where-Object { $_.Length -le $PointerMaxBytes })
+    if ($parts.Count -eq 0) {
+        Report FAIL 'toolchain archive' 'manifest present, but no archive parts found' `
+            'git lfs pull'
+    } elseif ($pointers.Count -gt 0) {
+        Report FAIL 'toolchain archive' ('{0} Git LFS pointer(s) not downloaded' -f $pointers.Count) `
+            'git lfs pull'
+    } else {
+        $total = [int64] 0
+        foreach ($part in $parts) { $total += $part.Length }
+        Report PASS 'toolchain archive' ('{0} parts, {1:N1} GB' -f $parts.Count, ($total / 1GB))
+    }
+} elseif (Test-Path -LiteralPath $Toolchain) {
     $size = (Get-Item -LiteralPath $Toolchain).Length
     if ($size -le $PointerMaxBytes) {
         Report FAIL 'toolchain archive' ('{0} bytes - this is a Git LFS pointer' -f $size) `

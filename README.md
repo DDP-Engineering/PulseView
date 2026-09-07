@@ -124,20 +124,19 @@ Each complete release also has `SHA256SUMS` covering exactly those five
 packages. Architecture-specific READMEs and the udev file support the packages
 but are not extra package targets.
 
-> **Clone with Git LFS.** The toolchain archive and the delivery packages are
-> LFS objects. A clone without LFS gets ~130-byte pointer files instead, and the
-> failure surfaces much later as a corrupt archive. Run `git lfs pull` after
-> cloning.
+> **Clone with Git LFS.** The builder-image parts and delivery packages are LFS
+> objects. A clone without LFS gets small pointer files instead. Run `git lfs
+> pull` after cloning; the bootstrap names any part that is still a pointer.
 
 ## Build it yourself
 
 The Windows build is a cross-build: a Docker image containing an MXE
-cross-toolchain, driven from WSL. The image is shipped as a `docker save`
-tarball so no build needs to reach the network.
+cross-toolchain, driven from WSL. The image is shipped as checksum-verified
+`docker save` parts so builds that use an archived builder need no network.
 
 ```bash
-02_Tools/build/load_image.sh --image mingw
-02_Tools/build/build_windows_mxe.sh --stage
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
+bash 02_Tools/build/build_windows_mxe.sh --stage
 ```
 
 The Linux builds also target the **Raspberry Pi 4/5** (aarch64): pass
@@ -168,7 +167,7 @@ Check your machine before you start:
 
 ```bash
 02_Tools/bootstrap/check_host.ps1     # Windows, from PowerShell
-02_Tools/bootstrap/check_host.sh      # Linux or WSL
+bash 02_Tools/bootstrap/check_host.sh # Linux or WSL
 ```
 
 ## Test it

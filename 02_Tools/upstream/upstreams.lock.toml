@@ -167,6 +167,44 @@ role = "build-dependency"
 reviewed = 2026-08-17
 mirrored = false
 
+# Container bases used only when the developer accepts an online local
+# builder rebuild. Digest references make the base immutable even though the
+# human-readable release name remains Bookworm or Ubuntu 22.04. The Ubuntu
+# digest is a multi-architecture index; build_image.sh selects amd64 or arm64
+# with --platform.
+[[artifact]]
+name = "builder-base-debian-bookworm-slim"
+version = "bookworm-slim"
+url = "docker://docker.io/library/debian@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171"
+sha256 = "88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171"
+role = "container-build-base"
+reviewed = 2026-09-05
+mirrored = false
+
+# The native Linux thin tarball links against this distribution's own runtime
+# libraries, so unlike the two builder bases above this one is not only a
+# rebuild fallback - build_linux.sh launches it on every run. Pinning the
+# digest fixes the starting point; the apt transaction inside the build is
+# still resolved against the live Ubuntu archive, which is inherent to a
+# distro-linked artifact and is documented in 02_Tools/build/README.md.
+[[artifact]]
+name = "builder-base-ubuntu-24.04"
+version = "24.04"
+url = "docker://docker.io/library/ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517"
+sha256 = "33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517"
+role = "container-build-base"
+reviewed = 2026-09-06
+mirrored = false
+
+[[artifact]]
+name = "builder-base-ubuntu-22.04"
+version = "22.04"
+url = "docker://docker.io/library/ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc"
+sha256 = "2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc"
+role = "container-build-base"
+reviewed = 2026-09-05
+mirrored = false
+
 # Added 2026-08-19 for the Linux AppImage: Dockerfile.appimage and
 # build_image.sh already expected these two artifacts, but neither was ever
 # actually pinned here - `--image appimage` would have failed at

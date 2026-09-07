@@ -1,0 +1,57 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-b78addb8"
+
+title = "Require and report the Python runtime that reads pinned manifests"
+
+status = "active"
+
+requirement = """
+If the build host has no Python interpreter able to import tomllib, then the
+build-environment scripts shall stop with a message naming the required minimum
+version and an actionable remedy that cannot leave a known host on the same
+incompatible interpreter, and the Linux host check shall report that
+prerequisite as a failure rather than omitting it.
+"""
+
+verification = """
+On a host whose only interpreter is Python 3.10, run ensure_build_environment.sh
+and check_host.sh. The first must exit non-zero with a message naming the
+minimum version, not a tomllib traceback; the second must list a failed Python
+row naming the same minimum. On Ubuntu 22.04, the remedy must require moving to
+the supported Ubuntu 24.04 host rather than repeating `apt-get install python3`,
+which would retain 3.10. Repeat with a 3.11-or-newer interpreter and confirm
+both pass.
+"""
+
+affected_paths = [
+    "02_Tools/test/build_host_prereq_test.sh",
+    "02_Tools/build/python_env.sh",
+    "02_Tools/bootstrap/check_host.sh",
+    "02_Tools/bootstrap/ensure_build_environment.sh",
+    "02_Tools/build/build_image.sh",
+    "01_Documentation/Environment_Setup.md",
+]
+
+linked_tests = [
+    "02_Tools/test/build_host_prereq_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+ensure_build_environment.sh and build_image.sh both import tomllib, which is
+standard library only from Python 3.11, while Environment_Setup.md listed
+python3 as not required on the build host and check_host.sh did not check it at
+all.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

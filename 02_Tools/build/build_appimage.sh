@@ -65,7 +65,7 @@ if [ ! -x /usr/local/bin/appimagetool ]; then
     . "${SCRIPT_DIR}/arch_map.sh"
     exec "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
         --platform "${SR_DOCKER_PLATFORM}" \
-        -- /work/02_Tools/build/build_appimage.sh \
+        -- bash /work/02_Tools/build/build_appimage.sh \
         ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 fi
 

@@ -16,6 +16,76 @@ whole vendored sigrok stack.
 
 ## [Unreleased]
 
+### Added - September 2026
+
+- **Local multipart builder-image bootstrap.** The Windows/MXE and both
+  AppImage builder architectures are stored as 1 GiB Git LFS parts with a
+  small TOML manifest that pins every part, the reconstructed Docker archive,
+  and the exact image ID by SHA-256. `ensure_build_environment.sh` and its
+  PowerShell/WSL entry point validate an installed image, restore it entirely
+  from local LFS content, or offer an explicit online rebuild from the pinned
+  repository inputs. The workflow never downloads LFS content and never
+  uploads or publishes an image. `save_image_parts.sh` regenerates the local
+  multipart files when a maintainer deliberately replaces a builder. Debian
+  Bookworm and Ubuntu 22.04 bases are now digest-pinned in the upstream lock,
+  and the optional MXE rebuild uses its locked canonical HTTPS source rather
+  than the deleted Gitea mirror.
+
+### Fixed - September 2026
+
+- **Builder recipe identity now covers the choices that change the image.**
+  `builder_spec.sh` hashed the lock, the Dockerfile and two helper scripts, so
+  `--skip-patch`, `--no-sigrok-patches`, `--qt5-freeze`, `--glib-version`, a
+  build-driver edit, or an edit to an applied MXE patch could produce materially
+  different images under one `io.ddp.builder.spec` label. It now takes the same
+  options as `build_image.sh`, hashes that driver and every selected patch, and refuses
+  MXE-only options for the AppImage builder; `build_image.sh` and
+  `ensure_build_environment.sh` pass their effective options through. Existing
+  archives need no regeneration: a restored image is validated against the
+  manifest's exact `image_id`, and the shipped manifests already record an
+  empty `builder_spec`.
+- **The build host's Python prerequisite is real, checked, and documented.**
+  `ensure_build_environment.sh` and `build_image.sh` read pinned TOML with
+  `tomllib`, standard library only from CPython 3.11, while
+  `Environment_Setup.md` listed `python3` as *not* required on the build host
+  and `check_host.sh` did not check it at all - so a 3.10 host got a
+  `ModuleNotFoundError` traceback out of a heredoc. A shared
+  `02_Tools/build/python_env.sh` now selects an interpreter that can actually
+  import the module and otherwise fails with the minimum version and the
+  install command; `check_host.sh` reports it as its own row.
+- **The native Linux build no longer launches a floating tag.**
+  `build_linux.sh` ran `ubuntu:24.04`, the one build path in the release
+  coordinator with no reproducible base. It now resolves the digest-pinned
+  `builder-base-ubuntu-24.04` artifact from `upstreams.lock.toml` and stops if
+  that entry is absent. Its current apt-based implementation still needs the
+  network on every run; making it offline would require an archived builder or
+  pinned package snapshot/cache. `02_Tools/build/README.md` now states per-path
+  network requirements instead of claiming that normal builds need none.
+- **`check_host.sh` and `build_linux.sh` honour the selected container
+  engine.** Both hardcoded `docker` while every other entry point offered
+  `--engine docker|podman`, so a Podman host was told it had no engine.
+  `check_host.sh` also gained the multipart archive check that `check_host.ps1`
+  has always had, reporting missing parts and Git LFS pointer files without
+  performing the bootstrap's full checksum pass.
+- **Corrected stale build documentation.** `images/README.md` described the
+  AppImage builder as x86_64-only and documented `MXE_APPLY_SIGROK_PATCHES`,
+  which the Dockerfile replaced with `MXE_PATCHES`; `bootstrap/README.md`
+  withdrew the obsolete `clone_upstreams.py` plan, which existed to materialize
+  submodules the repository no longer has; `Environment_Setup.md` no longer
+  presents `/mnt/f/2026_PulseView` as universal and no longer claims that
+  nothing needs privileges, which was untrue of WSL and engine installation and
+  of arm64 binfmt registration. Documented invocations use `bash <path>`
+  because every tracked script has Git mode `100644` and a fresh clone cannot
+  execute them directly.
+- **Documented the preferred Windows route.** `Environment_Setup.md` now gives
+  a step-by-step Docker Engine install inside WSL2 Ubuntu, with Docker Desktop
+  as an explicit alternative rather than the assumed default.
+- **Recorded what the builder images' licence label does not cover.**
+  `07_Delivery/toolchain/README.md` states that the `GPL-3.0-or-later` OCI
+  label describes this project's own recipe, that the image is an aggregate of
+  upstream components under their own terms, and that no SBOM or third-party
+  inventory exists for them.
+
 ### Changed - September 2026
 
 - **Relicensed the software to GPL-3.0-or-later, ahead of publication.** The
@@ -51,8 +121,8 @@ whole vendored sigrok stack.
   worked around in the loader. The image is bit-identical - digest
   `sha256:9ae809d6c312484080b04a424850929ca302a2c3aab5a431d24b412a00551293`
   before and after - and only the embedded repository tag differs. The
-  delivered archive is `07_Delivery/toolchain/pulseview-builder-mingw.tar`,
-  sha256 `1893cd83f335e5f755b5eae87959fe0a2348665db41a43056ea7fbab6659384e`.
+  reconstructed multipart archive retains sha256
+  `1893cd83f335e5f755b5eae87959fe0a2348665db41a43056ea7fbab6659384e`.
   The `hantek-dso3062l` driver keeps its name - that is a device driver, not
   build infrastructure.
 

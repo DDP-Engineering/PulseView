@@ -1,0 +1,48 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-16185e9e"
+
+title = "Report builder archive availability from the Linux host check"
+
+status = "active"
+
+requirement = """
+When the Linux host check runs, it shall report whether each builder archive
+manifest has its multipart files present and non-pointer, reporting a failure
+when a manifest exists with no parts beside it, without performing the full
+checksum validation that belongs to the bootstrap.
+"""
+
+verification = """
+Run check_host.sh against a toolchain directory holding a manifest and its parts
+and confirm a passing archive row. Re-run with the parts removed and with a part
+replaced by a Git LFS pointer file, and confirm each produces a failing row
+naming the affected archive.
+"""
+
+affected_paths = [
+    "02_Tools/test/build_host_prereq_test.sh",
+    "02_Tools/bootstrap/check_host.sh",
+]
+
+linked_tests = [
+    "02_Tools/test/build_host_prereq_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+check_host.ps1 already inspected the multipart mingw archive by presence and
+size while check_host.sh had no archive check at all, so the two host checks
+disagreed about what a ready host looks like.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

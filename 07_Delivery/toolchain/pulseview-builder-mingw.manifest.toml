@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+format = "docker-archive"
+image = "mingw"
+platform = "linux/amd64"
+tag = "pulseview-builder-mingw:latest"
+image_id = "sha256:9ae809d6c312484080b04a424850929ca302a2c3aab5a431d24b412a00551293"
+builder_spec = ""
+archive = "pulseview-builder-mingw.tar"
+archive_size = 2357711360
+archive_sha256 = "1893cd83f335e5f755b5eae87959fe0a2348665db41a43056ea7fbab6659384e"
+
+[[part]]
+file = "pulseview-builder-mingw.tar.part-001"
+size = 1073741824
+sha256 = "8bb410af6bf6ce9c07e2b2146987c8754f080b792ac4b0e3063ee48b6e06fa22"
+
+[[part]]
+file = "pulseview-builder-mingw.tar.part-002"
+size = 1073741824
+sha256 = "0e7d4899d8011046d2747c778e3b8319d1cb0678ffc3df563da80c4be540ca4d"
+
+[[part]]
+file = "pulseview-builder-mingw.tar.part-003"
+size = 210227712
+sha256 = "c829a3b4e2b0b8f50aafd7e0434f71d505f7ea15e5bc73738f63ddb0acdc7f9e"

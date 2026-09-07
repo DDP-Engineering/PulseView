@@ -1,0 +1,48 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-4595eeba"
+
+title = "Pin the native Linux build container base by digest"
+
+status = "active"
+
+requirement = """
+When the native Linux build launches its container, the system shall resolve the
+base image from the immutable digest recorded in the upstream lock, and shall
+stop with an actionable message if that lock entry is absent.
+"""
+
+verification = """
+Run build_linux.sh with a lock that records the base digest and confirm the
+launched reference is the digest form, not a floating tag. Re-run against a copy
+of the lock with that artifact entry removed and confirm the script exits
+non-zero naming the missing entry before starting a container.
+"""
+
+affected_paths = [
+    "02_Tools/test/linux_builder_base_test.sh",
+    "02_Tools/build/build_linux.sh",
+    "02_Tools/upstream/upstreams.lock.toml",
+]
+
+linked_tests = [
+    "02_Tools/test/linux_builder_base_test.sh",
+]
+
+spec = ""
+
+priority = "normal"
+rationale = """
+build_linux.sh launched the mutable ubuntu:24.04 tag, so the release
+coordinator's Linux tarball had no reproducible base even though every other
+build path was digest-pinned.
+"""
+
+created = 2026-09-06
+updated = 2026-09-06

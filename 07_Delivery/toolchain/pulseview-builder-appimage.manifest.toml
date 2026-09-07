@@ -1,0 +1,23 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+format = "docker-archive"
+image = "appimage"
+platform = "linux/amd64"
+tag = "pulseview-builder-appimage:latest"
+image_id = "sha256:d0b8de004d37b31aff1b2ba0c5d28f0b8e98478cf19849bdf4601f3b5384209e"
+builder_spec = ""
+archive = "pulseview-builder-appimage.tar"
+archive_size = 438560768
+archive_sha256 = "70c8ae380a21911cad4bbedda02355b6cf1f77860aadecfc1b712b4709055c1a"
+
+[[part]]
+file = "pulseview-builder-appimage.tar.part-001"
+size = 438560768
+sha256 = "70c8ae380a21911cad4bbedda02355b6cf1f77860aadecfc1b712b4709055c1a"

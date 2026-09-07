@@ -30,10 +30,10 @@
 #
 # Run it from the host; it re-executes itself inside the builder image:
 #
-#   ./build_windows_mxe.sh                       everything
-#   ./build_windows_mxe.sh libsigrok pulseview   just those, in that order
-#   ./build_windows_mxe.sh --clean               discard the build tree first
-#   ./build_windows_mxe.sh --stage               assemble a runnable directory
+#   bash build_windows_mxe.sh                       everything
+#   bash build_windows_mxe.sh libsigrok pulseview   just those, in that order
+#   bash build_windows_mxe.sh --clean               discard the build tree first
+#   bash build_windows_mxe.sh --stage               assemble a runnable directory
 
 set -euo pipefail
 
@@ -49,7 +49,7 @@ if [ ! -d /opt/mxe ]; then
         [ "${a}" = "--offline" ] && OUTER+=(--offline)
     done
     exec "${SCRIPT_DIR}/run_in_builder.sh" --image mingw --keep-volume \
-        "${OUTER[@]}" -- /work/02_Tools/build/build_windows_mxe.sh "$@"
+        "${OUTER[@]}" -- bash /work/02_Tools/build/build_windows_mxe.sh "$@"
 fi
 
 # --------------------------------------------------------------------------
@@ -262,7 +262,7 @@ check_image_python() {
     have="$(cat "${baked}")"
     [ "${have}" = "${PY_VERSION}" ] || die \
         "builder image carries Python ${have}, this script expects ${PY_VERSION}
-  Rebuild the image: 02_Tools/build/build_image.sh --image mingw"
+  Rebuild the image: bash 02_Tools/build/build_image.sh --image mingw"
 }
 
 # --------------------------------------------------------------------------

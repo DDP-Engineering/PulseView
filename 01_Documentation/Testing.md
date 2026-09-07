@@ -70,7 +70,7 @@ passing suite`. A green suite that executed no assertion is not a green suite.
 Proves the embedded Python works and every installed decoder is visible.
 
 ```bash
-02_Tools/test/windows_python_smoke.sh [staging-dir]
+bash 02_Tools/test/windows_python_smoke.sh [staging-dir]
 ```
 
 Default staging dir: `07_Delivery/staging/pulseview-windows-x86_64`.
@@ -100,7 +100,7 @@ Proves the first-party decoder chain actually *decodes*, which the test above
 deliberately says nothing about.
 
 ```bash
-02_Tools/test/networking_stack_decode_smoke.sh [staging-dir]
+bash 02_Tools/test/networking_stack_decode_smoke.sh [staging-dir]
 ```
 
 `gen_networking_stack_captures.py` builds two real Ethernet II frames - correct

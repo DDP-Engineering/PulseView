@@ -21,8 +21,8 @@ adding the DSO3062L means recompiling libsigrok, and on Windows PulseView is
 statically linked against it, so that means recompiling PulseView too.
 
 That rebuild needs a large cross-toolchain. Putting it in a container keeps it
-off the Windows host, makes it reproducible, and reduces the offline archive to
-a single `docker save` tarball.
+off the Windows host, makes it reproducible, and lets the complete environment
+be preserved as checksum-verified `docker save` parts.
 
 ## Two stages
 
@@ -53,7 +53,13 @@ intermediate stays in `.work/`, which is ignored and safe to delete.
 ## Running it
 
 Run these **inside WSL** (`wsl -d Ubuntu-24.04`), not Git Bash - the container
-engine lives there. The repository is visible at `/mnt/f/2026_PulseView`.
+engine lives there. The repository is visible under `/mnt/<drive letter>/`;
+this project's own checkout is `/mnt/f/2026_PulseView`, and every script
+derives its own root, so nothing depends on that path.
+
+Scripts are run as `bash <path>` rather than `./<path>`: all of them are
+tracked with Git mode `100644`, so a fresh clone gets them
+non-executable.
 
 For a release, the Windows host has one owner command instead of a handwritten
 mixture of WSL and Git Bash steps:
@@ -69,45 +75,56 @@ tarball, Raspberry Pi aarch64 AppImage and arm64 Debian package. The final
 exists at the same source revision. Builder images and arm64 binfmt remain
 one-time/per-boot prerequisites; see `01_Documentation/Environment_Setup.md`.
 
-### One-time prerequisite: SSH access from WSL
+### Which builds need the network
 
-WSL has its own home directory, so SSH keys set up under Windows are not
-visible to it. `build_image.sh` clones MXE from the Gitea mirror and will stop
-with a readable error until this is done:
+| Path | Network | Why |
+|---|---|---|
+| Windows ZIP (`build_windows_mxe.sh`) | none | Cross-compiles inside the archived MXE builder; every input is baked in. |
+| AppImage, x86_64 and aarch64 (`build_appimage.sh`) | none | Same: the archived AppImage builder carries the packaging tools and runtime. |
+| Raspberry Pi `.deb` (`build_deb.sh`) | none | Repackages the verified AppImage inside the same builder. |
+| Linux thin tarball (`build_linux.sh`) | **required, every run** | It links against Ubuntu's own runtime libraries, so it installs them with `apt` at build time. The base image is digest-pinned in the lock; the apt transaction resolves against the live Ubuntu archive. |
+| Builder image rebuild (`build_image.sh`) | required | The deliberate fallback when an archive cannot be restored. |
 
-```bash
-ssh-keygen -t ed25519 -C "$(whoami)@$(hostname) hantek build"
-cat ~/.ssh/id_ed25519.pub
-```
+So "normal builds need no network" holds for the three archived-builder
+paths and not for the thin tarball. Making that one offline too would mean
+a dedicated archived Linux builder, which fixes the distribution the
+tarball links against at archive time - a delivery decision, not a
+cleanup, and one nobody has taken yet.
 
-Add that public key to Gitea under Settings -> SSH Keys. If you would rather
-not, clone MXE somewhere you already have access and pass `--mxe-src PATH`.
-Copying a private key from the Windows home directory is not recommended and
-the script does not suggest it.
+### Online rebuild source
+
+A builder-image rebuild needs the network. If the developer
+accepts a local image rebuild, `build_image.sh` clones MXE from the canonical
+HTTPS URL in `upstreams.lock.toml`, verifies the full commit pin, and stages it
+into the container context. `--mxe-src PATH` uses an existing local clone
+instead.
 
 Stage the context and print the command without building:
 
 ```bash
-./build_image.sh --image mingw --dry-run
+bash build_image.sh --image mingw --dry-run
 ```
 
 Build the Windows toolchain:
 
 ```bash
-./build_image.sh --image mingw
+bash build_image.sh --image mingw
 ```
 
 Get a shell in it:
 
 ```bash
-./run_in_builder.sh --image mingw
+bash run_in_builder.sh --image mingw
 ```
 
-Write the offline archive:
+Write checksum-verified 1 GiB Git LFS parts from the local image:
 
 ```bash
-./build_image.sh --image mingw --save 07_Delivery/toolchain/mingw-builder.tar
+bash save_image_parts.sh --image mingw
 ```
+
+This creates local files only. Committing and publishing them is a deliberate
+developer operation, not something any repository script performs.
 
 ## Two images, not one
 
@@ -123,8 +140,11 @@ floor.
 The **first** build of the mingw image downloads upstream source tarballs;
 MXE fetches Qt, Python, boost and the rest. That step needs the internet.
 
-After that, `docker save` writes the complete built environment to one
-tarball, and no later build reaches the network. The sigrok sources themselves
+After that, `save_image_parts.sh` writes the complete built environment as a
+manifest plus Git LFS-sized parts, and no later build **from an archived
+builder** reaches the network - that is the Windows ZIP, both AppImages and
+the `.deb`. The thin Linux tarball is the exception and always has been: see
+the table above. The sigrok sources themselves
 cannot expire at all: `05_Software/` holds them as plain files in this
 repository, so a clone carries every source the build needs.
 
@@ -133,9 +153,18 @@ So the accurate claim is "offline after the first toolchain build", not
 also archiving MXE's tarball cache, which the current design deliberately
 deletes to halve the image size.
 
+## Container engines
+
+Every entry point takes `--engine` and honours `BUILDER_ENGINE`, defaulting
+to `docker`. Docker is the only engine this project's builds are verified
+on - `STATUS.md` records every verification against it. Podman is accepted
+because the scripts use no Docker-only command on the build path, but no
+delivery has been produced with it, so treat it as untested rather than
+supported.
+
 ## Known sharp edges
 
-- Building from `/mnt/f` is slow: the Windows drive reaches WSL over 9p.
+- Building from a Windows drive is slow: it reaches WSL over 9p.
   `run_in_builder.sh` puts build trees in a container volume for this reason.
   Do not move them back to the mount for convenience.
 - `mxe_fixes.patch` no longer applies to the pinned MXE and is expected to be
@@ -144,7 +173,7 @@ deletes to halve the image size.
   endpoint size. So the working invocation is:
 
   ```bash
-  ./build_image.sh --image mingw --skip-patch mxe_fixes.patch
+  bash build_image.sh --image mingw --skip-patch mxe_fixes.patch
   ```
 
   `build_image.sh` checks each patch before building and refuses to start if

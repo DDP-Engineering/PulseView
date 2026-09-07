@@ -71,7 +71,7 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 # --------------------------------------------------------------------------
 
 [ -d "${STAGE}" ] || die "no staged tree at ${STAGE}
-       run: 02_Tools/build/build_windows_mxe.sh --stage"
+       run: bash 02_Tools/build/build_windows_mxe.sh --stage"
 
 for required in pulseview.exe sigrok-cli.exe share/libsigrokdecode/decoders; do
     [ -e "${STAGE}/${required}" ] || die "staged tree is incomplete: no ${required}"
