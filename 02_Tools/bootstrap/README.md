@@ -34,8 +34,8 @@ that no longer applies to this repository.
 | `create_build_workspace.py` | **Planned.** Create bounded ignored build directories | Explicit target only |
 
 Each implemented script gets the project legal header, follows
-`01_Documentation/Code_Style.md`, has focused tests, and is recorded in the
-folder's future `STATUS.md` ledger.
+`01_Documentation/Code_Style.md`, has focused tests, and is recorded in
+`02_Tools/build/STATUS.md`.
 
 ### ensure_build_environment
 

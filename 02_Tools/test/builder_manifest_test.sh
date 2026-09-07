@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-DATA-0bfdaf73, REQ-DATA-c1cbc4a8: strict schema-2 lifecycle manifests
-# retain schema-1 read compatibility and verify all referenced bytes.
+# Strict schema-2 lifecycle manifests retain schema-1 read compatibility and
+# verify all referenced bytes.
 
 set -euo pipefail
 

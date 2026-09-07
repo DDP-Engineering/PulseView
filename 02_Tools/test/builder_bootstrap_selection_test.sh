@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-REL-a6360bb2, REQ-PLAT-5d4643e0: current installed-image selection is
-# independent of archive availability and policy-only staleness revalidates.
+# Current installed-image selection is independent of archive availability,
+# and policy-only staleness revalidates.
 
 set -euo pipefail
 

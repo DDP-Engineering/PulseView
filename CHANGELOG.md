@@ -43,6 +43,13 @@ whole vendored sigrok stack.
 
 ### Fixed - September 2026
 
+- **Removed stale builder-lifecycle guidance.** Current-state documentation now
+  lists all five delivery packages and four target build scripts, routes normal
+  AppImage setup through the bootstrap, explains the temporary schema-1 option
+  in quick-start instructions, and describes the selected-input recipe
+  identity accurately. Public examples and diagnostics consistently invoke
+  mode-100644 project scripts through Bash, and lifecycle tests no longer cite
+  requirement records that are not part of the repository.
 - **Builder lifecycle operations now work from a mode-100644 clone without
   loading multi-gigabyte archives into memory.** Bootstrap, candidate update,
   and container re-entry invoke project shell scripts explicitly through Bash.

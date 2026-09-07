@@ -31,7 +31,8 @@
 
 # syntax=docker/dockerfile:1.7
 
-# Pinned by digest once the first build has recorded one; see images/README.md.
+# The supported build path replaces this readable default with the digest pin
+# selected from upstreams.lock.toml; see images/README.md.
 ARG BASE_IMAGE=debian:bookworm-slim
 
 

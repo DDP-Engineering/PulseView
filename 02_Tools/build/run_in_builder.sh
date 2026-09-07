@@ -21,8 +21,9 @@
 #
 # Without a command it drops you in an interactive shell.
 #
-#   ./run_in_builder.sh --image mingw
-#   ./run_in_builder.sh --image mingw -- bash -c 'x86_64-w64-mingw32.static.posix-gcc --version'
+#   bash 02_Tools/build/run_in_builder.sh --image mingw
+#   bash 02_Tools/build/run_in_builder.sh --image mingw -- \
+#       bash -c 'x86_64-w64-mingw32.static.posix-gcc --version'
 
 set -euo pipefail
 
@@ -103,7 +104,8 @@ command -v "${ENGINE}" >/dev/null 2>&1 \
     || die "${ENGINE} not found. Run this inside WSL, where the engine lives."
 
 "${ENGINE}" image inspect "${TAG}" >/dev/null 2>&1 \
-    || die "image ${TAG} not found. Build it first: ./build_image.sh --image ${IMAGE}"
+    || die "image ${TAG} not found. Prepare it first:
+  bash 02_Tools/bootstrap/ensure_build_environment.sh --image ${IMAGE} --platform ${SR_ARCH}"
 
 DELIVERY="${BUILDER_OUTPUT_DIR:-${REPO_ROOT}/07_Delivery}"
 case "${DELIVERY}" in

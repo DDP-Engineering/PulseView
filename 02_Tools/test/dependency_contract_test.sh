@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-DATA-1730e5fb, REQ-PLAT-de1e172d: dependency contracts are strict,
-# architecture-selected, deterministic, and the sole direct-package source.
+# Dependency contracts are strict, architecture-selected, deterministic, and
+# the sole direct-package source.
 
 set -euo pipefail
 

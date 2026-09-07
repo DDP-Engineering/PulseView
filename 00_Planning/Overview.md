@@ -40,9 +40,10 @@ Both build into a single PulseView. That is why the deliverables are named
 Alongside them, a **first-party decoder set**: six stacking decoders forming a
 100BASE-FX networking chain, bringing the total from 131 upstream to 137.
 
-And **three packaged deliverables**, all in `07_Delivery/`: a statically linked
-Windows x86_64 zip, a thin Linux x86_64 tarball, and a self-contained
-`PulseView-x86_64.AppImage`.
+And **five packaged deliverables**, all in `07_Delivery/`: a statically linked
+Windows x86_64 zip, a thin Linux x86_64 tarball, self-contained x86_64 and
+aarch64 AppImages, and an arm64 Debian package derived from the verified
+aarch64 AppImage.
 
 ## Why the whole stack is here
 
@@ -88,18 +89,21 @@ Two stages, and the distinction matters more than anything else in the build.
 Docker image containing MXE with every sigrok dependency already cross-compiled
 for Windows - gcc 11.5.0, Qt 5.15.19, glib held at 2.89.1, glibmm 2.66.2, and
 CPython 3.13.15 at `/opt/sigrok-deps`. It contains none of this project, so
-changing a driver never invalidates it. That image is saved with `docker save`
-to `07_Delivery/toolchain/` and tracked in Git LFS, which is what makes the
-build offline: MXE otherwise downloads from 117 distinct hosts, and the risk
-there is disappearance, not corruption.
+changing a driver never invalidates it. Qualified images are exported as
+checksum-bound multipart `docker save` archives under
+`07_Delivery/toolchain/` and tracked in Git LFS. Their manifests bind the exact
+image, dependency declaration, resolved inventory, validation policy, and SPDX
+SBOM. This is what makes later archived-builder builds offline: MXE otherwise
+downloads from 117 distinct hosts, and the risk there is disappearance, not
+corruption.
 
-**Stage two builds the application, in minutes, on every change.** The three
-per-target scripts each re-exec themselves into the right container and compile
-the vendored sources. The Windows path additionally embeds CPython and, at
-staging, walks the PE import table to prove the only non-system import is
-`python313.dll`. All of this runs from WSL, because the container engine lives
-there; the host-side tests run natively on Windows, because that is where the
-`.exe` can execute.
+**Stage two builds the application, in minutes, on every change.** The four
+target build scripts re-exec themselves into the appropriate container and
+compile or package the vendored sources. The Windows path additionally embeds
+CPython and, at staging, walks the PE import table to prove the only non-system
+import is `python313.dll`. All of this runs from WSL, because the container
+engine lives there; the host-side tests run natively on Windows, because that
+is where the `.exe` can execute.
 
 The AppImage has a separate builder image on Ubuntu 22.04 rather than sharing
 the Debian one. An AppImage runs on any glibc newer than the one it was built

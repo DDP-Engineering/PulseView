@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-DATA-9654b6df, REQ-DATA-c1cbc4a8: resolved inventory deterministically
-# produces an identity-bound SPDX 2.3 JSON document.
+# Resolved inventory deterministically produces an identity-bound SPDX 2.3 JSON
+# document.
 
 set -euo pipefail
 

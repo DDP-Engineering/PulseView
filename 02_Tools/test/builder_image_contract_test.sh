@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-PLAT-de1e172d, REQ-DATA-9654b6df: Docker contexts consume one selected
-# package projection and embed canonical contract plus resolved inventory.
+# Docker contexts consume one selected package projection and embed the
+# canonical contract plus resolved inventory.
 
 set -euo pipefail
 

@@ -15,11 +15,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | `Dockerfile.mingw` | Windows x86_64 executables and NSIS installer, via MXE | `debian:bookworm-slim` |
 | `Dockerfile.appimage` | Linux AppImage, x86_64 and aarch64 | `ubuntu:22.04` |
 
-Do not run `docker build` on these directly. Use `../build_image.sh`, which
-stages the context, resolves pins from `upstreams.lock.toml`, and records
-provenance. The mingw image in particular expects MXE to already be present in
-the context, checked out at the pinned commit - it will not clone it, because
-the container holds no credentials and no route to github.com.
+Do not run `docker build` on these directly. Use
+`bash 02_Tools/build/build_image.sh` from the repository, which stages the
+context, resolves pins from `upstreams.lock.toml`, and records provenance. The
+mingw image in particular expects MXE to already be present in the context,
+checked out at the pinned commit - it will not clone it, because the container
+holds no credentials and no route to github.com.
 
 ## Base image pinning
 
@@ -54,18 +55,21 @@ That split is what makes the second and every later build take minutes.
 | `APPIMAGETOOL_VERSION` | none | Required. From the lock's artifact table. |
 | `APPIMAGETOOL_SHA256` | none | Required. An unverified download is not accepted into a release toolchain. |
 
-Both are inputs to the builder recipe identity: `builder_spec.sh` hashes the
-Dockerfile, the lock, `build_image.sh`, the helper scripts, the effective
-options and the bytes of every patch selected, so two images that differ in any of them
-carry different `io.ddp.builder.spec` labels.
+The builder recipe identity covers the normalized selected dependency
+contract, only the lock fields consumed by that builder and architecture, the
+Dockerfile and image-content helper inputs, the canonical profile, effective
+options, and the bytes of every selected patch. It deliberately excludes
+unrelated lock entries and validation-only policy, so those changes do not
+force an image rebuild. Images that differ in content-bearing inputs carry
+different `io.ddp.builder.spec` labels.
 
 ## The aarch64 AppImage builder
 
 `Dockerfile.appimage` builds for `linux/arm64` as well, selected with
-`build_image.sh --image appimage --platform aarch64`. Only the lock entry
-names differ by architecture; appimagetool, linuxdeployqt and the type-2
-runtime all ship aarch64 assets. On an x86_64 host this needs qemu binfmt -
-`check_host.sh` reports whether it is registered.
+`bash 02_Tools/build/build_image.sh --image appimage --platform aarch64`.
+Only the lock entry names differ by architecture; appimagetool, linuxdeployqt
+and the type-2 runtime all ship aarch64 assets. On an x86_64 host this needs
+qemu binfmt - `check_host.sh` reports whether it is registered.
 
 ## The Ubuntu 22.04 choice
 

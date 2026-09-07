@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-REL-5b2644a3, REQ-REL-251fd83c, REQ-SEC-d869023e: canonical replacement
-# is explicit, Docker-only, serialized, exact-round-trip audited and atomic.
+# Canonical replacement is explicit, Docker-only, serialized, exact-round-trip
+# audited, and atomic.
 
 set -euo pipefail
 

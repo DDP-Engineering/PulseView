@@ -26,7 +26,7 @@ interchangeable.
 
 | Role | Where | Used for |
 |---|---|---|
-| **Build host** | WSL2 Ubuntu 24.04, or a native Linux machine | Everything that touches the container engine: the toolchain image, all three build scripts. |
+| **Build host** | WSL2 Ubuntu 24.04, or a native Linux machine | Everything that touches the container engine: builder images, the four target build scripts, and the release coordinator. |
 | **Test host** | Windows directly, via Git Bash | Running the built `sigrok-cli.exe` and `pulseview.exe`, and the host-side smoke tests. |
 
 The build scripts refuse to be useful from Git Bash - the container engine is
@@ -233,9 +233,9 @@ does not deduplicate different content generations.
 
 ## Building
 
-All three scripts re-exec themselves into the right container, so you invoke
-them from WSL and they handle the rest. They take explicit paths and do not
-care about your working directory.
+The target build scripts re-exec themselves into the right container, so you
+invoke them from WSL and they handle the rest. They take explicit paths and do
+not care about your working directory.
 
 ### Windows x86_64
 
@@ -262,8 +262,8 @@ the PE import table. The second is what keeps the "only non-system import is
 `python313.dll`" claim honest.
 
 The offline claim was tested rather than assumed:
-`./build_windows_mxe.sh --offline --clean --stage` completes with no network
-interface at all.
+`bash 02_Tools/build/build_windows_mxe.sh --offline --clean --stage` completes
+with no network interface at all.
 
 ### Linux x86_64, thin tarball
 
@@ -281,7 +281,8 @@ acceptable.
 ### Linux AppImage
 
 ```bash
-bash 02_Tools/build/build_image.sh --image appimage    # first time only
+bash 02_Tools/bootstrap/ensure_build_environment.sh \
+  --image appimage --platform amd64
 bash 02_Tools/build/build_appimage.sh
 ```
 
@@ -303,7 +304,8 @@ handlers once per boot (`check_host.sh` reports whether they are present):
 
 ```bash
 docker run --privileged --rm tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
-bash 02_Tools/build/build_image.sh --image appimage --platform aarch64   # once
+bash 02_Tools/bootstrap/ensure_build_environment.sh \
+  --image appimage --platform arm64
 bash 02_Tools/build/build_appimage.sh --arch aarch64
 bash 02_Tools/build/build_deb.sh                                         # recommended installer
 bash 02_Tools/build/build_linux.sh --arch aarch64                        # optional

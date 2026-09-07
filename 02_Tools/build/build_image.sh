@@ -16,10 +16,11 @@
 #
 # Run this inside WSL, not Git Bash: the container engine lives there.
 #
-#   ./build_image.sh --image mingw
-#   ./build_image.sh --image mingw --save 07_Delivery/toolchain/mingw.tar
-#   ./build_image.sh --image appimage --dry-run
-#   ./build_image.sh --image appimage --platform aarch64   Raspberry Pi 4/5
+#   bash 02_Tools/build/build_image.sh --image mingw
+#   bash 02_Tools/build/build_image.sh --image mingw --save 07_Delivery/toolchain/mingw.tar
+#   bash 02_Tools/build/build_image.sh --image appimage --dry-run
+#   bash 02_Tools/build/build_image.sh --image appimage --platform aarch64
+#                                                          Raspberry Pi 4/5
 #                    builder (on an x86_64 host this needs qemu binfmt -
 #                    check_host.sh reports whether it is set up)
 
@@ -238,7 +239,7 @@ if [ "${IMAGE}" = "mingw" ]; then
   upstreams.lock.toml. Restore connectivity and retry, or clone the pinned MXE
   source somewhere already reachable and point at it:
 
-         ./build_image.sh --image mingw --mxe-src /path/to/mxe
+         bash 02_Tools/build/build_image.sh --image mingw --mxe-src /path/to/mxe
 EOF
             exit 1
         fi

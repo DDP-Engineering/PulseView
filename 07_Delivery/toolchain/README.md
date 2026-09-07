@@ -16,6 +16,12 @@ sidecars remain ordinary Git content.
 
 ## Normal use
 
+The commands below are the steady-state schema-2 workflow. The archives
+currently checked in are still schema 1, so a clean host must temporarily add
+`--allow-legacy-restore` to use those exact bytes, or `--rebuild` to create a
+current image online. After all three schema-2 generations are committed, no
+migration option is needed.
+
 Run the bootstrap in WSL or on Linux:
 
 ```sh

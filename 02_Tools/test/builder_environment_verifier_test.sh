@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-REL-a6360bb2, REQ-PLAT-5d4643e0: quick and standard verification use
-# embedded metadata and policy-keyed external evidence without archive access.
+# Quick and standard verification use embedded metadata and policy-keyed
+# external evidence without archive access.
 
 set -euo pipefail
 

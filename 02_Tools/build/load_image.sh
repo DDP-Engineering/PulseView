@@ -14,8 +14,8 @@
 # every one of which is free to disappear. Loading the archive takes about a
 # minute and reaches no network at all.
 #
-#   ./load_image.sh                  load the mingw toolchain
-#   ./load_image.sh --image appimage
+#   bash 02_Tools/build/load_image.sh                  load the mingw toolchain
+#   bash 02_Tools/build/load_image.sh --image appimage
 #
 # The archive is carried by Git LFS. A clone made without LFS installed gets
 # a ~130 byte pointer file instead of a 2.2 GB tarball; this script detects

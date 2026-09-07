@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-TEST-525b91ce: every configured mandatory probe must pass; exit 77 is a
-# hard candidate failure rather than a successful skip.
+# Every configured mandatory probe must pass; exit 77 is a hard candidate
+# failure rather than a successful skip.
 
 set -euo pipefail
 

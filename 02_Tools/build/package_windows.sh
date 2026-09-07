@@ -20,7 +20,8 @@
 # here"), and 77 is not a pass, so packaging stops there rather than shipping
 # an unverified tree.
 #
-#   ./package_windows.sh [--stage DIR] [--out DIR] [--rev REV] [--skip-verify]
+#   bash 02_Tools/build/package_windows.sh \
+#       [--stage DIR] [--out DIR] [--rev REV] [--skip-verify]
 #
 # Output: 07_Delivery/pulseview-<date>-<rev>-windows-x64.zip and a .sha256,
 # matching the naming build_linux.sh uses for its tarball.

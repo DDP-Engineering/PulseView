@@ -32,16 +32,15 @@
 #
 # Run it from the host; it re-executes itself inside the builder image:
 #
-#   ./build_appimage.sh                  host-architecture AppImage
-#   ./build_appimage.sh --arch aarch64   Raspberry Pi 4/5 AppImage, in the
-#                                        arm64 builder image (on an x86_64
-#                                        host this needs qemu binfmt -
-#                                        check_host.sh reports whether it
-#                                        is set up)
+#   bash 02_Tools/build/build_appimage.sh
+#       host-architecture AppImage
+#   bash 02_Tools/build/build_appimage.sh --arch aarch64
+#       Raspberry Pi 4/5 AppImage in the arm64 builder image (on an x86_64
+#       host this needs qemu binfmt; check_host.sh reports whether it is set up)
 #
 # Architecture-dependent names come from arch_map.sh; the builder image for
-# a non-host architecture must have been built with
-# build_image.sh --image appimage --platform <arch> first.
+# a non-host architecture must first be prepared with
+# ensure_build_environment.sh --image appimage --platform <arch>.
 #
 # Output: 07_Delivery/<AppImage name from arch_map.sh>
 

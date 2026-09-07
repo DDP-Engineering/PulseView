@@ -177,13 +177,13 @@ instead.
 Stage the context and print the command without building:
 
 ```bash
-bash build_image.sh --image mingw --dry-run
+bash 02_Tools/build/build_image.sh --image mingw --dry-run
 ```
 
 Build the Windows toolchain:
 
 ```bash
-bash build_image.sh --image mingw
+bash 02_Tools/build/build_image.sh --image mingw
 ```
 
 Get a shell in it:

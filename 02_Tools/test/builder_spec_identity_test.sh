@@ -7,8 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# REQ-PLAT-e0da0179, REQ-PLAT-5d4643e0: recipe, dependency and validation
-# identities have separate boundaries and remain path-independent.
+# Recipe, dependency, and validation identities have separate boundaries and
+# remain path-independent.
 
 set -euo pipefail
 

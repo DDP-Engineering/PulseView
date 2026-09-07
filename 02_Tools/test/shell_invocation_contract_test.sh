@@ -18,6 +18,7 @@ REPO_ROOT="$(cd -- "${HERE}/../.." && pwd)"
 
 DOCS=(
     "${REPO_ROOT}/README.md"
+    "${REPO_ROOT}/00_Planning/Overview.md"
     "${REPO_ROOT}/01_Documentation/Environment_Setup.md"
     "${REPO_ROOT}/01_Documentation/Testing.md"
     "${REPO_ROOT}/02_Tools/bootstrap/README.md"
@@ -34,6 +35,29 @@ for document in "${DOCS[@]}"; do
         exit 1
     fi
 done
+
+# Public examples and diagnostics must not regress to checkout-mode-dependent
+# invocations. STATUS.md is excluded because its command column is historical
+# evidence and records commands exactly as they were run.
+STALE_TOOL_PATTERN='\./(build_image|load_image|run_in_builder|build_appimage|build_windows_mxe|build_deb|package_windows)\.sh'
+PUBLIC_SOURCES=(
+    "${REPO_ROOT}/README.md"
+    "${REPO_ROOT}/00_Planning/Overview.md"
+    "${REPO_ROOT}/01_Documentation/Environment_Setup.md"
+    "${REPO_ROOT}/02_Tools/bootstrap/README.md"
+    "${REPO_ROOT}/02_Tools/build/README.md"
+    "${REPO_ROOT}/02_Tools/build/images/README.md"
+    "${REPO_ROOT}/07_Delivery/toolchain/README.md"
+    "${REPO_ROOT}/02_Tools/build/build_image.sh"
+    "${REPO_ROOT}/02_Tools/build/load_image.sh"
+    "${REPO_ROOT}/02_Tools/build/run_in_builder.sh"
+    "${REPO_ROOT}/02_Tools/build/build_appimage.sh"
+    "${REPO_ROOT}/02_Tools/build/package_windows.sh"
+)
+if grep -nE "${STALE_TOOL_PATTERN}" "${PUBLIC_SOURCES[@]}"; then
+    echo 'FAIL: public guidance contains a checkout-mode-dependent shell invocation' >&2
+    exit 1
+fi
 
 grep -q -- '-- bash /work/02_Tools/build/build_appimage.sh' \
     "${REPO_ROOT}/02_Tools/build/build_appimage.sh" \

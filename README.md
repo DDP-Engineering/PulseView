@@ -128,6 +128,12 @@ but are not extra package targets.
 > objects. A clone without LFS gets small pointer files instead. Run `git lfs
 > pull` after cloning; the bootstrap names any part that is still a pointer.
 
+The checked-in builder archives are still the legacy schema-1 generation. On a
+clean host, append `--allow-legacy-restore` to restore those exact local bytes,
+or append `--rebuild` to create a current image online. Once the three
+schema-2 generations are committed, the unqualified command below becomes the
+complete normal restore path.
+
 ## Build it yourself
 
 The Windows build is a cross-build: a Docker image containing an MXE
@@ -141,8 +147,9 @@ bash 02_Tools/build/build_windows_mxe.sh --stage
 
 The Linux builds also target the **Raspberry Pi 4/5** (aarch64): pass
 `--arch aarch64` to `build_appimage.sh` or `build_linux.sh`, after building
-the arm64 builder image with `build_image.sh --image appimage --platform
-aarch64`. On an x86_64 host the arm64 container runs emulated - a one-time
+or restoring the arm64 builder with
+`ensure_build_environment.sh --image appimage --platform arm64`. On an x86_64
+host the arm64 container runs emulated - a one-time
 qemu binfmt install that `check_host.sh` explains. Details, including the
 glibc floor that makes the AppImage the right delivery for Raspberry Pi OS:
 [01_Documentation/Environment_Setup.md](01_Documentation/Environment_Setup.md).
