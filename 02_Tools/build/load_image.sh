@@ -32,6 +32,8 @@ ENGINE="${BUILDER_ENGINE:-docker}"
 ARCHIVE=""
 ARCHIVE_EXPLICIT=0
 FORCE=0
+ALLOW_LEGACY=0
+ALLOW_HISTORICAL=0
 
 usage() {
     cat <<'EOF'
@@ -46,6 +48,9 @@ Options:
   --archive PATH           Load this file instead of the default location.
   --engine docker|podman   Container engine. Default docker.
   --force                  Load even if an image with that tag exists.
+  --allow-legacy-restore   Explicit schema-1 migration restore.
+  --allow-historical-builder
+                           Explicit stale schema-2 verification and restore.
   -h, --help               This text.
 EOF
 }
@@ -60,6 +65,8 @@ while [ $# -gt 0 ]; do
         --archive)  ARCHIVE="${2:-}"; ARCHIVE_EXPLICIT=1; shift 2 ;;
         --engine)   ENGINE="${2:-}"; shift 2 ;;
         --force)    FORCE=1; shift ;;
+        --allow-legacy-restore) ALLOW_LEGACY=1; shift ;;
+        --allow-historical-builder) ALLOW_HISTORICAL=1; shift ;;
         -h|--help)  usage; exit 0 ;;
         *) die "unknown option: $1 (try --help)" ;;
     esac
@@ -87,12 +94,16 @@ TAG="pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
 ARCHIVE="${ARCHIVE:-${REPO_ROOT}/07_Delivery/toolchain/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.tar}"
 MANIFEST="${REPO_ROOT}/07_Delivery/toolchain/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.manifest.toml"
 
-# Multipart Git LFS archives are the current format. Keep the legacy single-
-# tar loader below for old checkouts and explicit --archive paths.
-if [ "${ARCHIVE_EXPLICIT}" -eq 0 ] && [ -f "${MANIFEST}" ]; then
+# Multipart manifests are the current format. Always delegate normal loading
+# to the shared selector, even if delivery files are absent: a current local
+# image is intentionally sufficient on its own. Keep the single-tar path below
+# only for explicit --archive compatibility.
+if [ "${ARCHIVE_EXPLICIT}" -eq 0 ]; then
     ENSURE_ARGS=(--image "${IMAGE}" --platform "${SR_ARCH}" \
         --engine "${ENGINE}" --manifest "${MANIFEST}" --no-rebuild)
     [ "${FORCE}" -eq 1 ] && ENSURE_ARGS+=(--force-restore)
+    [ "${ALLOW_LEGACY}" -eq 1 ] && ENSURE_ARGS+=(--allow-legacy-restore)
+    [ "${ALLOW_HISTORICAL}" -eq 1 ] && ENSURE_ARGS+=(--allow-historical-builder)
     exec bash "${REPO_ROOT}/02_Tools/bootstrap/ensure_build_environment.sh" \
         "${ENSURE_ARGS[@]}"
 fi

@@ -7,9 +7,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Ensure that one local builder image is usable. Restore the exact image from
-# checksum-verified Git LFS parts when possible; otherwise offer a local online
-# rebuild from the repository's pinned inputs. Nothing is uploaded or published.
+# Select a current installed builder first; only archive restore and an
+# explicitly allowed online rebuild depend on delivery files.
 
 set -euo pipefail
 
@@ -17,30 +16,36 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/02_Tools/build"
 TOOLCHAIN_DIR="${REPO_ROOT}/07_Delivery/toolchain"
-
 IMAGE="mingw"
 PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
 MANIFEST=""
 REBUILD_MODE="ask"
 FORCE_RESTORE=0
+ALLOW_LEGACY=0
+ALLOW_HISTORICAL=0
+VERIFIER_COMMAND="${BUILD_DIR}/verify_builder_environment.sh"
 
 usage() {
     cat <<'EOF'
-Ensure that a local PulseView builder image is installed and complete.
+Usage: ensure_build_environment.sh [options]
 
 Options:
   --image mingw|appimage   Builder image. Default mingw.
-  --platform ARCH          x86_64/amd64 or aarch64/arm64.
-  --engine docker|podman   Container engine. Default docker.
-  --manifest PATH          Override the normal multipart manifest.
-  --force-restore          Ignore an installed image and restore the archive.
-  --rebuild                Rebuild without prompting if restore is impossible.
+  --platform ARCH          amd64/x86_64 or arm64/aarch64. Default host.
+  --engine COMMAND         Container engine. Default docker.
+  --manifest PATH          Override the stable archive manifest.
+  --force-restore          Bypass installed-image selection.
+  --allow-legacy-restore   Explicitly restore a schema-1 archive without
+                           treating it as a current verified builder.
+  --allow-historical-builder
+                           Explicitly restore and verify a stale schema-2 image.
+  --rebuild                Rebuild online without prompting if needed.
   --no-rebuild             Never offer an online rebuild.
   -h, --help               This text.
 
-This command reads only local Git/LFS files unless an online rebuild is
-explicitly accepted. It never downloads LFS files and never publishes images.
+A valid installed current image does not require a manifest or archive parts.
+The command never fetches LFS data and never publishes images.
 EOF
 }
 
@@ -49,326 +54,208 @@ note() { printf '==> %s\n' "$*"; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --image)         IMAGE="${2:-}"; shift 2 ;;
-        --platform)      PLATFORM="${2:-}"; shift 2 ;;
-        --engine)        ENGINE="${2:-}"; shift 2 ;;
-        --manifest)      MANIFEST="${2:-}"; shift 2 ;;
+        --image) IMAGE="${2:-}"; shift 2 ;;
+        --platform) PLATFORM="${2:-}"; shift 2 ;;
+        --engine) ENGINE="${2:-}"; shift 2 ;;
+        --manifest) MANIFEST="${2:-}"; shift 2 ;;
+        --verifier-command) VERIFIER_COMMAND="${2:-}"; shift 2 ;;
         --force-restore) FORCE_RESTORE=1; shift ;;
-        --rebuild)       REBUILD_MODE="yes"; shift ;;
-        --no-rebuild)    REBUILD_MODE="no"; shift ;;
-        -h|--help)       usage; exit 0 ;;
-        *)               die "unknown option: $1" ;;
+        --allow-legacy-restore) ALLOW_LEGACY=1; shift ;;
+        --allow-historical-builder) ALLOW_HISTORICAL=1; shift ;;
+        --rebuild) REBUILD_MODE=yes; shift ;;
+        --no-rebuild) REBUILD_MODE=no; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "unknown option: $1" ;;
     esac
 done
-
-case "${IMAGE}" in
-    mingw|appimage) ;;
-    *) die "--image must be mingw or appimage" ;;
-esac
+case "${IMAGE}" in mingw|appimage) ;; *) die "--image must be mingw or appimage" ;; esac
+command -v "${ENGINE}" >/dev/null 2>&1 || die "container engine not found: ${ENGINE}"
+if [ ! -f "${VERIFIER_COMMAND}" ] || [ ! -r "${VERIFIER_COMMAND}" ]; then
+    die "verifier command not found or unreadable: ${VERIFIER_COMMAND}"
+fi
 
 ARCH_OVERRIDE="${PLATFORM#linux/}"
 [ -n "${ARCH_OVERRIDE}" ] || ARCH_OVERRIDE="$(uname -m)"
 # shellcheck source=../build/arch_map.sh
 . "${BUILD_DIR}/arch_map.sh"
-if [ "${IMAGE}" = "mingw" ] && [ "${SR_ARCH}" != "x86_64" ]; then
-    die "the mingw builder is available only for x86_64 hosts"
+if [ "${IMAGE}" = mingw ] && [ "${SR_ARCH}" != x86_64 ]; then
+    die "the MinGW builder is available only for x86_64"
 fi
+ARCH=amd64; [ "${SR_ARCH}" = x86_64 ] || ARCH=arm64
+SUFFIX=""; [ "${ARCH}" = amd64 ] || SUFFIX=-arm64
+TAG="pulseview-builder-${IMAGE}${SUFFIX}:latest"
+MANIFEST="${MANIFEST:-${TOOLCHAIN_DIR}/pulseview-builder-${IMAGE}${SUFFIX}.manifest.toml}"
+RECORD_ROOT="${REPO_ROOT}/.work/builder-validation"
+mkdir -p "${REPO_ROOT}/.work/bootstrap" "${RECORD_ROOT}"
 
-# mxe_fixes.patch fails every hunk against the pinned MXE and is excluded from
-# the rebuild (02_Tools/build/STATUS.md records the deviation). It is named
-# once here because validate_installed and rebuild_image have to agree: a
-# recipe identity computed with different options would reject the very image
-# this script had just rebuilt correctly.
-MINGW_PATCH_SKIPS=(mxe_fixes.patch)
-
-TAG_ARCH_SUFFIX=""
-[ "${SR_ARCH}" = "x86_64" ] || TAG_ARCH_SUFFIX="-arm64"
-
-SPEC_ARGS=(--image "${IMAGE}" --platform "${SR_ARCH}")
-if [ "${IMAGE}" = "mingw" ]; then
-    for skipped_patch in "${MINGW_PATCH_SKIPS[@]}"; do
-        SPEC_ARGS+=(--skip-patch "${skipped_patch}")
-    done
-fi
-DEFAULT_TAG="pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}:latest"
-MANIFEST="${MANIFEST:-${TOOLCHAIN_DIR}/pulseview-builder-${IMAGE}${TAG_ARCH_SUFFIX}.manifest.toml}"
-EXPECTED_ARCH="${SR_DOCKER_PLATFORM#linux/}"
-
-command -v "${ENGINE}" >/dev/null 2>&1 || die "${ENGINE} not found"
-
-# The manifest is TOML and is read with tomllib, so "python3 exists" is not
-# the prerequisite - "python3 can import tomllib" is. python_env.sh says which
-# and explains the remedy when none can.
 # shellcheck source=../build/python_env.sh
 . "${BUILD_DIR}/python_env.sh"
 sr_require_python || exit 1
 PY="${SR_PYTHON}"
+RECIPE_SPEC="$(bash "${BUILD_DIR}/builder_spec.sh" --image "${IMAGE}" \
+    --platform "${ARCH}" --kind recipe)"
+CONTRACT_SPEC="$(bash "${BUILD_DIR}/builder_spec.sh" --image "${IMAGE}" \
+    --platform "${ARCH}" --kind contract)"
+POLICY_SPEC="$(bash "${BUILD_DIR}/builder_spec.sh" --image "${IMAGE}" \
+    --platform "${ARCH}" --kind validation)"
 
-manifest_value() {
-    "${PY}" - "${MANIFEST}" "$1" <<'PYEOF'
-import sys
-import tomllib
-
-sys.stdout.reconfigure(newline="\n")
-with open(sys.argv[1], "rb") as stream:
-    data = tomllib.load(stream)
-value = data.get(sys.argv[2])
-if value is None:
-    raise SystemExit(f"manifest has no {sys.argv[2]!r} field")
-print(value)
-PYEOF
-}
-
-manifest_parts() {
-    "${PY}" - "${MANIFEST}" <<'PYEOF'
-import sys
-import tomllib
-
-sys.stdout.reconfigure(newline="\n")
-with open(sys.argv[1], "rb") as stream:
-    data = tomllib.load(stream)
-parts = data.get("part", [])
-if not parts:
-    raise SystemExit("manifest contains no archive parts")
-for part in parts:
-    print(f"{part['file']}\t{part['size']}\t{part['sha256']}")
-PYEOF
-}
-
-health_command() {
-    case "${IMAGE}" in
-        mingw)
-            printf '%s' 'test -x /opt/mxe/usr/bin/x86_64-w64-mingw32.static.posix-gcc && test -f /opt/sigrok-deps/python-3.13.15-embed-amd64.zip && doxygen --version >/dev/null'
-            ;;
-        appimage)
-            printf '%s' 'command -v cmake >/dev/null && command -v appimagetool >/dev/null && command -v linuxdeployqt >/dev/null && test -r /usr/local/lib/appimage/runtime'
-            ;;
-    esac
-}
-
-validate_installed() {
-    local tag="$1" expected_id="${2:-}" details image_id architecture image_spec current_spec
-    local exact_archive=0 native_arch
+verify_current() {
+    local details actual_arch actual_image actual_recipe actual_contract output
     details="$("${ENGINE}" image inspect --format '{{.Id}}|{{.Architecture}}' \
-        "${tag}" 2>/dev/null)" || return 1
-    image_id="${details%%|*}"
-    architecture="${details#*|}"
-    [ "${architecture}" = "${EXPECTED_ARCH}" ] || {
-        printf 'warning: %s has architecture %s, expected %s\n' \
-            "${tag}" "${architecture}" "${EXPECTED_ARCH}" >&2
-        return 1
-    }
+        "${TAG}" 2>/dev/null)" || return 1
+    actual_arch="${details#*|}"
+    [ "${actual_arch}" = "${ARCH}" ] || {
+        printf 'warning: installed builder architecture mismatch: %s != %s\n' \
+            "${actual_arch}" "${ARCH}" >&2; return 1; }
+    actual_image="$("${ENGINE}" image inspect \
+        --format '{{index .Config.Labels "io.ddp.builder.image"}}' "${TAG}" 2>/dev/null || true)"
+    actual_recipe="$("${ENGINE}" image inspect \
+        --format '{{index .Config.Labels "io.ddp.builder.recipe-spec"}}' "${TAG}" 2>/dev/null || true)"
+    actual_contract="$("${ENGINE}" image inspect \
+        --format '{{index .Config.Labels "io.ddp.builder.dependency-contract-spec"}}' "${TAG}" 2>/dev/null || true)"
+    [ "${actual_image}" = "${IMAGE}" ] || {
+        printf 'warning: installed builder type mismatch\n' >&2; return 1; }
+    [ "${actual_recipe}" = "${RECIPE_SPEC}" ] || {
+        printf 'warning: installed builder recipe mismatch\n' >&2; return 1; }
+    [ "${actual_contract}" = "${CONTRACT_SPEC}" ] || {
+        printf 'warning: installed dependency contract mismatch\n' >&2; return 1; }
 
-    current_spec="$(bash "${BUILD_DIR}/builder_spec.sh" "${SPEC_ARGS[@]}")"
-    image_spec="$("${ENGINE}" image inspect \
-        --format '{{index .Config.Labels "io.ddp.builder.spec"}}' \
-        "${tag}" 2>/dev/null || true)"
-    if [ -n "${expected_id}" ] && [ "${image_id}" = "${expected_id}" ]; then
-        exact_archive=1
-    elif [ -n "${image_spec}" ] && [ "${image_spec}" = "${current_spec}" ]; then
-        :
-    else
-        printf 'warning: %s does not match the archived image or current builder recipe\n' \
-            "${tag}" >&2
-        return 1
-    fi
-
-    if ! "${ENGINE}" run --rm --network none --platform "${SR_DOCKER_PLATFORM}" \
-        "${tag}" sh -ec "$(health_command)" >/dev/null 2>&1; then
-        case "$(uname -m)" in
-            x86_64|amd64) native_arch="amd64" ;;
-            aarch64|arm64) native_arch="arm64" ;;
-            *) native_arch="unknown" ;;
-        esac
-        if [ "${exact_archive}" -eq 1 ] && [ "${architecture}" != "${native_arch}" ]; then
-            note "${tag} identity verified; runtime health check needs ${architecture} execution support"
-        else
-            printf 'warning: %s failed its offline health check\n' "${tag}" >&2
-            return 1
-        fi
-    fi
-    return 0
-}
-
-verify_manifest_identity() {
-    local schema manifest_image manifest_platform manifest_tag
-    local manifest_format
-    schema="$(manifest_value schema 2>/dev/null)" || {
-        printf 'invalid archive manifest: %s\n' "${MANIFEST}" >&2
-        return 1
-    }
-    manifest_format="$(manifest_value format 2>/dev/null)" || return 1
-    manifest_image="$(manifest_value image 2>/dev/null)" || return 1
-    manifest_platform="$(manifest_value platform 2>/dev/null)" || return 1
-    manifest_tag="$(manifest_value tag 2>/dev/null)" || return 1
-    [ "${schema}" = "1" ] || {
-        printf 'unsupported manifest schema %s\n' "${schema}" >&2
-        return 1
-    }
-    [ "${manifest_format}" = "docker-archive" ] || {
-        printf 'only docker-archive manifests are supported\n' >&2
-        return 1
-    }
-    [ "${manifest_image}" = "${IMAGE}" ] || {
-        printf 'manifest image is %s, expected %s\n' \
-            "${manifest_image}" "${IMAGE}" >&2
-        return 1
-    }
-    [ "${manifest_platform}" = "${SR_DOCKER_PLATFORM}" ] || {
-        printf 'manifest platform is %s, expected %s\n' \
-            "${manifest_platform}" "${SR_DOCKER_PLATFORM}" >&2
-        return 1
-    }
-    [ "${manifest_tag}" = "${DEFAULT_TAG}" ] || {
-        printf 'manifest tag is %s, expected %s\n' \
-            "${manifest_tag}" "${DEFAULT_TAG}" >&2
-        return 1
-    }
-}
-
-restore_archive() {
-    local archive_name archive_sha archive_size archive_path part_file part_size part_sha
-    local actual_size actual_sha part_path
-
-    [ -f "${MANIFEST}" ] || {
-        printf 'archive manifest not found: %s\n' "${MANIFEST}" >&2
-        return 1
-    }
-    verify_manifest_identity || return 1
-    archive_name="$(manifest_value archive 2>/dev/null)" || return 1
-    archive_sha="$(manifest_value archive_sha256 2>/dev/null)" || return 1
-    archive_size="$(manifest_value archive_size 2>/dev/null)" || return 1
-    case "${archive_name}" in
-        */*|*\\*|''|.|..)
-            printf 'unsafe archive name in manifest: %s\n' "${archive_name}" >&2
-            return 1
-            ;;
-    esac
-
-    mkdir -p "${REPO_ROOT}/.work/bootstrap"
-    archive_path="${REPO_ROOT}/.work/bootstrap/${archive_name}"
-    rm -f -- "${archive_path}"
-
-    note "verifying Git LFS archive parts"
-    while IFS=$'\t' read -r part_file part_size part_sha; do
-        case "${part_file}" in
-            */*|*\\*|''|.|..)
-                printf 'unsafe part name in manifest: %s\n' "${part_file}" >&2
-                rm -f -- "${archive_path}"
-                return 1
-                ;;
-        esac
-        part_path="$(dirname -- "${MANIFEST}")/${part_file}"
-        if [ ! -f "${part_path}" ]; then
-            printf 'missing archive part: %s\n' "${part_path}" >&2
-            rm -f -- "${archive_path}"
-            return 1
-        fi
-        actual_size="$(wc -c < "${part_path}" | tr -d ' ')"
-        if [ "${actual_size}" -lt 1024 ] \
-           && head -1 "${part_path}" | grep -q '^version https://git-lfs'; then
-            printf '%s is a Git LFS pointer, not downloaded content\n' "${part_path}" >&2
-            printf 'run git lfs pull, then retry\n' >&2
-            rm -f -- "${archive_path}"
-            return 1
-        fi
-        [ "${actual_size}" = "${part_size}" ] || {
-            printf 'size mismatch for %s: got %s, expected %s\n' \
-                "${part_file}" "${actual_size}" "${part_size}" >&2
-            rm -f -- "${archive_path}"
-            return 1
-        }
-        actual_sha="$(sha256sum "${part_path}" | cut -d' ' -f1)"
-        [ "${actual_sha}" = "${part_sha}" ] || {
-            printf 'checksum mismatch for %s\n' "${part_file}" >&2
-            rm -f -- "${archive_path}"
-            return 1
-        }
-        cat -- "${part_path}" >> "${archive_path}"
-    done < <(manifest_parts)
-
-    actual_size="$(wc -c < "${archive_path}" | tr -d ' ')"
-    actual_sha="$(sha256sum "${archive_path}" | cut -d' ' -f1)"
-    [ "${actual_size}" = "${archive_size}" ] || {
-        rm -f -- "${archive_path}"
-        printf 'reconstructed archive size mismatch\n' >&2
-        return 1
-    }
-    [ "${actual_sha}" = "${archive_sha}" ] || {
-        rm -f -- "${archive_path}"
-        printf 'reconstructed archive checksum mismatch\n' >&2
-        return 1
-    }
-
-    note "loading verified archive"
-    "${ENGINE}" load --input "${archive_path}"
-    rm -f -- "${archive_path}"
-
-    if validate_installed "${DEFAULT_TAG}" "$(manifest_value image_id)"; then
-        note "${DEFAULT_TAG} restored and verified"
+    if output="$(bash "${VERIFIER_COMMAND}" --image "${IMAGE}" --platform "${ARCH}" \
+        --tag "${TAG}" --engine "${ENGINE}" --level quick \
+        --expected-recipe "${RECIPE_SPEC}" --expected-contract "${CONTRACT_SPEC}" \
+        --validation-policy-spec "${POLICY_SPEC}" --record-root "${RECORD_ROOT}" 2>&1)"; then
         return 0
     fi
-    printf 'loaded image failed identity or health validation\n' >&2
+    if printf '%s\n' "${output}" | grep -qi 'revalidation required'; then
+        note "validation policy changed; revalidating installed image"
+        bash "${VERIFIER_COMMAND}" --image "${IMAGE}" --platform "${ARCH}" \
+            --tag "${TAG}" --engine "${ENGINE}" --level standard \
+            --expected-recipe "${RECIPE_SPEC}" --expected-contract "${CONTRACT_SPEC}" \
+            --validation-policy-spec "${POLICY_SPEC}" --record-root "${RECORD_ROOT}"
+        return $?
+    fi
+    printf '%s\n' "${output}" >&2
+    printf 'warning: installed builder quick verification failed\n' >&2
     return 1
 }
 
-rebuild_image() {
-    local args
-    args=(--image "${IMAGE}" --engine "${ENGINE}")
-    if [ "${IMAGE}" = "mingw" ]; then
-        for skipped_patch in "${MINGW_PATCH_SKIPS[@]}"; do
-            args+=(--skip-patch "${skipped_patch}")
-        done
-    else
-        args+=(--platform "${SR_ARCH}")
-    fi
-    note "building ${DEFAULT_TAG} locally from pinned online inputs"
-    bash "${BUILD_DIR}/build_image.sh" "${args[@]}"
-    validate_installed "${DEFAULT_TAG}" "" \
-        || die "locally rebuilt image failed identity or health validation"
-    note "${DEFAULT_TAG} rebuilt and verified"
-}
-
-offer_rebuild() {
-    local answer
+rebuild_allowed() {
     case "${REBUILD_MODE}" in
-        yes) rebuild_image; return ;;
-        no)
-            printf 'online rebuild disabled; no usable builder image is available\n' >&2
-            return 1
-            ;;
+        yes) return 0 ;;
+        no) return 1 ;;
     esac
-
-    printf '\nThe local archive could not restore %s.\n' "${DEFAULT_TAG}" >&2
-    printf 'Run git lfs pull and retry, or build it locally from pinned online inputs.\n' >&2
-    if [ ! -t 0 ]; then
-        printf 'Non-interactive session: rerun with --rebuild to accept the online build.\n' >&2
-        return 1
-    fi
-    read -r -p 'Build the image locally now? [y/N] ' answer
-    case "${answer}" in
-        y|Y|yes|YES) rebuild_image ;;
-        *) return 1 ;;
-    esac
+    [ -t 0 ] || return 1
+    printf 'Rebuild %s online from pinned inputs? [y/N] ' "${IMAGE}" >&2
+    read -r answer
+    [ "${answer}" = y ] || [ "${answer}" = Y ]
 }
 
-EXPECTED_IMAGE_ID=""
-if [ -f "${MANIFEST}" ]; then
-    if verify_manifest_identity; then
-        EXPECTED_IMAGE_ID="$(manifest_value image_id 2>/dev/null || true)"
+rebuild_image() {
+    note "building current ${IMAGE} image from pinned inputs"
+    bash "${BUILD_DIR}/build_image.sh" --image "${IMAGE}" --platform "${ARCH}" \
+        --engine "${ENGINE}" --tag "${TAG}"
+    bash "${VERIFIER_COMMAND}" --image "${IMAGE}" --platform "${ARCH}" \
+        --tag "${TAG}" --engine "${ENGINE}" --level standard \
+        --expected-recipe "${RECIPE_SPEC}" --expected-contract "${CONTRACT_SPEC}" \
+        --validation-policy-spec "${POLICY_SPEC}" --record-root "${RECORD_ROOT}"
+}
+
+if [ "${FORCE_RESTORE}" -eq 0 ] && verify_current; then
+    note "installed builder is current and verified: ${TAG}"
+    exit 0
+fi
+
+RESTORE_ERROR=""
+if [ ! -f "${MANIFEST}" ]; then
+    RESTORE_ERROR="archive manifest is unavailable: ${MANIFEST}"
+else
+    NORMALIZED_MANIFEST="${REPO_ROOT}/.work/bootstrap/${IMAGE}${SUFFIX}.manifest.json"
+    ARCHIVE="${REPO_ROOT}/.work/bootstrap/${IMAGE}${SUFFIX}.restore.tar"
+    rm -f -- "${NORMALIZED_MANIFEST}" "${ARCHIVE}"
+    if ! "${PY}" "${BUILD_DIR}/builder_manifest.py" read --manifest "${MANIFEST}" \
+        --format json --output "${NORMALIZED_MANIFEST}" 2>"${NORMALIZED_MANIFEST}.err"; then
+        RESTORE_ERROR="invalid archive manifest: $(tr '\n' ' ' <"${NORMALIZED_MANIFEST}.err")"
+    else
+        readarray -t META < <("${PY}" - "${NORMALIZED_MANIFEST}" <<'PYEOF'
+import json, pathlib, sys
+sys.stdout.reconfigure(newline="\n")
+m=json.loads(pathlib.Path(sys.argv[1]).read_text())
+print(m["schema"]); print(m["image"]); print(m["architecture"])
+print(m["image_id"]); print(m["install_tag"])
+print(m["builder_recipe_spec"] or ""); print(m["dependency_contract_spec"] or "")
+print(m["validation_policy_spec"] or "")
+PYEOF
+)
+        if [ "${META[1]}" != "${IMAGE}" ] || [ "${META[2]}" != "${ARCH}" ]; then
+            RESTORE_ERROR="archive manifest image/platform mismatch"
+        elif [ "${META[0]}" = 1 ] && [ "${ALLOW_LEGACY}" -ne 1 ]; then
+            RESTORE_ERROR="schema-1 archive requires --allow-legacy-restore and cannot be selected as current"
+        elif ! "${PY}" "${BUILD_DIR}/builder_manifest.py" verify \
+            --manifest "${MANIFEST}" --mode archive \
+            --reconstructed-output "${ARCHIVE}" 2>"${NORMALIZED_MANIFEST}.err"; then
+            RESTORE_ERROR="archive verification failed: $(tr '\n' ' ' <"${NORMALIZED_MANIFEST}.err")"
+        elif ! "${ENGINE}" load --input "${ARCHIVE}" >/dev/null; then
+            RESTORE_ERROR="container engine could not load verified archive"
+        else
+            rm -f -- "${ARCHIVE}"
+            LOADED_DETAILS="$("${ENGINE}" image inspect --format '{{.Id}}|{{.Architecture}}' \
+                "${META[3]}" 2>/dev/null || true)"
+            if [ "${LOADED_DETAILS}" != "${META[3]}|${ARCH}" ]; then
+                RESTORE_ERROR="loaded archive image ID or architecture does not match manifest"
+            fi
+            if [ -n "${RESTORE_ERROR}" ]; then
+                :
+            elif [ "${META[0]}" = 1 ]; then
+                if "${ENGINE}" tag "${META[3]}" "${TAG}" >/dev/null 2>&1; then
+                    note "legacy archive restored by explicit request: ${TAG}"
+                    rm -f -- "${NORMALIZED_MANIFEST}" "${NORMALIZED_MANIFEST}.err"
+                    exit 0
+                fi
+                RESTORE_ERROR="container engine could not tag the verified legacy image"
+            elif { [ "${META[5]}" != "${RECIPE_SPEC}" ] \
+                || [ "${META[6]}" != "${CONTRACT_SPEC}" ]; } \
+                && [ "${ALLOW_HISTORICAL}" -eq 1 ]; then
+                printf 'WARNING: HISTORICAL BUILDER: %s is not the current repository recipe.\n' \
+                    "${META[3]}" >&2
+                if bash "${VERIFIER_COMMAND}" --image "${IMAGE}" --platform "${ARCH}" \
+                    --tag "${META[3]}" --engine "${ENGINE}" --level standard \
+                    --validation-policy-spec "${META[7]}" \
+                    --record-root "${RECORD_ROOT}/historical"; then
+                    if "${ENGINE}" tag "${META[3]}" "${TAG}" >/dev/null 2>&1; then
+                        note "explicit historical builder verified: ${TAG}"
+                        rm -f -- "${NORMALIZED_MANIFEST}" "${NORMALIZED_MANIFEST}.err"
+                        exit 0
+                    fi
+                    RESTORE_ERROR="container engine could not tag the verified historical image"
+                else
+                    RESTORE_ERROR="historical archive failed embedded contract verification"
+                fi
+            elif [ "${META[5]}" != "${RECIPE_SPEC}" ] \
+                || [ "${META[6]}" != "${CONTRACT_SPEC}" ]; then
+                RESTORE_ERROR="restored archive identities are stale; use --allow-historical-builder for explicit historical verification"
+            elif bash "${VERIFIER_COMMAND}" --image "${IMAGE}" --platform "${ARCH}" \
+                --tag "${META[3]}" --engine "${ENGINE}" --level standard \
+                --expected-recipe "${RECIPE_SPEC}" --expected-contract "${CONTRACT_SPEC}" \
+                --validation-policy-spec "${POLICY_SPEC}" --record-root "${RECORD_ROOT}"; then
+                if "${ENGINE}" tag "${META[3]}" "${TAG}" >/dev/null 2>&1; then
+                    note "verified archive restored: ${TAG}"
+                    rm -f -- "${NORMALIZED_MANIFEST}" "${NORMALIZED_MANIFEST}.err"
+                    exit 0
+                fi
+                RESTORE_ERROR="container engine could not tag the verified current image"
+            else
+                RESTORE_ERROR="restored archive failed current contract verification"
+            fi
+        fi
     fi
+    rm -f -- "${ARCHIVE}" "${NORMALIZED_MANIFEST}" "${NORMALIZED_MANIFEST}.err"
 fi
 
-if [ "${FORCE_RESTORE}" -eq 0 ] \
-   && validate_installed "${DEFAULT_TAG}" "${EXPECTED_IMAGE_ID}"; then
-    note "${DEFAULT_TAG} is already installed and verified"
+printf 'warning: %s\n' "${RESTORE_ERROR}" >&2
+if rebuild_allowed; then
+    rebuild_image
     exit 0
 fi
-
-if restore_archive; then
-    exit 0
-fi
-
-offer_rebuild
+die "online rebuild disabled or not accepted; no current verified builder is available"
 
 # END OF FILE

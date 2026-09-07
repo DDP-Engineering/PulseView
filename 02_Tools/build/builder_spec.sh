@@ -7,23 +7,9 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Compute the content identity of one builder recipe. The value deliberately
-# excludes generated build contexts and host-specific values such as UID/GID.
-#
-# Identity covers everything that changes the resulting image: the pinned
-# inputs, the Dockerfile and its helpers, and - because these are real build
-# choices, not conveniences - the patch selection, the Qt5 freeze, the held
-# glib version, and the bytes of every patch that will actually be applied.
-# Two recipes that would produce materially different images must never share
-# one io.ddp.builder.spec label.
-#
-# Patches are identified by content, never by where they were read from, so
-# --patch-dir selects a different copy without changing the identity of an
-# unchanged one. The selection is the *requested* one - candidates minus
-# skips - rather than the verified-applied one: this must stay computable
-# without an MXE clone, and build_image.sh already refuses to build when a
-# requested patch does not apply, so the two coincide in every build that
-# completes.
+# Compatibility shell entry point for separated builder lifecycle identities.
+# Recipe identity covers selected image-content inputs. Contract and validation
+# policy have independent identities and can be requested explicitly.
 
 set -euo pipefail
 
@@ -31,38 +17,53 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 LOCK="${REPO_ROOT}/02_Tools/upstream/upstreams.lock.toml"
 IMAGES_DIR="${SCRIPT_DIR}/images"
-DEFAULT_PATCH_DIR="${REPO_ROOT}/05_Software/sigrok-util/cross-compile/mingw"
-
-# The candidate MXE patches, in the order build_image.sh considers them.
-MXE_PATCH_CANDIDATES="mxe_fixes.patch libusb1_upgrade.patch"
+PATCH_DIR="${REPO_ROOT}/05_Software/sigrok-util/cross-compile/mingw"
+HELPERS_DIR="${IMAGES_DIR}"
+POLICY="${IMAGES_DIR}/validation_policy.toml"
+VERIFIER="${SCRIPT_DIR}/verify_builder_environment.sh"
+TESTS_DIR="${REPO_ROOT}/02_Tools/test"
 
 IMAGE=""
 PLATFORM=""
-PATCH_DIR="${DEFAULT_PATCH_DIR}"
-BUILD_DRIVER="${SCRIPT_DIR}/build_image.sh"
+CONTRACT=""
+PROFILE=""
+DOCKERFILE=""
+KIND="recipe"
+FORMAT="text"
 QT5_FREEZE=0
 GLIB_VERSION=""
-SKIP_PATCHES=""
+NO_PATCHES=0
+SKIP_PATCHES=()
+BUILD_DRIVER=""
 
 usage() {
     cat <<'EOF'
 Usage: builder_spec.sh --image mingw|appimage [options]
 
-Print the SHA-256 identity of the inputs and options that define a builder.
+Print a separated builder lifecycle identity.
 
 Options:
-  --image mingw|appimage   Which builder.                        (required)
+  --image mingw|appimage   Builder type. Required.
   --platform ARCH          x86_64/amd64 or aarch64/arm64. Default: host.
-  --qt5-freeze             Identity of a Qt 5.7 freeze build.       (mingw)
-  --glib-version V         Identity of a build holding glib at V.   (mingw)
-  --skip-patch NAME        Exclude one MXE patch. Repeatable.       (mingw)
-  --no-sigrok-patches      Exclude all of them.                     (mingw)
-  --patch-dir PATH         Read the MXE patches from here instead.  (mingw)
-  --build-driver PATH      Read the context/build orchestrator from here.
+  --kind KIND              recipe, contract, validation, or all. Default recipe.
+  --format text|json       Output form. Default text; all always emits JSON.
+  --contract PATH          Dependency contract override.
+  --profile PATH           Canonical MinGW profile override.
+  --lock PATH              Upstream lock override.
+  --dockerfile PATH        Selected Dockerfile override.
+  --helpers-dir PATH       Builder helper directory override.
+  --patch-dir PATH         Selected patch directory override.
+  --policy PATH            Validation policy override.
+  --verifier PATH          Verifier override for policy identity tests.
+  --tests-dir PATH         Mandatory test directory override.
+  --qt5-freeze             Effective experimental MinGW recipe option.
+  --glib-version V         Effective experimental MinGW glib hold.
+  --skip-patch NAME        Exclude a selected MinGW patch. Repeatable.
+  --no-sigrok-patches      Exclude all selected MinGW patches.
+  --build-driver PATH      Deprecated compatibility option; not identity input.
   -h, --help               This text.
 
-The mingw options must match the ones build_image.sh was or will be given;
-build_image.sh passes its own effective values through.
+The default remains one recipe SHA-256 on standard output.
 EOF
 }
 
@@ -72,12 +73,22 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --image)             IMAGE="${2:-}"; shift 2 ;;
         --platform)          PLATFORM="${2:-}"; shift 2 ;;
+        --kind)              KIND="${2:-}"; shift 2 ;;
+        --format)            FORMAT="${2:-}"; shift 2 ;;
+        --contract)          CONTRACT="${2:-}"; shift 2 ;;
+        --profile)           PROFILE="${2:-}"; shift 2 ;;
+        --lock)              LOCK="${2:-}"; shift 2 ;;
+        --dockerfile)        DOCKERFILE="${2:-}"; shift 2 ;;
+        --helpers-dir)       HELPERS_DIR="${2:-}"; shift 2 ;;
         --patch-dir)         PATCH_DIR="${2:-}"; shift 2 ;;
+        --policy)            POLICY="${2:-}"; shift 2 ;;
+        --verifier)          VERIFIER="${2:-}"; shift 2 ;;
+        --tests-dir)         TESTS_DIR="${2:-}"; shift 2 ;;
         --build-driver)      BUILD_DRIVER="${2:-}"; shift 2 ;;
         --glib-version)      GLIB_VERSION="${2:-}"; shift 2 ;;
         --qt5-freeze)        QT5_FREEZE=1; shift ;;
-        --skip-patch)        SKIP_PATCHES="${SKIP_PATCHES} ${2:-}"; shift 2 ;;
-        --no-sigrok-patches) SKIP_PATCHES="${MXE_PATCH_CANDIDATES}"; shift ;;
+        --skip-patch)        SKIP_PATCHES+=("${2:-}"); shift 2 ;;
+        --no-sigrok-patches) NO_PATCHES=1; shift ;;
         -h|--help)           usage; exit 0 ;;
         *)                   die "unknown option: $1" ;;
     esac
@@ -87,88 +98,58 @@ case "${IMAGE}" in
     mingw|appimage) ;;
     *) die "--image must be mingw or appimage" ;;
 esac
+case "${KIND}" in
+    recipe|contract|validation|all) ;;
+    *) die "--kind must be recipe, contract, validation, or all" ;;
+esac
+case "${FORMAT}" in
+    text|json) ;;
+    *) die "--format must be text or json" ;;
+esac
 
-# Options that describe an MXE build say nothing about the AppImage builder.
-# Accepting them silently would let two different invocations claim one
-# identity for the same image, which is the failure this script exists to
-# prevent.
-if [ "${IMAGE}" = "appimage" ]; then
+PLATFORM="${PLATFORM:-$(uname -m)}"
+CONTRACT="${CONTRACT:-${IMAGES_DIR}/dependencies.${IMAGE}.toml}"
+DOCKERFILE="${DOCKERFILE:-${IMAGES_DIR}/Dockerfile.${IMAGE}}"
+
+if [ "${IMAGE}" = "mingw" ]; then
+    PROFILE="${PROFILE:-${IMAGES_DIR}/builder_profile.mingw.toml}"
+else
+    [ -z "${PROFILE}" ] || die "--profile applies only to the mingw builder"
     [ "${QT5_FREEZE}" -eq 0 ] || die "--qt5-freeze applies only to the mingw builder"
     [ -z "${GLIB_VERSION}" ] || die "--glib-version applies only to the mingw builder"
-    [ -z "${SKIP_PATCHES# }" ] || die "MXE patch options apply only to the mingw builder"
+    [ "${NO_PATCHES}" -eq 0 ] || die "patch options apply only to the mingw builder"
+    [ "${#SKIP_PATCHES[@]}" -eq 0 ] || die "patch options apply only to the mingw builder"
 fi
 
-ARCH_OVERRIDE="${PLATFORM#linux/}"
-[ -n "${ARCH_OVERRIDE}" ] || ARCH_OVERRIDE="$(uname -m)"
-# shellcheck source=arch_map.sh
-. "${SCRIPT_DIR}/arch_map.sh"
+# Accepted only so older callers fail neither parsing nor identity calculation.
+# The undifferentiated build-driver bytes are deliberately not identity input;
+# the canonical values it produces are.
+: "${BUILD_DRIVER}"
 
-if [ "${IMAGE}" = "mingw" ] && [ "${SR_ARCH}" != "x86_64" ]; then
-    die "the mingw builder is available only for x86_64 hosts"
-fi
+# shellcheck source=python_env.sh
+. "${SCRIPT_DIR}/python_env.sh"
+sr_require_python || exit 1
 
-FILES=(
-    "${LOCK}"
-    "${SCRIPT_DIR}/arch_map.sh"
-    "${IMAGES_DIR}/Dockerfile.${IMAGE}"
+ARGS=(
+    "${KIND}"
+    --image "${IMAGE}"
+    --platform "${PLATFORM}"
+    --lock "${LOCK}"
+    --contract "${CONTRACT}"
+    --dockerfile "${DOCKERFILE}"
+    --helpers-dir "${HELPERS_DIR}"
+    --patch-dir "${PATCH_DIR}"
 )
-if [ "${IMAGE}" = "mingw" ]; then
-    FILES+=(
-        "${IMAGES_DIR}/mxe-build.sh"
-        "${IMAGES_DIR}/mxe-glib-hold.sh"
-    )
+if [ -n "${PROFILE}" ]; then ARGS+=(--profile "${PROFILE}"); fi
+if [ "${QT5_FREEZE}" -eq 1 ]; then ARGS+=(--qt5-freeze); fi
+if [ -n "${GLIB_VERSION}" ]; then ARGS+=(--glib-version "${GLIB_VERSION}"); fi
+if [ "${NO_PATCHES}" -eq 1 ]; then ARGS+=(--no-sigrok-patches); fi
+for patch in "${SKIP_PATCHES[@]}"; do ARGS+=(--skip-patch "${patch}"); done
+if [ "${KIND}" = "validation" ] || [ "${KIND}" = "all" ]; then
+    ARGS+=(--policy "${POLICY}" --verifier "${VERIFIER}" --tests-dir "${TESTS_DIR}")
 fi
+if [ "${FORMAT}" = "json" ]; then ARGS+=(--json); fi
 
-for file in "${FILES[@]}"; do
-    [ -f "${file}" ] || die "builder input missing: ${file}"
-done
-[ -f "${BUILD_DRIVER}" ] || die "builder input missing: ${BUILD_DRIVER}"
-
-# The patches this recipe selects, in the fixed candidate order so the digest
-# input does not depend on the order the skips were given in.
-selected_patches() {
-    local candidate skip skipped
-    for candidate in ${MXE_PATCH_CANDIDATES}; do
-        skipped=0
-        for skip in ${SKIP_PATCHES}; do
-            [ "${skip}" = "${candidate}" ] && skipped=1
-        done
-        [ "${skipped}" -eq 1 ] || printf '%s\n' "${candidate}"
-    done
-}
-
-{
-    printf 'image=%s\nplatform=%s\n' "${IMAGE}" "${SR_DOCKER_PLATFORM}"
-
-    if [ "${IMAGE}" = "mingw" ]; then
-        # An empty glib_version means "whatever the Dockerfile holds", and the
-        # Dockerfile is hashed below - so the default needs no value of its own.
-        printf 'option.qt5_freeze=%s\n' "${QT5_FREEZE}"
-        printf 'option.glib_version=%s\n' "${GLIB_VERSION}"
-    fi
-
-    for file in "${FILES[@]}"; do
-        relative="${file#"${REPO_ROOT}/"}"
-        digest="$(sha256sum "${file}" | cut -d' ' -f1)"
-        printf '%s=%s\n' "${relative}" "${digest}"
-    done
-
-    # build_image.sh decides what enters the generated context and which build
-    # arguments reach the Dockerfile, so it is recipe input even though it is
-    # not copied into the image. Name the role, not the source path, to keep an
-    # identical review/test copy equivalent.
-    digest="$(sha256sum "${BUILD_DRIVER}" | cut -d' ' -f1)"
-    printf '02_Tools/build/build_image.sh=%s\n' "${digest}"
-
-    if [ "${IMAGE}" = "mingw" ]; then
-        while IFS= read -r patch; do
-            [ -n "${patch}" ] || continue
-            [ -f "${PATCH_DIR}/${patch}" ] \
-                || die "selected patch missing: ${PATCH_DIR}/${patch}"
-            digest="$(sha256sum "${PATCH_DIR}/${patch}" | cut -d' ' -f1)"
-            printf 'patch=%s=%s\n' "${patch}" "${digest}"
-        done < <(selected_patches)
-    fi
-} | sha256sum | cut -d' ' -f1
+exec "${SR_PYTHON}" "${SCRIPT_DIR}/builder_identity.py" "${ARGS[@]}"
 
 # END OF FILE

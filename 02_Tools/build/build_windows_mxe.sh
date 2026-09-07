@@ -48,7 +48,7 @@ if [ ! -d /opt/mxe ]; then
     for a in "$@"; do
         [ "${a}" = "--offline" ] && OUTER+=(--offline)
     done
-    exec "${SCRIPT_DIR}/run_in_builder.sh" --image mingw --keep-volume \
+    exec bash "${SCRIPT_DIR}/run_in_builder.sh" --image mingw --keep-volume \
         "${OUTER[@]}" -- bash /work/02_Tools/build/build_windows_mxe.sh "$@"
 fi
 

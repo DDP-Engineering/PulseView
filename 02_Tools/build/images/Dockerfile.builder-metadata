@@ -1,0 +1,26 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Metadata-only finalization layer. build_image.sh computes the inventory hash
+# from the completed content image, then applies all lifecycle labels together.
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG BUILDER_IMAGE
+ARG BUILDER_RECIPE_SPEC
+ARG DEPENDENCY_CONTRACT_SPEC
+ARG NORMALIZED_CONTRACT_SHA256
+ARG RESOLVED_INVENTORY_SHA256
+
+LABEL io.ddp.builder.image="${BUILDER_IMAGE}" \
+      io.ddp.builder.spec="${BUILDER_RECIPE_SPEC}" \
+      io.ddp.builder.recipe-spec="${BUILDER_RECIPE_SPEC}" \
+      io.ddp.builder.dependency-contract-spec="${DEPENDENCY_CONTRACT_SPEC}" \
+      io.ddp.builder.normalized-contract-sha256="${NORMALIZED_CONTRACT_SHA256}" \
+      io.ddp.builder.resolved-inventory-sha256="${RESOLVED_INVENTORY_SHA256}"

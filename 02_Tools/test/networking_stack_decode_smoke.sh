@@ -41,6 +41,15 @@ note() { printf '==> %s\n' "$*"; }
 FAILED=0
 
 [ -d "${STAGE}" ] || { printf 'error: no staged tree at %s\n' "${STAGE}" >&2; exit 1; }
+if [ -n "${BUILDER_TAG:-}" ]; then
+    ENGINE="${BUILDER_ENGINE:-docker}"
+    command -v "${ENGINE}" >/dev/null 2>&1 \
+        || { echo "skip: ${ENGINE} unavailable" >&2; exit 77; }
+    "${ENGINE}" run --rm --network none --platform linux/amd64 \
+        --volume "${STAGE}:/candidate:ro" --volume "${HERE}:/tests:ro" \
+        "${BUILDER_TAG}" bash /tests/networking_stack_decode_smoke.sh /candidate
+    exit $?
+fi
 
 PY=""
 for cand in python3 python; do

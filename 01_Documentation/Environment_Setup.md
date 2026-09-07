@@ -30,9 +30,9 @@ interchangeable.
 | **Test host** | Windows directly, via Git Bash | Running the built `sigrok-cli.exe` and `pulseview.exe`, and the host-side smoke tests. |
 
 The build scripts refuse to be useful from Git Bash - the container engine is
-not there. The smoke tests cannot run inside the MXE build image - it has no
-Wine, so it cannot execute the `.exe` it just produced. On Linux the two roles
-collapse into one machine, with `wine64` standing in for the Windows side.
+not there. Normal smoke tests can run directly on the Windows test host. Builder candidate
+qualification also provisions Wine in the canonical MXE image and runs the
+Windows binary checks there against isolated staged output.
 
 From WSL the repository is visible under `/mnt/`, at the drive letter it
 sits on: a checkout at `F:\2026_PulseView` appears as
@@ -178,11 +178,14 @@ Run this in WSL:
 bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
 ```
 
-About a minute, no network. It verifies every Git LFS part, reconstructs the
-temporary Docker archive under `.work/bootstrap/`, verifies the whole archive,
-loads it, removes the temporary copy, and runs an offline health check. If the
-image is already installed, its exact archived identity or current builder-
-recipe identity must match before it is reused.
+The command checks the installed image first. A current image is selected only
+when its type, architecture, recipe identity, dependency-contract identity,
+quick offline probes, and current validation evidence all match. This path does
+not read a manifest or archive part.
+
+If no current image is usable, the command verifies schema-2 metadata, every
+part, the reconstructed archive, and exact image identity before load. It then
+runs standard contract checks and records validation evidence under `.work/`.
 
 Prepare the two AppImage builders the same way when those packages are needed:
 
@@ -191,23 +194,42 @@ bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform 
 bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform aarch64
 ```
 
+The checked-in archives currently use legacy schema 1. They remain available
+through the temporary explicit migration option
+`--allow-legacy-restore`; they are not accepted as current verified builders.
+A stale schema-2 archive also needs an explicit
+`--allow-historical-builder --force-restore`. Historical mode verifies its
+embedded contract and inventory and prints a prominent warning that it is not
+the current recipe.
+
 If local parts are missing, still contain Git LFS pointers, or fail a checksum,
 the command tells the developer to run `git lfs pull` and offers an online
 local rebuild from the pinned inputs. It never downloads LFS files and never
 publishes an image.
 
-Building the image from source instead takes hours and needs 117 distinct
-upstream hosts reachable. Only do it when the toolchain itself changes:
+Building the image from source instead takes hours and needs many upstream
+hosts reachable. Only update it when the toolchain itself changes. Use the
+transactional owner command, not a manual sequence:
 
 ```bash
-bash 02_Tools/build/build_image.sh --image mingw --skip-patch mxe_fixes.patch
+bash 02_Tools/build/update_builder_environment.sh --image mingw --plan
+bash 02_Tools/build/update_builder_environment.sh --image mingw --replace
 ```
 
-`--skip-patch mxe_fixes.patch` is required, not optional - see
-[Known sharp edges](#known-sharp-edges). After a deliberate toolchain change,
-`save_image_parts.sh --image mingw` writes the replacement local manifest and
-parts. Regenerate them only on a real toolchain change: Git LFS does not
-deduplicate different content generations.
+Replacement is explicit and Docker-only. Plan mode is read-only and reports
+selected inputs, identities, candidate resources, promotion paths, and the
+superseded generation before the expensive operation starts.
+
+The automatic MinGW profile excludes the obsolete `mxe_fixes.patch`; no
+remembered command-line exception is required. The updater builds under an
+isolated candidate tag and volume, builds representative output under `.work/`,
+runs the complete mandatory matrix, creates inventory and SPDX records, audits
+an exact archive round trip, and replaces the stable manifest last.
+
+Run the same plan-then-replace sequence with
+`--image appimage --platform amd64` or `arm64` for the AppImage builders. Exit 77 is a hard failure during candidate promotion,
+not a passing skip. Regenerate only for a real toolchain change because Git LFS
+does not deduplicate different content generations.
 
 ## Building
 

@@ -41,6 +41,11 @@ grep -q -- '-- bash /work/02_Tools/build/build_appimage.sh' \
 grep -q -- '-- bash /work/02_Tools/build/build_windows_mxe.sh' \
     "${REPO_ROOT}/02_Tools/build/build_windows_mxe.sh" \
     || { echo 'FAIL: MXE container re-entry does not use bash' >&2; exit 1; }
+for script in build_appimage.sh build_windows_mxe.sh build_deb.sh; do
+    grep -q -- 'exec bash "${SCRIPT_DIR}/run_in_builder.sh"' \
+        "${REPO_ROOT}/02_Tools/build/${script}" \
+        || { echo "FAIL: ${script} relies on the run helper executable bit" >&2; exit 1; }
+done
 grep -q -- '-- bash /mnt/f/2026_PulseView/02_Tools/bootstrap/check_host.sh' \
     "${REPO_ROOT}/02_Tools/bootstrap/check_host.sh" \
     || { echo 'FAIL: check_host.sh WSL example does not use bash' >&2; exit 1; }

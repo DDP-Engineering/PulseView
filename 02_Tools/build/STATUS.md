@@ -16,6 +16,33 @@ gap, the two traps that burned three bisections. That part is still the
 reason the build works and is kept verbatim; the status around it is
 updated as the build changes.
 
+## Builder lifecycle change status - 2026-09-07
+
+The dependency-contract, separated-identity, shared-verifier, schema-2
+manifest, SPDX, and transactional coordinator paths are implemented. Fixture
+coverage passes for strict parsing, identity boundaries, installed-image
+selection without archive files, policy-only revalidation, schema-1 migration,
+historical verification, archive corruption, mandatory exit-77 rejection, and
+rollback at each coordinator phase.
+
+The changed Dockerfiles and the owner command have **not yet produced a real
+new builder generation**. Their prior verification rows below describe the
+previous image recipes and must not be read as fresh verification of this
+change. Required adoption work is:
+
+1. run the full test suite on the build host;
+2. run `update_builder_environment.sh` for MinGW, AppImage amd64, and AppImage
+   arm64;
+3. confirm each mandatory representative product check passes;
+4. inspect and publish the three schema-2 generations through an explicit
+   maintainer operation; and
+5. remove temporary schema-1 restore support only after those generations are
+   available.
+
+Docker remains the required and verified engine. Podman behavior is
+experimental. Exact archive restore is offline; exact online reconstruction is
+deferred until package snapshots or payload preservation are designed.
+
 **Five package formats are now required and implemented.** The Raspberry Pi
 AppImage and Debian package have been verified on a physical Pi. The complete
 five-target coordinator rebuilt every package from `b6d0e8e-dirty` and wrote a

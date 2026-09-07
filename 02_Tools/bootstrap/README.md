@@ -28,8 +28,8 @@ that no longer applies to this repository.
 |---|---|---|
 | `check_host.sh` | **Implemented 2026-08-17.** Inspect Linux/build-host prerequisites and versions | None |
 | `check_host.ps1` | **Implemented 2026-08-24.** Inspect Windows prerequisites and versions | None by default; `-Install` offers winget remediation per item |
-| `ensure_build_environment.sh` | **Implemented 2026-09-05.** Validate, locally restore, or explicitly rebuild one builder image | Loads a verified local archive; an accepted fallback builds locally from online pinned inputs |
-| `ensure_build_environment.ps1` | **Implemented 2026-09-05.** Windows/WSL entry point for the same workflow | Same as the shell implementation |
+| `ensure_build_environment.sh` | **Updated 2026-09-07.** Select current, restore exact, verify historical, or rebuild one builder image | Installed selection needs no archive; restore loads audited local bytes; accepted recovery rebuilds online |
+| `ensure_build_environment.ps1` | **Updated 2026-09-07.** Windows/WSL entry point for the same workflow | Same as the shell implementation |
 | `verify_upstreams.py` | **Planned.** Verify URLs, commits, roles, and dirty states | None |
 | `create_build_workspace.py` | **Planned.** Create bounded ignored build directories | Explicit target only |
 
@@ -39,11 +39,15 @@ folder's future `STATUS.md` ledger.
 
 ### ensure_build_environment
 
-This is the normal command after `git lfs pull`. It first validates the image
-already installed in Docker or Podman. If none is usable, it verifies every
-local multipart archive part against its manifest, reconstructs the temporary
-Docker archive under `.work/bootstrap/`, loads it, removes the temporary whole
-archive, and runs an offline health check.
+This is the normal builder-selection command. It first validates the installed
+image's current recipe and dependency contract, runs quick offline probes, and
+requires validation evidence for the current policy. This path does not read a
+manifest or archive part.
+
+If no installed image is usable, it strictly audits the local manifest,
+metadata, SBOM, every archive part, the reconstructed archive, and the exact
+image ID before load. Standard offline probes then create current validation
+evidence under `.work/`.
 
 ```sh
 bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
@@ -58,11 +62,16 @@ On Windows, PowerShell maps the checkout into WSL and invokes the same code:
 ```
 
 The command never runs `git lfs pull` and never publishes anything. Missing,
-pointer-only, truncated, or corrupt parts cause an actionable error. In an
-interactive terminal it then offers to run `build_image.sh` using the online
-inputs and integrity pins in `upstreams.lock.toml`. Use `--rebuild`/`-Rebuild`
-to accept that path non-interactively or `--no-rebuild`/`-NoRebuild` to forbid
-it. A local rebuild stays only in the developer's container engine.
+pointer-only, truncated, or corrupt parts cause an actionable error. Existing
+schema-1 archives require temporary explicit `--allow-legacy-restore` migration
+mode. A stale schema-2 generation requires
+`--allow-historical-builder --force-restore`; this checks its embedded contract
+and inventory and reports that it is not current.
+
+In an interactive terminal, failed local recovery offers `build_image.sh` with
+online pinned inputs. Use `--rebuild`/`-Rebuild` to accept that path or
+`--no-rebuild`/`-NoRebuild` to forbid it. Live package resolution means this is
+recovery, not an exact reconstruction. A rebuilt image stays local.
 
 ### check_host.sh
 

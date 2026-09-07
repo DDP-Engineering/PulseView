@@ -46,25 +46,24 @@ ARG USER_GID=1000
 ENV DEBIAN_FRONTEND=noninteractive
 ENV MXE_DIR=/opt/mxe
 
-# One layer, one reviewable package set. The first group is MXE's own
-# documented Debian requirement list. The second is what
-# sigrok-util/cross-compile/mingw/README adds: cmake, p7zip, unzip, wget,
-# pkg-config, sdcc for the fx2lafw firmware, and nsis for the installer.
-#
-# python3-yaml is in neither list but mesa, pulled in by qtbase for OpenGL,
-# fails configure without it: "Python (3.x) yaml module (PyYAML) required to
-# build mesa". Both upstream lists predate that requirement.
+# The reviewed dependency contract is normalized by build_image.sh. Its direct
+# package projection is the one source used here and by the verifier.
+COPY direct-packages.txt /tmp/direct-packages.txt
+COPY dependency-contract.json /usr/local/share/pulseview-builder/dependency-contract.json
+COPY dependency_contract.py /tmp/dependency_contract.py
+
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends \
-        autoconf automake autoconf-archive autopoint bash bison bzip2 \
-        ca-certificates flex g++ g++-multilib gettext git gperf intltool \
-        libc6-dev-i386 libgdk-pixbuf-2.0-dev libgl-dev libltdl-dev \
-        libssl-dev libtool libtool-bin libxml-parser-perl lzip make \
-        openssl patch perl python3 python3-mako python3-setuptools \
-        python3-yaml python-is-python3 ruby sed xz-utils \
-        cmake p7zip-full pkg-config sdcc unzip wget nsis; \
-    rm -rf /var/lib/apt/lists/*
+    xargs --no-run-if-empty apt-get install -y --no-install-recommends \
+        < /tmp/direct-packages.txt; \
+    rm -rf /var/lib/apt/lists/*; \
+    dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n' \
+        | python3 /tmp/dependency_contract.py inventory \
+            --output /usr/local/share/pulseview-builder/resolved-inventory.json \
+        > /usr/local/share/pulseview-builder/resolved-inventory.sha256; \
+    sha256sum /usr/local/share/pulseview-builder/dependency-contract.json \
+        | cut -d' ' -f1 \
+        > /usr/local/share/pulseview-builder/dependency-contract.sha256
 
 # Run as the invoking user so artifacts written to mounted volumes are not
 # owned by root on the WSL side.
@@ -268,11 +267,7 @@ RUN printf 'export PATH=/opt/mxe/usr/bin:$PATH\n' > /etc/profile.d/mxe.sh
 # the binding generator never reads), swig (libsigrok's *Python* bindings,
 # which the Windows build does not produce), asciidoc/xsltproc (PulseView's
 # `make manual` target only - add them when the manual is actually wanted).
-RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends doxygen; \
-    rm -rf /var/lib/apt/lists/*; \
-    doxygen --version
+RUN doxygen --version
 
 # The Windows Python that libsigrokdecode links against.
 #
@@ -351,16 +346,21 @@ RUN set -eux; \
     chown -R "${USER_UID}:${USER_GID}" /opt/mxe/.ccache
 
 ARG BUILDER_SPEC=unrecorded
+ARG DEPENDENCY_CONTRACT_SPEC=unrecorded
 
 LABEL org.opencontainers.image.title="sigrok Windows cross-builder" \
       org.opencontainers.image.description="MXE toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView for Windows x86_64" \
-      org.opencontainers.image.licenses="GPL-3.0-or-later" \
       io.ddp.mxe.commit="${MXE_COMMIT}" \
       io.ddp.mxe.target="${MXE_TARGET}" \
       io.ddp.mxe.qt5_freeze="${MXE_QT5_FREEZE}" \
       io.ddp.mxe.patches="${MXE_PATCHES}" \
       io.ddp.python.version="${PY_VERSION}" \
-      io.ddp.builder.spec="${BUILDER_SPEC}"
+      io.ddp.builder.image="mingw" \
+      io.ddp.builder.spec="${BUILDER_SPEC}" \
+      io.ddp.builder.recipe-spec="${BUILDER_SPEC}" \
+      io.ddp.builder.dependency-contract-spec="${DEPENDENCY_CONTRACT_SPEC}" \
+      io.ddp.builder.normalized-contract-sha256="${DEPENDENCY_CONTRACT_SPEC}" \
+      io.ddp.builder.resolved-inventory-sha256="unfinalized"
 
 USER ${USER_UID}:${USER_GID}
 WORKDIR /work

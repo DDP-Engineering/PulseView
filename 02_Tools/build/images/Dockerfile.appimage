@@ -73,21 +73,24 @@ ENV DEBIAN_FRONTEND=noninteractive
 # privileged container.
 ENV APPIMAGE_EXTRACT_AND_RUN=1
 
-# Native build dependencies for the whole sigrok stack. Grouped by which
-# component needs them so the list stays auditable as components change.
+# build_image.sh selects and normalizes the reviewed dependency contract. The
+# package projection is the one source used here and by the verifier.
+COPY direct-packages.txt /tmp/direct-packages.txt
+COPY dependency-contract.json /usr/local/share/pulseview-builder/dependency-contract.json
+COPY dependency_contract.py /tmp/dependency_contract.py
+
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends \
-        autoconf automake autoconf-archive libtool pkg-config make cmake \
-        g++ git wget ca-certificates patch file desktop-file-utils zsync \
-        patchelf \
-        libglib2.0-dev libglibmm-2.4-dev libzip-dev check doxygen \
-        libusb-1.0-0-dev libftdi1-dev libhidapi-dev libieee1284-3-dev \
-        python3-dev python3-numpy python3-gi python3-setuptools swig \
-        qtbase5-dev qttools5-dev qttools5-dev-tools libqt5svg5-dev \
-        libboost-filesystem-dev libboost-serialization-dev \
-        libboost-system-dev libboost-test-dev; \
-    rm -rf /var/lib/apt/lists/*
+    xargs --no-run-if-empty apt-get install -y --no-install-recommends \
+        < /tmp/direct-packages.txt; \
+    rm -rf /var/lib/apt/lists/*; \
+    dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n' \
+        | python3 /tmp/dependency_contract.py inventory \
+            --output /usr/local/share/pulseview-builder/resolved-inventory.json \
+        > /usr/local/share/pulseview-builder/resolved-inventory.sha256; \
+    sha256sum /usr/local/share/pulseview-builder/dependency-contract.json \
+        | cut -d' ' -f1 \
+        > /usr/local/share/pulseview-builder/dependency-contract.sha256
 
 # Pinned, checksum-verified packaging tools. A mismatch fails the image
 # build. APPIMAGE_EXTRACT_AND_RUN (set above) covers all of them - none of
@@ -127,15 +130,20 @@ RUN set -eux; \
     chown -R "${USER_UID}:${USER_GID}" /work /out /build
 
 ARG BUILDER_SPEC=unrecorded
+ARG DEPENDENCY_CONTRACT_SPEC=unrecorded
 
 LABEL org.opencontainers.image.title="sigrok Linux AppImage builder" \
       org.opencontainers.image.description="Ubuntu 22.04 toolchain for building libsigrok, libsigrokdecode, sigrok-cli and PulseView as a Linux AppImage (x86_64 or aarch64)" \
-      org.opencontainers.image.licenses="GPL-3.0-or-later" \
       io.ddp.appimagetool.version="${APPIMAGETOOL_VERSION}" \
       io.ddp.linuxdeployqt.version="${LINUXDEPLOYQT_VERSION}" \
       io.ddp.appimage-runtime.version="${APPIMAGE_RUNTIME_VERSION}" \
       io.ddp.glibc.floor="2.35" \
-      io.ddp.builder.spec="${BUILDER_SPEC}"
+      io.ddp.builder.image="appimage" \
+      io.ddp.builder.spec="${BUILDER_SPEC}" \
+      io.ddp.builder.recipe-spec="${BUILDER_SPEC}" \
+      io.ddp.builder.dependency-contract-spec="${DEPENDENCY_CONTRACT_SPEC}" \
+      io.ddp.builder.normalized-contract-sha256="${DEPENDENCY_CONTRACT_SPEC}" \
+      io.ddp.builder.resolved-inventory-sha256="unfinalized"
 
 USER ${USER_UID}:${USER_GID}
 WORKDIR /work

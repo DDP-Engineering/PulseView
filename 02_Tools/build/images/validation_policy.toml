@@ -1,0 +1,36 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+
+[[policy]]
+image = "mingw"
+architecture = "amd64"
+mandatory_tests = [
+  "windows-python",
+  "networking-stack",
+  "pe-import-closure",
+]
+
+[[policy]]
+image = "appimage"
+architecture = "amd64"
+mandatory_tests = [
+  "appimage-identity",
+  "appimage-runtime",
+  "appimage-gui-startup",
+]
+
+[[policy]]
+image = "appimage"
+architecture = "arm64"
+mandatory_tests = [
+  "appimage-identity",
+  "appimage-runtime",
+  "deb-metadata",
+]

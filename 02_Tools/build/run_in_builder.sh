@@ -30,10 +30,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
 IMAGE="mingw"
-TAG=""
+TAG="${BUILDER_TAG:-}"
 PLATFORM=""
 ENGINE="${BUILDER_ENGINE:-docker}"
-VOLUME=""
+VOLUME="${BUILDER_VOLUME:-}"
 KEEP=0
 OFFLINE=0
 
@@ -105,7 +105,11 @@ command -v "${ENGINE}" >/dev/null 2>&1 \
 "${ENGINE}" image inspect "${TAG}" >/dev/null 2>&1 \
     || die "image ${TAG} not found. Build it first: ./build_image.sh --image ${IMAGE}"
 
-DELIVERY="${REPO_ROOT}/07_Delivery"
+DELIVERY="${BUILDER_OUTPUT_DIR:-${REPO_ROOT}/07_Delivery}"
+case "${DELIVERY}" in
+    /*) ;;
+    *) die "builder output directory must be absolute: ${DELIVERY}" ;;
+esac
 mkdir -p "${DELIVERY}/staging"
 
 RUN_ARGS=(

@@ -61,10 +61,11 @@ if [ ! -x /usr/local/bin/appimagetool ]; then
             *)      PASS_ARGS+=("$1"); shift ;;
         esac
     done
+    export ARCH_OVERRIDE
     # shellcheck source=arch_map.sh
     . "${SCRIPT_DIR}/arch_map.sh"
-    exec "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
-        --platform "${SR_DOCKER_PLATFORM}" \
+    exec bash "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
+        --platform "${SR_DOCKER_PLATFORM}" --offline \
         -- bash /work/02_Tools/build/build_appimage.sh \
         ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 fi

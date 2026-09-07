@@ -1,0 +1,150 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+image = "appimage"
+
+direct_package = [
+  { name = "autoconf" },
+  { name = "automake" },
+  { name = "autoconf-archive" },
+  { name = "ca-certificates" },
+  { name = "check" },
+  { name = "cmake" },
+  { name = "desktop-file-utils" },
+  { name = "doxygen" },
+  { name = "file" },
+  { name = "g++" },
+  { name = "git" },
+  { name = "libboost-filesystem-dev" },
+  { name = "libboost-serialization-dev" },
+  { name = "libboost-system-dev" },
+  { name = "libboost-test-dev" },
+  { name = "libftdi1-dev" },
+  { name = "libglib2.0-dev" },
+  { name = "libglibmm-2.4-dev" },
+  { name = "libhidapi-dev" },
+  { name = "libieee1284-3-dev" },
+  { name = "libqt5svg5-dev" },
+  { name = "libtool" },
+  { name = "libusb-1.0-0-dev" },
+  { name = "libzip-dev" },
+  { name = "make" },
+  { name = "patch" },
+  { name = "patchelf" },
+  { name = "pkg-config" },
+  { name = "python3-dev" },
+  { name = "python3-gi" },
+  { name = "python3-numpy" },
+  { name = "python3-setuptools" },
+  { name = "qtbase5-dev" },
+  { name = "qttools5-dev" },
+  { name = "qttools5-dev-tools" },
+  { name = "swig" },
+  { name = "wget" },
+  { name = "xauth" },
+  { name = "xdotool" },
+  { name = "xvfb" },
+  { name = "zsync" },
+]
+
+[[command]]
+name = "cmake"
+version_args = ["--version"]
+version_regex = "^cmake version "
+level = "quick"
+
+[[command]]
+name = "appimagetool"
+path = "/usr/local/bin/appimagetool"
+level = "quick"
+
+[[command]]
+name = "linuxdeployqt"
+path = "/usr/local/bin/linuxdeployqt"
+level = "quick"
+
+[[command]]
+name = "python3"
+version_args = ["--version"]
+version_regex = "^Python 3\\."
+
+[[command]]
+name = "xvfb-run"
+level = "standard"
+
+[[pkg_config]]
+name = "glib-2.0"
+
+[[pkg_config]]
+name = "glibmm-2.4"
+
+[[pkg_config]]
+name = "libusb-1.0"
+
+[[pkg_config]]
+name = "libzip"
+
+[[pkg_config]]
+name = "Qt5Core"
+
+[[library]]
+name = "libusb"
+language = "c"
+header = "libusb-1.0/libusb.h"
+symbol = "libusb_init"
+pkg_config = "libusb-1.0"
+
+[[file]]
+path = "/usr/local/lib/appimage/runtime"
+sha256_artifact = "appimage-runtime-x86_64"
+architectures = ["amd64"]
+level = "quick"
+
+[[file]]
+path = "/usr/local/lib/appimage/runtime"
+sha256_artifact = "appimage-runtime-aarch64"
+architectures = ["arm64"]
+level = "quick"
+
+[[feature]]
+name = "hantek-dso3062l"
+probe = "driver-list"
+expected = "hantek-dso3062l"
+
+[[feature]]
+name = "atk-dl16"
+probe = "driver-list"
+expected = "atk-dl16"
+
+[[feature]]
+name = "decoder-load"
+probe = "decoder-list"
+expected = "all-installed"
+
+[[feature]]
+name = "identity"
+probe = "appimage-identity"
+expected = "selected-architecture"
+
+[[feature]]
+name = "runtime"
+probe = "appimage-runtime"
+expected = "clean-supported-base"
+
+[[feature]]
+name = "gui-startup"
+probe = "appimage-gui-startup"
+expected = "initial-window"
+architectures = ["amd64"]
+
+[[feature]]
+name = "deb-metadata"
+probe = "deb-metadata"
+expected = "arm64"
+architectures = ["arm64"]

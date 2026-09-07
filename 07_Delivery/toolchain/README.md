@@ -10,117 +10,143 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Saved builder images
 
-This directory holds multipart `docker save` archives of the builder
-toolchains, tracked through Git LFS. The small TOML manifests remain ordinary
-Git content and bind every part, the reconstructed archive, and the exact
-container image ID by SHA-256.
+This directory holds multipart container archives for the three canonical
+builder variants. Git LFS tracks archive parts. Stable TOML manifests and JSON
+sidecars remain ordinary Git content.
 
-## Why this exists
+## Normal use
 
-Building the Windows toolchain from source takes hours, and while it runs, MXE
-downloads upstream source tarballs. Across MXE's package set those come from
-**117 distinct hosts** - ftp.gnu.org, download.gnome.org, download.qt.io,
-GitHub and a long tail of project servers. MXE checksum-verifies every one, so
-corruption is not the concern; disappearance is. A single retired download URL
-turns a reproducible build into an unbuildable one, and nothing about that
-failure would be this project's fault or within its power to fix.
-
-The archived image removes that exposure from normal application builds.
-
-## Using it
+Run the bootstrap in WSL or on Linux:
 
 ```sh
 bash 02_Tools/bootstrap/ensure_build_environment.sh --image mingw
-bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform x86_64
-bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform aarch64
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform amd64
+bash 02_Tools/bootstrap/ensure_build_environment.sh --image appimage --platform arm64
 ```
 
-That validates an installed image or verifies and joins the local parts under
-`.work/bootstrap/`, verifies the whole archive, loads it, deletes the temporary
-whole archive, and runs an offline health check. It performs no LFS download
-and publishes nothing.
+The bootstrap checks a current installed image first. A valid installed image
+needs its current recipe and dependency-contract identities, matching type and
+architecture, quick offline probes, and current external validation evidence.
+It does **not** need a manifest or archive parts.
 
-Only build the image from source when the toolchain itself must change:
+If no current image is usable, the bootstrap audits a local archive before it
+loads any bytes. If local recovery is unavailable, it can offer an explicit
+online rebuild. It never downloads LFS objects and never publishes data.
 
-```sh
-bash 02_Tools/build/build_image.sh --image mingw --skip-patch mxe_fixes.patch
-```
+## Canonical variants
 
-If restoration is impossible, `ensure_build_environment.sh` offers that local
-online rebuild itself. The rebuilt image remains only in the developer's local
-container engine. To replace an archived generation deliberately, remove that
-image's existing manifest and parts and run:
-
-```sh
-bash 02_Tools/build/save_image_parts.sh --image mingw
-```
-
-## Contents
-
-| Stem | Holds |
+| Stable manifest | Builder |
 |---|---|
-| `pulseview-builder-mingw` | Windows x86_64 MXE cross-toolchain and embedded CPython |
-| `pulseview-builder-appimage` | Linux x86_64 AppImage build environment |
-| `pulseview-builder-appimage-arm64` | Linux arm64 AppImage build environment |
+| `pulseview-builder-mingw.manifest.toml` | Windows x86_64 MXE cross-toolchain |
+| `pulseview-builder-appimage.manifest.toml` | Linux amd64 AppImage environment |
+| `pulseview-builder-appimage-arm64.manifest.toml` | Linux arm64 AppImage and Debian package environment |
 
-Each stem has one `*.manifest.toml` and one or more `*.tar.part-NNN` files.
+## Schema 2 generations
 
-## Notes
+A new schema-2 stable manifest is the commit point for one generation. It
+binds all of these values:
 
-**One GiB parts, not one huge LFS object.** This keeps every object below common
-free-hosting per-file limits while preserving the exact uncompressed Docker
-archive. Container layers are already compressed; compressing the archive
-again saves effectively nothing.
+- builder type, architecture, install tag, archive tag, and exact image ID;
+- separate builder-recipe, dependency-contract, and validation-policy
+  identities;
+- the embedded normalized dependency contract and resolved package inventory;
+- one SPDX 2.3 JSON SBOM;
+- the complete logical container archive; and
+- every generation-specific archive part by filename, size, and SHA-256.
 
-**Each changed generation costs its new content in LFS storage.** Regenerate
-only when the toolchain genuinely changes - a new MXE pin, package, patch, or
-other baked input - and not merely because the image was loaded again.
+Generation files include the image-ID prefix in their names. This lets the old
+and new sets coexist while an update is staged. The stable manifest is replaced
+atomically only after the candidate passes validation and archive round-trip
+audit.
 
-Regenerated once so far, on 2026-08-23, when the embedded CPython moved from
-3.4.4 to 3.13.15. That is the shape of change that requires it: the archive
-carries the pinned Python artifacts, so an archive older than the Dockerfile
-hands a fresh clone an image that cannot build offline.
+The three archives currently checked in predate schema 2. Their schema-1
+manifests remain readable for migration, but normal bootstrap does not treat
+them as current verified builders. Use `--allow-legacy-restore` only for the
+bounded migration path. Regenerate all three variants before removing that
+option.
 
-**MXE itself is not in this repository, and does not need to be.** This archive
-is the toolchain; MXE is only the recipe for building it, and building from
-that recipe downloads 2-3 GB of upstream source from hundreds of hosts anyway.
-Vendoring the recipe without the ingredients would buy nothing. If MXE ever
-disappears, this archive is what keeps the Windows build alive.
+## Updating a builder
 
-**A clone without Git LFS gets pointer files** in place of the archive parts.
-The bootstrap detects the exact affected part and says so. The fix is
-`git lfs install && git lfs pull`.
+Use the owner command. Do not combine manual build, tag, save, and file-copy
+steps:
 
-**The image is not a substitute for provenance.** What went into it is recorded
-in `.work/logs/<build-id>/record.txt` at build time and in the image's own
-OCI labels (`io.ddp.mxe.commit`, `.target`, `.patches`, `.builder.spec`). Read
-those rather than trusting the tag. `io.ddp.builder.spec` is the SHA-256 of the
-recipe that produced the image: the lock, the Dockerfile and its helpers, the
-host-side build driver, the effective build options, and the bytes of every
-patch applied. Two images with
-the same label were built from the same recipe in this repository.
+```sh
+bash 02_Tools/build/update_builder_environment.sh --image mingw --plan
+bash 02_Tools/build/update_builder_environment.sh --image mingw --replace
+bash 02_Tools/build/update_builder_environment.sh \
+  --image appimage --platform amd64 --plan
+bash 02_Tools/build/update_builder_environment.sh \
+  --image appimage --platform amd64 --replace
+bash 02_Tools/build/update_builder_environment.sh \
+  --image appimage --platform arm64 --plan
+bash 02_Tools/build/update_builder_environment.sh \
+  --image appimage --platform arm64 --replace
+```
 
-The three manifests currently in this directory record `builder_spec = ""`,
-because the images they describe predate that label. It costs nothing:
-`ensure_build_environment.sh` validates a restored image against the manifest's
-exact `image_id`, which is a stronger check than recipe equivalence. The label
-exists for the other case - a locally rebuilt image, whose ID necessarily
-differs and which can only be recognised by its recipe.
+Plan mode makes no output-directory changes. Replacement is explicit,
+Docker-only, and serialized per builder variant.
 
-**What the licence label does and does not say.** Both Dockerfiles set
-`org.opencontainers.image.licenses="GPL-3.0-or-later"`. That is this project's
-own contribution - the Dockerfiles, the helper scripts and the build recipe.
-The image itself is an aggregate: a Debian or Ubuntu base, an MXE-built
-cross-toolchain, GCC, Qt, boost, glib, CPython and a long tail of libraries,
-each under its own upstream terms. One SPDX identifier cannot describe that
-set, and no attempt is made here to do so.
+The replacement command does the following work:
 
-There is no SBOM and no third-party licence inventory for these images. That is
-a recorded gap, not a claim that none is needed: the builders are development
-tooling and are not themselves redistributed as part of a release, but anyone
-who does redistribute one needs an inventory this repository does not currently
-provide. Producing one - and any judgement about what the aggregate requires -
-is separate work outside the scope of the build tooling. The per-artifact
-licence data that does exist is in `02_Tools/upstream/upstreams.lock.toml`, and
-the delivered binaries (not these builders) carry their own notices under
-`LICENSING.md`.
+1. builds under a content-derived candidate tag and unique volume;
+2. runs quick and standard dependency checks;
+3. builds representative product output under `.work/` with no network;
+4. runs every mandatory product check, where exit 77 is a failure;
+5. creates the resolved inventory and SPDX sidecars;
+6. exports, splits, and audits a schema-2 archive;
+7. promotes verified identity-bearing generation files;
+8. replaces the stable manifest as the final filesystem commit point; and
+9. tags the exact round-trip image for normal local use.
+
+A handled pre-commit failure preserves the old stable tag and manifest and
+removes newly promoted files. A post-commit tagging failure leaves the complete
+new manifest authoritative so bootstrap can restore it; it does not roll back
+to mixed archive data. The command performs no repository staging, commit, push, LFS
+upload, registry push, or release publication. Those actions remain explicit
+maintainer work.
+
+`save_image_parts.sh` is the lower-level local export command. Prefer the
+coordinator because direct export does not build or qualify a candidate.
+
+## Historical verification
+
+A stale schema-2 archive is rejected during normal selection. A maintainer can
+request explicit historical verification:
+
+```sh
+bash 02_Tools/bootstrap/ensure_build_environment.sh \
+  --image appimage --platform amd64 \
+  --allow-historical-builder --force-restore
+```
+
+This mode verifies the manifest's exact image ID, embedded normalized contract,
+resolved inventory, and historical dependency probes. It prints a prominent
+warning because the selected builder is not the current repository recipe.
+
+## Reproducibility boundary
+
+Archive restore is exact and offline. A deliberate builder rebuild still uses
+live Debian or Ubuntu package repositories and, for MXE, its pinned source plus
+upstream package downloads. The lifecycle records resolved package versions and
+binds them in the SBOM, but exact online reconstruction from repository state is
+deferred. That would require dated package snapshots or preserved package
+payloads.
+
+Docker is the required engine. The scripts propagate an explicit engine and are
+kept compatible with Podman where practical, but Podman lifecycle operation is
+experimental until an end-to-end generation is recorded.
+
+## Git LFS notes
+
+A clone without Git LFS receives small pointer files instead of archive bytes.
+Archive audit rejects those files before container-engine load. Install LFS and
+fetch the real objects if exact archive recovery is required:
+
+```sh
+git lfs install
+git lfs pull
+```
+
+Container archive layers are already compressed. Splitting the uncompressed
+`docker save` stream keeps each LFS object below common per-file limits without
+adding another compression format.

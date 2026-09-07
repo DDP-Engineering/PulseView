@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+image = "mingw"
+platform = "linux/amd64"
+target = "x86_64-w64-mingw32.static.posix"
+qt5_freeze = false
+glib_version = "dockerfile-default"
+include_patches = ["libusb1_upgrade.patch"]
+exclude_patches = ["mxe_fixes.patch"]

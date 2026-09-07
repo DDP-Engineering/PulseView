@@ -18,6 +18,16 @@ whole vendored sigrok stack.
 
 ### Added - September 2026
 
+- **Transactional builder-environment lifecycle.** Builder dependencies now
+  come from strict architecture-selected contracts that generate Docker package
+  input and are embedded with a resolved transitive inventory. Separate recipe,
+  dependency-contract, and validation-policy identities avoid unnecessary
+  rebuilds. `update_builder_environment.sh` builds isolated candidates, creates
+  policy-keyed validation evidence and SPDX 2.3 JSON, audits schema-2 multipart
+  archives, rolls back pre-commit failures, commits the stable manifest as the
+  final filesystem promotion, and only then applies the stable local image tag.
+  Installed current images no longer require archive files; legacy and stale
+  historical restores require explicit modes.
 - **Local multipart builder-image bootstrap.** The Windows/MXE and both
   AppImage builder architectures are stored as 1 GiB Git LFS parts with a
   small TOML manifest that pins every part, the reconstructed Docker archive,
@@ -33,17 +43,24 @@ whole vendored sigrok stack.
 
 ### Fixed - September 2026
 
-- **Builder recipe identity now covers the choices that change the image.**
-  `builder_spec.sh` hashed the lock, the Dockerfile and two helper scripts, so
-  `--skip-patch`, `--no-sigrok-patches`, `--qt5-freeze`, `--glib-version`, a
-  build-driver edit, or an edit to an applied MXE patch could produce materially
-  different images under one `io.ddp.builder.spec` label. It now takes the same
-  options as `build_image.sh`, hashes that driver and every selected patch, and refuses
-  MXE-only options for the AppImage builder; `build_image.sh` and
-  `ensure_build_environment.sh` pass their effective options through. Existing
-  archives need no regeneration: a restored image is validated against the
-  manifest's exact `image_id`, and the shipped manifests already record an
-  empty `builder_spec`.
+- **Builder lifecycle operations now work from a mode-100644 clone without
+  loading multi-gigabyte archives into memory.** Bootstrap, candidate update,
+  and container re-entry invoke project shell scripts explicitly through Bash.
+  Manifest and fixed-file hashing now stream bounded chunks, successful archive
+  audits remove their temporary reconstructed tar, cached MXE input is rejected
+  if it differs from the pinned commit, failed mandatory reruns cannot retain a
+  stale pass report, and validation-policy identity includes smoke-test helper
+  inputs as well as the top-level test scripts. AppImage promotion also uses
+  the exact locked clean-base digest instead of depending on a separately
+  cached floating Ubuntu tag.
+- **Builder recipe identity now covers selected image-content inputs.**
+  `builder_spec.sh` previously hashed broad lock and build-driver bytes while
+  missing effective patch and option changes. It now hashes the normalized
+  selected contract, consumed lock fields, Dockerfile and helper bytes,
+  canonical profile, selected patch bytes, effective options, and metadata
+  finalization input. Validation-only changes have a separate policy identity.
+  The automatic MinGW profile excludes the obsolete `mxe_fixes.patch` and keeps
+  `libusb1_upgrade.patch`; ordinary builds need no remembered skip option.
 - **The build host's Python prerequisite is real, checked, and documented.**
   `ensure_build_environment.sh` and `build_image.sh` read pinned TOML with
   `tomllib`, standard library only from CPython 3.11, while
@@ -80,11 +97,11 @@ whole vendored sigrok stack.
 - **Documented the preferred Windows route.** `Environment_Setup.md` now gives
   a step-by-step Docker Engine install inside WSL2 Ubuntu, with Docker Desktop
   as an explicit alternative rather than the assumed default.
-- **Recorded what the builder images' licence label does not cover.**
+- **Recorded builder aggregate licensing and inventory.**
   `07_Delivery/toolchain/README.md` states that the `GPL-3.0-or-later` OCI
-  label describes this project's own recipe, that the image is an aggregate of
-  upstream components under their own terms, and that no SBOM or third-party
-  inventory exists for them.
+  label describes this project's own recipe and that the image is an aggregate
+  under upstream terms. New schema-2 generations now include a resolved package
+  inventory and identity-bound SPDX 2.3 JSON SBOM.
 
 ### Changed - September 2026
 

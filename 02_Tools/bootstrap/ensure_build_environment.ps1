@@ -12,8 +12,9 @@ Ensure that a PulseView builder image is installed and complete through WSL.
 
 .DESCRIPTION
 Delegates to ensure_build_environment.sh inside the selected WSL distribution.
-The script restores local Git LFS parts or offers a local online rebuild. It
-does not download LFS content and does not upload or publish anything.
+The script selects a current installed image first, restores audited local Git
+LFS parts when required, or offers a local online rebuild. It does not download
+LFS content and does not upload or publish anything.
 #>
 
 [CmdletBinding()]
@@ -24,6 +25,8 @@ param(
     [string] $Manifest = '',
     [string] $Distribution = 'Ubuntu-24.04',
     [switch] $ForceRestore,
+    [switch] $AllowLegacyRestore,
+    [switch] $AllowHistoricalBuilder,
     [switch] $Rebuild,
     [switch] $NoRebuild
 )
@@ -63,6 +66,8 @@ if ($Manifest) {
     $Forward += @('--manifest', (($WslManifestLines | Select-Object -Last 1).Trim()))
 }
 if ($ForceRestore) { $Forward += '--force-restore' }
+if ($AllowLegacyRestore) { $Forward += '--allow-legacy-restore' }
+if ($AllowHistoricalBuilder) { $Forward += '--allow-historical-builder' }
 if ($Rebuild) { $Forward += '--rebuild' }
 if ($NoRebuild) { $Forward += '--no-rebuild' }
 

@@ -1,0 +1,131 @@
+# Copyright (c) 2026 DDP Engineering
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+schema = 1
+image = "mingw"
+
+direct_package = [
+  { name = "autoconf" },
+  { name = "automake" },
+  { name = "autoconf-archive" },
+  { name = "autopoint" },
+  { name = "bash" },
+  { name = "bison" },
+  { name = "bzip2" },
+  { name = "ca-certificates" },
+  { name = "cmake" },
+  { name = "doxygen" },
+  { name = "flex" },
+  { name = "g++" },
+  { name = "g++-multilib" },
+  { name = "gettext" },
+  { name = "git" },
+  { name = "gperf" },
+  { name = "intltool" },
+  { name = "libc6-dev-i386" },
+  { name = "libgdk-pixbuf-2.0-dev" },
+  { name = "libgl-dev" },
+  { name = "libltdl-dev" },
+  { name = "libssl-dev" },
+  { name = "libtool" },
+  { name = "libtool-bin" },
+  { name = "libxml-parser-perl" },
+  { name = "lzip" },
+  { name = "make" },
+  { name = "nsis" },
+  { name = "openssl" },
+  { name = "p7zip-full" },
+  { name = "patch" },
+  { name = "perl" },
+  { name = "pkg-config" },
+  { name = "python-is-python3" },
+  { name = "python3" },
+  { name = "python3-mako" },
+  { name = "python3-setuptools" },
+  { name = "python3-yaml" },
+  { name = "ruby" },
+  { name = "sdcc" },
+  { name = "sed" },
+  { name = "unzip" },
+  { name = "wget" },
+  { name = "wine64" },
+  { name = "xz-utils" },
+]
+
+[[command]]
+name = "bash"
+level = "quick"
+
+[[command]]
+name = "cmake"
+version_args = ["--version"]
+version_regex = "^cmake version "
+level = "quick"
+
+[[command]]
+name = "doxygen"
+version_args = ["--version"]
+version_regex = "^[0-9]+\\."
+
+[[command]]
+name = "makensis"
+version_args = ["-VERSION"]
+
+[[command]]
+name = "mxe-gcc"
+path = "x86_64-w64-mingw32.static.posix-gcc"
+version_args = ["--version"]
+level = "quick"
+
+[[command]]
+name = "mxe-pkg-config"
+path = "x86_64-w64-mingw32.static.posix-pkg-config"
+version_args = ["--version"]
+level = "quick"
+
+[[file]]
+path = "/opt/sigrok-deps/python-3.13.15-embed-amd64.zip"
+sha256_artifact = "cpython-windows-embed"
+level = "quick"
+
+[[file]]
+path = "/opt/sigrok-deps/Python-3.13.15.tar.xz"
+sha256_artifact = "cpython-source"
+
+[[target_output]]
+name = "mxe-libusb"
+path = "/opt/mxe/usr/x86_64-w64-mingw32.static.posix/lib/libusb-1.0.a"
+
+[[target_output]]
+name = "mxe-qt-core"
+path = "/opt/mxe/usr/x86_64-w64-mingw32.static.posix/qt5/lib/libQt5Core.a"
+
+[[feature]]
+name = "hantek-dso3062l"
+probe = "driver-list"
+expected = "hantek-dso3062l"
+
+[[feature]]
+name = "atk-dl16"
+probe = "driver-list"
+expected = "atk-dl16"
+
+[[feature]]
+name = "all-decoders"
+probe = "decoder-list"
+expected = "all-installed"
+
+[[feature]]
+name = "networking-stack"
+probe = "networking-stack"
+expected = "nrzi,4b5b,ethernet,arp,ipv4,udp"
+
+[[feature]]
+name = "pe-imports"
+probe = "pe-import-closure"
+expected = "closed"

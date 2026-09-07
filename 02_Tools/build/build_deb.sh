@@ -79,8 +79,8 @@ if [ -z "${APPDIR}" ] && { [ "$(uname -m)" != aarch64 ] || [ ! -x /usr/local/bin
     INNER_ARGS=(--appimage "${CONTAINER_APPIMAGE}" --out "${CONTAINER_OUT}")
     [ -z "${VERSION}" ] || INNER_ARGS+=(--version "${VERSION}")
     [ -z "${REV}" ] || INNER_ARGS+=(--rev "${REV}")
-    exec "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
-        --platform aarch64 -- bash /work/02_Tools/build/build_deb.sh \
+    exec bash "${SCRIPT_DIR}/run_in_builder.sh" --image appimage --keep-volume \
+        --platform aarch64 --offline -- bash /work/02_Tools/build/build_deb.sh \
         "${INNER_ARGS[@]}"
 fi
 
