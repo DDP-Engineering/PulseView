@@ -24,29 +24,12 @@ the task journal that every later stage reads and updates.
   legacy page without Routing, use its available sections only to locate the
   exact source and tests, and include page reconciliation in the task scope.
 
-**Stage report (completion or pause):** At this boundary, record only durable
-events allowed by the journal contract, update the header and checklist, and
-refresh the single `## Stage report` section in this task journal:
-At every stage transition or pause, append any new Ruling and refresh the Handoff;
-also refresh the Handoff for a blocker or session end.
-`stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
-(plain one-line fields, no fences). Record the completed stage
-separately from `current`, which must match the header after any transition;
-use `paused` when waiting or ending a session. Other results are `in_progress`,
-`completed`, `blocked`, `skipped`. Run
-`python .agentic/aegis.py summary TASK-<id>` and copy its block before any
-detailed explanation. Unknown values stay blank (`not recorded`); refresh
-stale records and read omitted details before continuing. Preserve existing
-approval stops and immediate deviation notices; this report adds no new stop.
-
-**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
-the journal header/checklist, dedicated durable sections, and relevant log
-entries (stage outcomes, blockers, material changes and consolidated evidence);
-follow links to needed records.
-This stage's required full reads still apply. Use linked requirements and
-source as needed, not the whole register. Do not act on missing, stale, or
-shortened reporting without reviewing the full journal information.
+**Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
+"Rulings and handoffs", and "Stage reporting". At transitions and pauses,
+update the current checklist, minimal Handoff and Stage report, then show
+`summary TASK-<id>`. Read required durable evidence; missing or shortened
+context requires review. This adds no approval stop and never defers a material
+deviation notice. Reuse unchanged instructions already read in this session.
 
 ## Frame card
 

@@ -112,6 +112,9 @@ whole vendored sigrok stack.
 
 ### Changed - September 2026
 
+- Updated the installed AEGIS workflow to 0.12.0 for focused verification and
+  leaner records, preserving project configuration and engineering history.
+
 - **Relicensed the software to GPL-3.0-or-later, ahead of publication.** The
   repository previously declared PolyForm Noncommercial 1.0.0 over everything,
   including the vendored GPL sigrok stack. GPLv3 section 7 forbids adding a

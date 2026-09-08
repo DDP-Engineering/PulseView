@@ -41,7 +41,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.11.0"
+VERSION = "0.12.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -835,10 +835,12 @@ def cmd_evolution(args: argparse.Namespace) -> int:
         reports.append(report)
     write_json_file(history_file, history)
     if args.json:
+        displayed = ([{key: item[key] for key in ("path", "status", "area")}
+                      for item in changes] if args.compact else changes)
         emit_json({
             "command": "evolution", "task": task,
             "file": rel(history_file), "anchor_id": anchor["anchor_id"],
-            "evolved_at": evolved, "counts": counts, "changes": changes,
+            "evolved_at": evolved, "counts": counts, "changes": displayed,
             "replaced": replaced,
         })
         return 0
@@ -966,6 +968,15 @@ def cmd_init(args: argparse.Namespace) -> int:
 # task / req
 
 
+def scaffold_template(name: str) -> str:
+    """@brief Omit explicitly marked authoring notes from new records only."""
+    text = template(name)
+    return re.sub(
+        r"^<!-- AEGIS:TEMPLATE\n.*?^-->\n|"
+        r"^# AEGIS:TEMPLATE-BEGIN\n.*?^# AEGIS:TEMPLATE-END\n",
+        "", text, flags=re.MULTILINE | re.DOTALL)
+
+
 def cmd_task(args: argparse.Namespace) -> int:
     """@brief Scaffold a task journal from templates/task.md."""
     title = args.title.strip()
@@ -988,7 +999,7 @@ def cmd_task(args: argparse.Namespace) -> int:
     branch = git_branch()
     stamp = today()
 
-    text = template("task.md")
+    text = scaffold_template("task.md")
     text = TITLE_RE.sub(lambda _m: f"# {task_id} — {title}", text, count=1)
     text = re.sub(r"^type: .*$", f"type: {args.type}", text, count=1, flags=re.MULTILINE)
     text = re.sub(r"^parent:.*$", lambda _m: f"parent: {parent_id}".rstrip(), text,
@@ -1025,7 +1036,7 @@ def cmd_req(args: argparse.Namespace) -> int:
     req_id = f"REQ-{code}-{new_id(taken)}"
     stamp = today()
 
-    text = template("requirement.toml")
+    text = scaffold_template("requirement.toml")
     text = re.sub(r'^id = ".*"$', f'id = "{req_id}"', text, count=1, flags=re.MULTILINE)
     text = re.sub(r"^title = .*$", lambda _m: f"title = {toml_string(title)}", text,
                   count=1, flags=re.MULTILINE)
@@ -2801,9 +2812,9 @@ def impacted_tests(cfg: dict, revision: str = "") -> tuple[list[str], str]:
              by some requirement's affected_paths, otherwise the focused set
              would silently skip the uncovered work and the caller falls back
              to the full suite. Hygiene: any test reference containing shell
-             metacharacters (spaces, quotes, `;`, `&`, redirects) also forces
-             the fallback - references are substituted into a shell command
-             and must never be able to alter it.
+             metacharacters in a path forces fallback. Unsupported selector
+             suffixes are discarded in favor of the validated whole file;
+             no discarded suffix is substituted into a shell command.
     """
     files, _added, _gaps, reason = collect_diff(cfg, revision)
     if reason:
@@ -2833,11 +2844,25 @@ def impacted_tests(cfg: dict, revision: str = "") -> tuple[list[str], str]:
         for entry in file_tests:
             if entry not in tests:
                 tests.append(entry)
+    # A human-readable selector is not shell syntax. Broaden only its suffix;
+    # the file path still has to satisfy both containment and shell hygiene.
+    files_only: set[str] = set()
     for entry in tests:
-        if not SAFE_TEST_REF_RE.fullmatch(entry):
-            return [], f"unsafe test reference '{entry}'"
-        if not repo_relative_ok(entry.split("::", 1)[0]):
+        path, separator, _selector = entry.partition("::")
+        if not repo_relative_ok(path):
             return [], f"test reference escapes the repository ('{entry}')"
+        if not SAFE_TEST_REF_RE.fullmatch(entry):
+            if not separator or not SAFE_TEST_REF_RE.fullmatch(path):
+                return [], f"unsafe test reference '{entry}'"
+            files_only.add(path)
+
+    if files_only:
+        tests = list(dict.fromkeys(
+            entry.partition("::")[0]
+            if entry.partition("::")[0] in files_only else entry
+            for entry in tests))
+        print(f"impacted: unsupported selectors - reduced to file granularity "
+              f"for {len(files_only)} test file(s)")
 
     workdir = command_workdir(cfg)
     rebased = []
@@ -2915,6 +2940,8 @@ def cmd_test(args: argparse.Namespace) -> int:
     commands = cfg_table(cfg, "commands")
     if args.impacted and args.name != "test":
         raise UserError("--impacted only applies to the 'test' command")
+    if args.no_fallback and not args.impacted:
+        raise UserError("--no-fallback requires --impacted")
     command = commands.get(args.name)
     if (args.name in RESERVED_COMMAND_KEYS or not isinstance(command, str)
             or not command.strip() or "{" in command):
@@ -2922,11 +2949,11 @@ def cmd_test(args: argparse.Namespace) -> int:
             f"no runnable [commands] entry named '{args.name}' in aegis.toml")
 
     label = args.name
+    fallback = ""
     if args.impacted:
         template_cmd = commands.get("test_impacted")
         if not isinstance(template_cmd, str) or "{tests}" not in template_cmd:
-            print("impacted: no test_impacted template in aegis.toml"
-                  " - running the full test command")
+            fallback = "no test_impacted template in aegis.toml"
         else:
             tests, reason = impacted_tests(cfg, getattr(args, "base", "") or "")
             substituted, tests, reason = fit_impacted(template_cmd, tests, reason)
@@ -2934,15 +2961,29 @@ def cmd_test(args: argparse.Namespace) -> int:
                 command = substituted
                 label = f"test --impacted ({len(tests)} test ref(s))"
             else:
-                print(f"impacted: {reason} - running the full test command")
+                fallback = reason
+
+    if fallback:
+        if args.no_fallback:
+            raise UserError(f"impacted: {fallback} - no command run; "
+                            "choose a focused project command or defer full verification")
+        action = "would run" if args.dry_run else "running"
+        print(f"impacted: {fallback} - {action} the full test command")
 
     if args.task:  # validate before running: a typo must not cost a suite run
         read_journal(args.task)
 
+    workdir = command_workdir(cfg)
+    if args.dry_run:
+        print(f"plan: {label}; workdir={workdir}")
+        print(f"$ {command}")
+        print("dry-run: no command run; no verification result recorded")
+        return 0
+
     print(f"$ {command}", flush=True)
     code, seconds, _tail, stopped = run_command(
         command, command_timeout(cfg, args.name), capture=False,
-        cwd=command_workdir(cfg))
+        cwd=workdir)
     if stopped:
         label = f"{label} stopped at its limit - nothing proven"
     print(f"{label}: exit {code} ({seconds:.1f}s)")
@@ -3710,6 +3751,8 @@ def build_parser() -> argparse.ArgumentParser:
     evolution.add_argument("--task", required=True, help="TASK-<id> or <id>")
     evolution.add_argument("--json", action="store_true",
                            help="emit one JSON document on stdout")
+    evolution.add_argument("--compact", action="store_true",
+                           help="omit fingerprints from JSON output; saved evidence stays complete")
     evolution.set_defaults(func=cmd_evolution)
 
     check = subs.add_parser(
@@ -3737,6 +3780,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="a [commands] entry name (default: test)")
     test.add_argument("--impacted", action="store_true",
                       help="run only the tests linked to requirements the diff touches")
+    test.add_argument("--no-fallback", action="store_true",
+                      help="with --impacted, exit 1 without running when selection is unavailable")
+    test.add_argument("--dry-run", action="store_true",
+                      help="preview the selected command and working directory without running or logging")
     test.add_argument("--base", default="",
                       help="diff against this revision instead of the merge base"
                            " (--base HEAD selects only uncommitted work)")

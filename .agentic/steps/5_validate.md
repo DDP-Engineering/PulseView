@@ -20,29 +20,12 @@ prove the final tree before it is presented for publication.
 - The knowledge page of each component you touched, and
   `.agentic/templates/component.md`.
 
-**Stage report (completion or pause):** At this boundary, record only durable
-events allowed by the journal contract, update the header and checklist, and
-refresh the single `## Stage report` section in this task journal:
-At every stage transition or pause, append any new Ruling and refresh the Handoff;
-also refresh the Handoff for a blocker or session end.
-`stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`
-(plain one-line fields, no fences). Record the completed stage
-separately from `current`, which must match the header after any transition;
-use `paused` when waiting or ending a session. Other results are `in_progress`,
-`completed`, `blocked`, `skipped`. Run
-`python .agentic/aegis.py summary TASK-<id>` and copy its block before any
-detailed explanation. Unknown values stay blank (`not recorded`); refresh
-stale records and read omitted details before continuing. Preserve existing
-approval stops and immediate deviation notices; this report adds no new stop.
-
-**Resume context:** Run `brief TASK-<id>` first, then read this stage's instructions,
-the journal header/checklist, dedicated durable sections, and relevant log
-entries (stage outcomes, blockers, material changes and consolidated evidence);
-follow links to needed records.
-This stage's required full reads still apply. Use linked requirements and
-source as needed, not the whole register. Do not act on missing, stale, or
-shortened reporting without reviewing the full journal information.
+**Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
+"Rulings and handoffs", and "Stage reporting". At transitions and pauses,
+update the current checklist, minimal Handoff and Stage report, then show
+`summary TASK-<id>`. Read required durable evidence; missing or shortened
+context requires review. This adds no approval stop and never defers a material
+deviation notice. Reuse unchanged instructions already read in this session.
 
 ## Optional explicit review and bounded re-review
 
@@ -115,8 +98,11 @@ verdict or green suite does not replace integration proof in the parent.
    automatable test that is merely missing. Where a manual method stands in for
    a test that could have been written, state it as a deviation notice in the
    conversation, per `AGENTS.md`.
-6. If steps 1-5 changed source, tests, requirements, specs, or knowledge, rerun
-   the impacted set and resolve the result before proving the repository.
+6. If steps 1-5 changed executable behavior, tests, or verification configuration,
+   run relevant focused proof as needed to resolve the change. Prose-only updates
+   require semantic and traceability review; they do not alone require another
+   runtime test run. Do not run an impacted set that expands to the full suite
+   immediately before the final full proof.
 7. If validation changed any repository file outside `.agentic/`, rerun
    `python .agentic/aegis.py evolution --task TASK-<id>` so the saved,
    timestamped report describes the final candidate. Review every added,
@@ -125,8 +111,12 @@ verdict or green suite does not replace integration proof in the parent.
 8. **Prove the final candidate only after every candidate-changing step:**
    `python .agentic/aegis.py check --task TASK-<id> --strict --run`.
    This executes the configured full verification commands plus the advisory
-   catalog. If any fix changes the candidate, repeat the relevant review and
-   this proof; the last proof must describe the tree handed to `deliver`.
+   catalog. Schedule this once after edits and review, rather than once per
+   stage. A failure or subsequent candidate change requires relevant review and
+   fresh proof; the last proof must describe the tree handed to `deliver`.
+   Do not run a separate full `test` immediately before this command. An earlier
+   full run, a dry-run preview, or an unchanged fingerprint on a cancelled job
+   cannot substitute for the required successful final verification.
 9. Record one consolidated final validation result in the log: command, exit
    code, commands/tests run, and remaining warnings with their accepted
    reasons. Record an earlier failed gate only when it exposed a candidate

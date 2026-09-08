@@ -227,6 +227,26 @@ limitation. Consolidate related test results by meaningful behavior increment;
 do not append every inner-loop retry. Keep entries concise and link to the
 durable detail instead of copying it. Existing entries are never rewritten.
 
+## Verification efficiency
+
+Use the project's documented readiness checks before testing in a new checkout.
+Build uses focused native tests or configured impacted selection that actually
+honors the selected references. `test --impacted --dry-run` previews the command;
+`--no-fallback` refuses to start the full command when selection is unavailable.
+A successful preview proves nothing. Runner syntax, toolchains and environment
+setup belong to the project; AEGIS never installs them or guesses test adapters.
+Run the configured full verification at the end of validate, after edits and
+review. Repeat it for a failure or a changed final candidate, not merely because
+a stage changed. Do not run a separate full suite immediately before strict
+validation. Inspect existing jobs and logs before starting or polling another.
+
+Read shared instructions once per intact session. Reuse documents already read
+when they have not changed; inspect changed sections and relevant earlier
+rulings/evidence. After compaction or lost context, follow the resume procedure
+and required full reads. Keep Handoff fields short and update changed fields
+instead of restating Frame, Design, or Log. Generated records omit marked
+authoring notes; full guidance stays in `templates/` for reference.
+
 ## Rulings and handoffs
 
 Rulings are append-only durable decisions. Use the exact `RULING-` format in
@@ -331,8 +351,8 @@ python .agentic/aegis.py components              # component titles and page pat
 python .agentic/aegis.py task "<title>"         # new task journal
 python .agentic/aegis.py req <cat> "<title>"    # new requirement file
 python .agentic/aegis.py check                  # advisory report, always exits 0
-python .agentic/aegis.py test --impacted --base HEAD   # fast loop in build
-python .agentic/aegis.py test                   # full suite, used at validate
+python .agentic/aegis.py test --impacted --base HEAD --no-fallback  # optional focused build check
+python .agentic/aegis.py check --task TASK-<id> --strict --run  # final full proof
 python .agentic/aegis.py report TASK-<id>       # delivery summary into the journal
 python .agentic/aegis.py diagram --component <name>    # coverage map, for a human
 python .agentic/aegis.py explain <path>         # what governs this file

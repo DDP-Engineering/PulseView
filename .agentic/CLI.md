@@ -155,6 +155,10 @@ lookup scans journals visible in the current checkout only, so it cannot claim
 knowledge of children that exist solely on another branch. The parent owns
 validation of the integrated candidate.
 
+New task and requirement records omit explicitly marked template-only authoring
+notes while retaining their license and data fields. Existing records are never
+rewritten. Inspect the templates when their full field guidance is needed.
+
 ## `anchor`
 
 ```text
@@ -178,7 +182,7 @@ prove that a test or implementation was honest.
 ## `evolution`
 
 ```text
-python .agentic/aegis.py evolution --task TASK-<id> [--json]
+python .agentic/aegis.py evolution --task TASK-<id> [--json] [--compact]
 ```
 
 **Description:** Compare the current Git-visible repository with the active
@@ -192,6 +196,10 @@ later validation edit can be reflected without duplicate history.
 
 Both commands use UTC ISO 8601 timestamps. `--json` emits one complete machine
 envelope on stdout.
+
+For evolution, `--compact --json` emits paths, statuses and areas without the
+before/after hashes. The saved evolution file remains complete; ordinary `--json`
+output retains its existing schema and detail.
 
 ## `req`
 
@@ -469,7 +477,7 @@ command set.
 ## `test`
 
 ```text
-python .agentic/aegis.py test [name] [--impacted] [--base <rev>] [--task TASK-<id>]
+python .agentic/aegis.py test [name] [--impacted] [--no-fallback] [--dry-run] [--base <rev>] [--task TASK-<id>]
 ```
 
 **Description:** Run a command from the `[commands]` table in
@@ -482,11 +490,14 @@ Options:
 |---|---|
 | `name` | Run that configured command, for example `test` or `lint`. |
 | `--impacted` | For the default `test` command, substitute linked impacted tests into the configured `test_impacted` template. |
+| `--no-fallback` | With `--impacted`, exit 1 without running or recording test evidence when selection is unavailable. |
+| `--dry-run` | Preview the command and working directory without execution or journal writes; exit zero is not test proof. |
 | `--base <rev>` | Take the diff against that revision instead of the merge base. `--base HEAD` selects only uncommitted work. |
 | `--task TASK-<id>` | Validate the task ID before running and append the result and duration to its journal. |
 
 If impact selection cannot produce a focused set, AEGIS explains why
-and falls back to the full `test` command. `--impacted` cannot be combined
+and falls back to the full `test` command unless `--no-fallback` was requested.
+`--no-fallback` requires `--impacted`. `--impacted` cannot be combined
 with a command name other than `test`.
 
 Without `--base`, the diff runs from the merge base with the default branch,
@@ -495,14 +506,21 @@ right basis for reviewing a branch and the wrong one for an edit-run loop on
 a long-lived branch, where it can select most of the suite. Use `--base HEAD`
 during build to select only what you have not committed yet.
 
+Unsupported selector suffixes, including test names containing spaces or quotes,
+are discarded in favor of their validated test file. Unsafe or repository-escaping
+file paths are never interpolated. Multiple references to a broadened file become
+one file argument. AEGIS supplies references; the configured runner must honor
+both file and exact-selector input. It does not translate between test frameworks.
+Paths with spaces still require a project-native command rather than interpolation.
+
 A focused set that would make the command longer than the platform can launch
 is not an error: AEGIS reduces it to one entry per distinct test file,
 says so, and only falls back to the full suite if even that is too long.
 
 **When to use:**
 
-- use `test --impacted --base HEAD --task ...` for a fast build-loop regression;
-- use `test --task ...` for the configured full suite during validation;
+- use a focused project-native command, or `test --impacted --base HEAD --no-fallback`, during build;
+- use `check --task TASK-<id> --strict --run` once after final edits and review; do not precede it with another full `test`;
 - use `test <name>` for other configured read-only checks such as linting.
 
 **Examples:**
