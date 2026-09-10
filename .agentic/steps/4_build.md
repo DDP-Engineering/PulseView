@@ -17,6 +17,8 @@ links current for optional impacted selection.
 - The task journal `.agentic/tasks/TASK-<id>.md`, including `## Design`.
 - Every requirement on its `requirements:` line, and their specs.
 - The existing tests for the files you are about to touch.
+- Relevant `.agentic/context/environment.md` sections and their canonical setup
+  references, when present. Use `aegis.toml` for configured commands and paths.
 
 **Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
 "Rulings and handoffs", and "Stage reporting". At transitions and pauses,
@@ -42,6 +44,11 @@ and working directory. Inspect an active verification job before launching
 another. Diagnose a missing prerequisite directly; do not repeatedly launch
 whole suites to discover it. Setup never grants permission for host changes,
 network downloads, or installation beyond existing authorization.
+
+When a behavior or environment change becomes real, update affected project
+context and component documentation to describe the current candidate directly.
+Keep run outcomes and unresolved setup problems in the journal, not the shared
+environment guide. Validate reconciles these current-state descriptions.
 
 1. Pick one requirement. Work it to green before starting the next - do
    not open several at once.
@@ -111,9 +118,12 @@ network downloads, or installation beyond existing authorization.
    `evolution` report.
    It becomes a deviation only if you accept candidate files or omissions that
    materially depart from the agreed scope or design.
-11. Tick the checklist, set `stage: validate`, and **replace
+11. In checkpoint mode, present the `build` Stage-boundary choices from
+    `AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
+    before transition. After the user chooses to continue, or immediately in
+    autopilot, tick the checklist, set `stage: validate`, and **replace
     `## Done checklist`** with the validate stage's "Done when" list from
-    `5_validate.md` — the checklist always shows the current stage's items.
+    `5_validate.md` - the checklist always shows the current stage's items.
 
 **Outputs:**
 

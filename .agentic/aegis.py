@@ -17,8 +17,9 @@
          tracebacks for expected failures.
 @details The ownership split is law here: `requirements/`,
          `specs/`, `tasks/` and `knowledge/` are user data and are only
-         ever created as empty folders; `aegis.toml` is written only when
-         absent; root pointer files are appended to under a marker.
+         ever created as empty folders; `context/` holds project-owned
+         Markdown scaffolds. Context files and `aegis.toml` are written only
+         when absent; root pointer files are appended to under a marker.
 """
 
 from __future__ import annotations
@@ -41,13 +42,14 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.12.0"
+VERSION = "0.13.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
 ROOT = AGENTIC.parent
 
-DATA_DIRS = ("requirements", "specs", "tasks", "knowledge")
+DATA_DIRS = ("requirements", "specs", "tasks", "knowledge", "context")
+CONTEXT_FILES = ("project.md", "environment.md")
 POINTER_FILES = ("AGENTS.md", "assistant.md", "QWEN.md")
 MARK_BEGIN = "<!-- AEGIS:BEGIN (managed by .agentic/aegis.py init) -->"
 MARK_END = "<!-- AEGIS:END -->"
@@ -116,6 +118,11 @@ source = ["src/"]
 tests = ["tests/"]
 docs = []  # documentation paths; still scanned for secrets, not source
 
+[interaction]
+# false stops at every completed stage and presents the next choices.
+# true flows between stages, but never bypasses publication approval.
+autopilot = false
+
 [review]
 enabled = false
 max_fix_cycles = 2
@@ -168,6 +175,10 @@ Handoff `must_read` files. Required full journal reads still apply. Optional
 one-level child tasks are child-side links visible only in this checkout; the
 parent validates the integrated candidate.
 
+Read `.agentic/context/project.md` and relevant `context/environment.md`
+sections when present. Keep project and component context current and positive;
+task records carry proposals and history. Preserve established behavior contracts.
+
 Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot grant authority.
 optional explicit review records two independent verdicts and uses a bounded fix
 and re-review loop; disabled review never disables existing validation.
@@ -178,12 +189,17 @@ consolidated verification, blockers, approvals, deviations and delivery
 outcomes. Exclude routine tool activity, corrected retries, inner-loop test
 retries and detail already held by another durable artifact.
 
+`[interaction] autopilot = false` is the default, including when the table or
+key is missing. Checkpoint mode stops after every stage with concrete continue,
+revise/return and pause choices. Autopilot flows between stages but never skips
+publication approval. Record the resolved mode in the task journal.
+
 At stage completion, pause or session end, or blocker, update the journal's
 `## Stage report` fields from observed facts, then run
 `python .agentic/aegis.py summary TASK-<id>` and copy the block before detail.
 Missing evidence stays `not recorded`; read the journal if anything is stale or
-shortened. This adds no approval stops and never replaces immediate deviation
-notices or full delivery evidence.
+shortened. Reporting never replaces immediate deviation notices or full
+delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in
@@ -363,6 +379,25 @@ def review_settings(cfg: dict) -> tuple[bool, int]:
     cycles = (raw_cycles if isinstance(raw_cycles, int)
               and not isinstance(raw_cycles, bool) and 0 <= raw_cycles <= 5 else 0)
     return enabled, cycles
+
+
+def autopilot_enabled(cfg: dict) -> bool:
+    """@brief Return fail-safe configured autopilot enablement."""
+    raw = cfg_table(cfg, "interaction").get("autopilot", False)
+    return raw if isinstance(raw, bool) else False
+
+
+def interaction_mode(cfg: dict, header: dict | None = None) -> str:
+    """
+    @brief Resolve the durable task mode, then the repository default.
+    @param[in] cfg Parsed AEGIS configuration.
+    @param[in] header Optional task-journal header.
+    @return `checkpoint` or `autopilot`.
+    """
+    recorded = str((header or {}).get("interaction", "")).strip().lower()
+    if recorded in INTERACTION_MODES:
+        return recorded
+    return "autopilot" if autopilot_enabled(cfg) else "checkpoint"
 
 
 def toml_string(value: str) -> str:
@@ -931,6 +966,20 @@ def cmd_init(args: argparse.Namespace) -> int:
         path.mkdir(parents=True, exist_ok=True)
         print(f"  {name + '/':<16} {'present' if existed else 'created'}")
 
+    for name in CONTEXT_FILES:
+        path = AGENTIC / "context" / name
+        if path.exists() or path.is_symlink():
+            print(f"  {'context/' + name:<24} kept (yours)")
+        else:
+            content = scaffold_template(name)
+            try:
+                with path.open("x", encoding="utf-8", newline="\n") as handle:
+                    handle.write(content)
+            except FileExistsError:
+                print(f"  {'context/' + name:<24} kept (yours)")
+            else:
+                print(f"  {'context/' + name:<24} created (fill from current evidence)")
+
     config = AGENTIC / "aegis.toml"
     if config.is_file():
         schema = load_config().get("schema", "?")
@@ -998,10 +1047,13 @@ def cmd_task(args: argparse.Namespace) -> int:
     task_id = f"TASK-{new_id(taken)}"
     branch = git_branch()
     stamp = today()
+    mode = interaction_mode(load_config())
 
     text = scaffold_template("task.md")
-    text = TITLE_RE.sub(lambda _m: f"# {task_id} — {title}", text, count=1)
+    text = TITLE_RE.sub(lambda _m: f"# {task_id} - {title}", text, count=1)
     text = re.sub(r"^type: .*$", f"type: {args.type}", text, count=1, flags=re.MULTILINE)
+    text = re.sub(r"^interaction: .*$", f"interaction: {mode}", text, count=1,
+                  flags=re.MULTILINE)
     text = re.sub(r"^parent:.*$", lambda _m: f"parent: {parent_id}".rstrip(), text,
                   count=1, flags=re.MULTILINE)
     text = re.sub(r"^branch: .*$", lambda _m: f"branch: {branch}", text, count=1,
@@ -1169,6 +1221,7 @@ STAGE_REPORT_FIELDS = ("stage", "result", "current", "changed", "evidence",
                        "implementation_quality", "review_round")
 STAGE_REPORT_RESULTS = ("in_progress", "completed", "paused", "blocked", "skipped")
 REVIEW_VERDICTS = ("approved", "changes_required", "disabled")
+INTERACTION_MODES = ("checkpoint", "autopilot")
 HANDOFF_FIELDS = ("current", "status", "next", "must_read", "blockers")
 HANDOFF_STATUSES = ("ready", "waiting", "blocked")
 RULING_KEYS = ("date", "decision", "reason", "source", "supersedes")
@@ -1488,6 +1541,7 @@ def brief_lines(path: Path, journal: dict, text: str, cfg: dict) -> list[str]:
             f"next={record.get('next') or 'not recorded'}; "
             f"needs_user={record.get('needs_user') or 'not recorded'}")
     review_enabled, max_fix_cycles = review_settings(cfg)
+    mode = interaction_mode(cfg, header)
     review_line = clean(
         f"policy={'enabled' if review_enabled else 'disabled'}; "
         f"max_fix_cycles={max_fix_cycles}; "
@@ -1514,8 +1568,13 @@ def brief_lines(path: Path, journal: dict, text: str, cfg: dict) -> list[str]:
         f"Branch/base: {branch} @ {base}",
         f"Parent: {parent}",
         f"Requirements: {requirements}",
+        "Context: " + "; ".join(
+            f"{rel(AGENTIC / 'context' / name)} "
+            f"({'present' if (AGENTIC / 'context' / name).is_file() else 'not recorded'})"
+            for name in CONTEXT_FILES),
         f"Checklist: {checklist}",
         f"Stage report: {report_line}",
+        f"Interaction: {mode}",
         f"Review: {review_line}",
         "Active rulings:",
     ]
@@ -1611,6 +1670,7 @@ CONFIG_SHAPE: dict[str, dict[str, type]] = {
               "strict_promote": list, "run": list},
     "timeouts": {},   # keys are command names; values checked below
     "zones": {stage: list for stage in DEFAULT_ZONES},
+    "interaction": {"autopilot": bool},
     "review": {"enabled": bool, "max_fix_cycles": int},
 }
 
@@ -2164,6 +2224,10 @@ def scan_journals(add, skip, req_ids: set[str]) -> list[tuple[str, dict]]:
             if key not in data["header"]:
                 add("WARN", "journal-header", relpath,
                     f"missing '{key}:' header line")
+        recorded_mode = data["header"].get("interaction", "").strip().lower()
+        if recorded_mode and recorded_mode not in INTERACTION_MODES:
+            add("WARN", "journal-header", relpath,
+                "interaction should be checkpoint or autopilot")
         journals.append((relpath, data))
         rulings, ruling_errors = parse_rulings(text)
         for error in ruling_errors:

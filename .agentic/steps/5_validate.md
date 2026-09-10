@@ -90,9 +90,21 @@ verdict or green suite does not replace integration proof in the parent.
    If the built code differs from the proposal, record the justified deviation
    or decision. When no proposal exists, derive the current-state diagram
    directly from the built code.
+   Reconcile affected sections of `.agentic/context/project.md` and
+   `.agentic/context/environment.md` with the same candidate and canonical
+   configuration/setup references. Populate missing files only with known
+   in-scope facts; preserve unrelated sections. Project and component documents
+   state current positive responsibilities and behavior. Replace stale claims;
+   keep proposals, removed-feature inventories, before/after narratives, and
+   investigation history in the journal. Leave unchanged sections untouched.
 4. Re-read each requirement. Confirm its status and prose describe the built
    behavior, its verification matches the observation, and all affected paths
-   and linked tests are current. Correct them now.
+   and linked tests are current. Correct documentation drift now; a mismatch
+   with an established contract returns to build or an authorized scope
+   decision, rather than weakening the requirement to match the code. Active
+   prose states the current positive outcome and meaningful failure responses.
+   Resolve draft-spec open decisions before activation and retain their decision
+   history in the journal, not the active spec.
 5. Complete and record every `Manual:` or `Inspection:` verification. Name the
    method, action, and observed result; never substitute a manual label for an
    automatable test that is merely missing. Where a manual method stands in for
@@ -131,9 +143,12 @@ verdict or green suite does not replace integration proof in the parent.
    corrected and rerun successfully without affecting the candidate or proof
    is operational detail, not a deviation. Apply the material-impact rule in
    `AGENTS.md` rather than turning every non-zero exit into a notice.
-10. Tick the checklist, set `stage: deliver`, and replace it with the delivery
-   stage's "Done when" list from `6_deliver.md`. The task now means
-   "validated, not yet published."
+10. In checkpoint mode, present the `validate` Stage-boundary choices from
+    `AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
+    before transition. After the user chooses to continue, or immediately in
+    autopilot, tick the checklist, set `stage: deliver`, and replace it with
+    the delivery stage's "Done when" list from `6_deliver.md`. The task now
+    means "validated, not yet published."
 
 **Outputs:**
 

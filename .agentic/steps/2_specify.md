@@ -60,6 +60,11 @@ deviation notice. Reuse unchanged instructions already read in this session.
    named trigger or state, and do not add design choices merely to remove an
    unknown. A reader with no other context must be able to understand and
    check the behavior.
+   State the positive observable outcome, including explicit responses to error
+   conditions. Keep one current contract rather than rejected alternatives,
+   removed features, adoption annotations, or before/after history. Draft
+   requirements/specs hold agreed proposals; project and component context
+   continues to describe the actual implementation until the proposal is built.
 7. Derive concrete verification before reducing it to the TOML field:
 
    ```text
@@ -101,7 +106,10 @@ deviation notice. Reuse unchanged instructions already read in this session.
     satisfying all requirements would satisfy the accepted Frame without
     adding behavior. Run `python .agentic/aegis.py check` and fix
     every format error.
-14. Tick the checklist, set `stage: design`, and replace
+14. In checkpoint mode, present the `specify` Stage-boundary choices from
+    `AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
+    before transition. After the user chooses to continue, or immediately in
+    autopilot, tick the checklist, set `stage: design`, and replace
     `## Done checklist` with the design stage's Done when list.
 
 **Retiring a requirement.** When a behavior is deliberately removed, do

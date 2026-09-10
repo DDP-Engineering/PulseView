@@ -93,7 +93,9 @@ defined in that one file; `status` points them back at it.
 | Specs (optional) | `.agentic/specs/REQ-<CAT>-<hex>.md` |
 | Task journals | `.agentic/tasks/TASK-<hex>.md`, one per task, kept after delivery |
 | Component knowledge | `.agentic/knowledge/<component>.md`, one page per component |
-| Templates | `.agentic/templates/` — `requirement.toml`, `spec.md`, `task.md`, `component.md` |
+| Project profile | `.agentic/context/project.md`, current purpose, responsibilities, constraints, and entry points |
+| Environment guide | `.agentic/context/environment.md`, current toolchain, setup, readiness, and verification routes |
+| Templates | `.agentic/templates/` - `requirement.toml`, `spec.md`, `task.md`, `component.md`, `project.md`, `environment.md` |
 | Step files | `.agentic/steps/` |
 | CLI reference | `.agentic/CLI.md` |
 | Config | `.agentic/aegis.toml` — test/lint commands, source and test globs |
@@ -107,8 +109,60 @@ upgraded, so any change you make there is silently lost. Found a bug in
 `aegis.py`, or need a rule the steps do not cover? Say so and let the
 human decide — a project-specific rule belongs in a file this repository
 owns, not in the payload. Everything else under `.agentic/` —
-`requirements/`, `specs/`, `tasks/`, `knowledge/`, `aegis.toml` — is
+`requirements/`, `specs/`, `tasks/`, `knowledge/`, `context/`, `aegis.toml` - is
 yours to write.
+
+## Current project context
+
+`init` creates each missing context file from its template and preserves every
+existing file. The files are project-owned Markdown with stable headings, not
+an event log or a generated copy of the repository. Empty sections are valid;
+initialization supplies structure, not project facts. Older projects can use
+the workflow with either file absent. Discover the relevant facts directly
+and populate context incrementally within the agreed scope.
+
+Read the project profile at frame and resume; read the relevant environment
+sections before setup, build, or verification, especially on a new computer.
+Follow links to the selected component, requirements, exact source, and tests.
+`brief` lists context paths and file presence only; presence is not proof that
+a file is populated or accurate. Load selected references, not every page.
+
+Populate context from repository evidence during frame or adoption. For a new
+project, record its confirmed purpose and actual setup, then add responsibilities
+as they are implemented. Keep planned capabilities in the task and draft
+requirements/specs until realized. Update affected sections when implementation
+or setup changes; validate reconciles them before final proof. Leave unchanged
+sections untouched. On resume or after branch integration, recheck relevant
+claims against this checkout; another branch's plans are not current facts.
+
+### Current-state documentation rule
+
+Project documents, component pages, and active requirements/specs describe
+current responsibilities and observable behavior directly and positively.
+For example: "The admin page displays the project logo in its top-right
+corner." Keep one current statement, not alternatives, removed features,
+before/after accounts, task IDs, or a running change history. State adjacent
+components' actual responsibilities when explaining boundaries.
+
+Positive wording preserves the complete contract, including errors, security,
+privacy, and compatibility. For example: "The service returns 403 for callers
+without the required role" and "Exports contain authorized records only."
+Keep the trigger, response, and testable boundary; a word-level ban on negative
+phrases would lose meaning. Review semantics instead.
+
+Keep proposals and open decisions in task records and explicitly draft
+requirements/specs; keep past decisions and investigation findings in journals,
+Git, and the changelog. Retired requirements remain available for traceability
+but are not current behavior or a reason to list removed features in summaries.
+When touching an existing page, reconcile relevant stale statements rather
+than appending a correction history. Preserve established requirements unless
+the user authorizes a behavior change: a code/document conflict is a finding,
+not permission to rewrite the contract to fit the easiest implementation.
+
+Link authoritative setup docs and `[commands]`/`[layout]` in `aegis.toml` rather
+than maintaining duplicate values. Keep secrets in their approved stores and
+machine-specific paths and run outcomes in task evidence. Context adds guidance,
+not a new gate, approval, or automatic setup authority.
 
 ## Resume a task
 
@@ -157,24 +211,62 @@ this checkout. AEGIS does not dispatch, branch, merge, or create worktrees.
 
 ## Interaction modes
 
-- **Checkpoint (default).** Stop and ask twice, not once per stage: at
-  the end of `frame` (scope, chosen path, proposed requirements — the
-  cheap moment to course-correct) and before the `deliver` commit/PR
-  (the validated candidate, check, and suite results, presented for a yes).
-  The stages
-  in between flow through without asking.
-- **Autopilot.** When the prompt says "autopilot to deliver", suppress
-  the frame stop. The pre-PR stop always remains, because publishing is
-  the outward-facing act.
+- **Checkpoint (default).** With autopilot off, stop after every completed stage,
+  show its report and the applicable Stage-boundary choices below, and wait for
+  the user before advancing. This keeps scope, requirements, design, code and
+  proof separately reviewable.
+- **Autopilot.** With autopilot on, flow between stages without presenting the
+  intermediate choice menus. The pre-publication approval always remains,
+  because publishing is the outward-facing act.
+
+The repository default is project-owned configuration:
+
+```toml
+[interaction]
+autopilot = false
+```
+
+Missing table or key means `false`. An invalid value also fails safe to off and
+`check` reports it. `aegis task` records the resolved mode as `interaction:` in
+the new journal. A legacy journal without that header resolves from the current
+configuration. An explicit user instruction for the task overrides the
+configured default; update the journal header so the choice survives resume.
+
+At a checkpoint boundary, finish and audit the stage artifacts but do not
+advance the header or replace the checklist yet. Refresh Handoff with the
+current stage and `status: waiting`; record the Stage report with
+`result: paused`, `current:` equal to the header, and `needs_user: yes`; show
+the summary and the applicable choices; then stop. When the user chooses to
+continue, record the decision, tick the completed checklist, advance the header
+and checklist, refresh Handoff and the Stage report, and begin the next stage.
+When the user chooses a revision or return, keep or restore the named stage and
+its checklist before changing artifacts. A pause leaves the current stage and
+waiting Handoff intact.
+
+### Stage-boundary choices
+
+Use concrete stage names and artifacts rather than generic wording. Render
+each choice as its own numbered or bulleted line:
+
+| Completed work | Present these choices |
+|---|---|
+| `frame` | Continue to `specify` (or `build` on the quick path); revise scope, assumptions or path; pause current workflow. |
+| `specify` | Continue to `design`; revise requirements or specs; return to `frame`; pause current workflow. |
+| `design` | Continue to `build`; revise the design; return to `specify`; pause current workflow. |
+| `build` | Continue to `validate`; change implementation or tests; return to `design` or `specify`; pause current workflow. |
+| `validate` | Continue to `deliver`; return to `build` for corrections; reconsider scope or requirements; pause current workflow. |
+| `deliver`, before publication | Approve the stated delivery action; change the delivery outcome; return to `validate`; pause current workflow. |
+
+After successful delivery and transition to `done`, report the outcome without
+another continuation menu.
 
 These pauses are conversational and sit on top of whatever permission or
 sandbox prompts your host already applies. Autopilot loses no
 auditability: the journal still shows the scope decision, the red-test
 line, the check findings, and the ticked checklists after the fact.
 
-No new approval checkpoint is added by children, Rulings, Handoff, brief, or
-optional explicit review. The frame and pre-delivery checkpoints remain the
-only ordinary stops.
+Children, Rulings, Handoff, brief and optional explicit review do not create
+additional stops beyond the configured stage boundaries.
 
 **Deviation notices.** A third thing, and not a stop. The moment you record
 a deviation, say it in the conversation too, as one line:
@@ -184,8 +276,8 @@ DEVIATION <stage>: <what> — <why accepted, or what it costs>
 ```
 
 Then carry on: stating one never pauses the work and never waits for a
-reply. Autopilot does not suppress them either — the mode that removes the
-frame stop is exactly the one where silence costs most.
+reply. Autopilot does not suppress them either - the mode that flows between
+stage boundaries is exactly the one where silence costs most.
 
 A deviation exists only when the candidate, agreed scope, design or contract,
 or confidence in required verification materially differs from what was
@@ -267,10 +359,10 @@ Handoff adds an approval stop.
 
 At each stage completion, pause or session end, or blocker, present one compact
 report **before any detailed explanation**. Reporting does not introduce
-approval stops: the two
-ordinary checkpoints, adoption approvals, and explicit user limits still
-apply. Immediate `DEVIATION` notices remain immediate; do not defer them to
-the report. Do not report after every command.
+stops by itself: checkpoint mode, the publication boundary, adoption approvals
+and explicit user limits determine when a response is required. Immediate
+`DEVIATION` notices remain immediate; do not defer them to the report. Do not
+report after every command.
 
 At that boundary, record any durable event that belongs in `## Log`, then
 update the journal's single `## Stage report` section using the plain fields in
@@ -292,8 +384,9 @@ Requirements, Changed, Evidence, Issues, Next, Needs user, Details.
 The command only reads the journal; it does not run tests or grant approval.
 Write observed command results and their scope, never an inferred "passed";
 blank values remain `not recorded`. Name all unresolved issues and carry
-required decisions forward; `needs_user: no` requires an explicit reason to
-continue under the existing interaction mode, not a guess from silence.
+required decisions forward. At every checkpoint boundary use `needs_user: yes`;
+`needs_user: no` requires autopilot or an explicit reason to continue, not a
+guess from silence.
 
 A missing or stale record must be reconstructed from the journal before
 continuing. A shortened field is visibly marked: read the full journal before
@@ -310,20 +403,22 @@ Starting work is one line:
 using aegis workflow, implement feature X
 ```
 
-That means: read this file, start at `1_frame.md`, and continue through
-the stages, stopping where the interaction mode says to. Add `autopilot
-to deliver` to suppress the frame stop. `fix X` or `change X` work the
-same way — `frame` decides whether they take the quick path.
+That means: read this file, start at `1_frame.md`, and follow the interaction
+mode recorded for the task. With the default configuration, stop after each
+stage and show the Stage-boundary choices. An explicit `autopilot to deliver`
+instruction selects autopilot for that task, while preserving pre-publication
+approval. `fix X` or `change X` work the same way - `frame` decides whether
+they take the quick path.
 
 For a small local model, give one stage per session:
 
 For a resumed task, start with `brief TASK-<id>`, then read the current step
 file and only the Handoff `must_read` paths before following the stage prompt.
 
-Each prompt below explicitly ends the session after that stage. Advance the
-header/checklist when appropriate, record the report, then stop before work
-on the next stage. This session limit does not add an approval gate to normal
-checkpoint or autopilot runs. The workflow is model-independent: compact
+Each prompt below explicitly ends the session after that stage. In checkpoint
+mode this is the normal stage boundary; in autopilot it is an explicit
+single-session limit. Record the report and stop before work on the next stage.
+The workflow is model-independent: compact
 output reduces context use but does not prove compliance by a particular
 model or guarantee a tokenizer-specific 64K budget.
 

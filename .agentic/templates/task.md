@@ -18,6 +18,8 @@ the block, no comments between the lines — so it stays machine-readable.
                 (adoption journals: survey | components | close | done)
   type          feature | fix | change | adopt
   path          full | quick
+  interaction   checkpoint | autopilot; copied from aegis.toml when created
+                and updated when an explicit user instruction overrides it
   requirements  comma-separated requirement IDs, empty until specify
   parent        optional top-level TASK-id; blank for an ordinary task
   branch        the branch this task is delivered on
@@ -57,6 +59,7 @@ validation or delivery outcome. Do not refresh after routine work.
 stage: frame
 type: feature
 path: full
+interaction: checkpoint
 requirements:
 parent:
 branch: <branch>

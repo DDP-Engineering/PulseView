@@ -16,6 +16,11 @@ exact source and tests remain authoritative.
 Updated at validate whenever the component's routing, boundary, invariant,
 behavior, interface, architecture, or file set changed. Keep the standard
 sections below. `Change map` is conditional as described in that section.
+Describe only the current implementation and its positive behavior contract.
+Keep proposals, removed features, before/after comparisons, suspected defects,
+and decision history in task records. Preserve meaningful error and security
+behavior as explicit conditions and responses. Link active requirements;
+resolve a conflict with the owner rather than silently weakening a contract.
 -->
 
 # <component name>
@@ -32,9 +37,9 @@ work and where exact inspection starts. It should not summarize the internals.
 
 ## Purpose and boundaries
 
-Two or three sentences: what this component is responsible for, and what
-it deliberately is not responsible for. State which adjacent component owns
-each important excluded responsibility.
+Two or three sentences describing this component's current responsibilities.
+Name adjacent components and their actual responsibilities where that clarifies
+ownership. Describe what exists, using positive responsibility assignments.
 
 ## Public interface
 
@@ -86,8 +91,8 @@ flowchart TD
     step --> store[("<what it reads or writes>")]
 ```
 
-One or two sentences under the diagram for what it does not show, or for
-the constraint that explains an odd shape. Keep this drawn as the code is
+One or two sentences under the diagram for its scope and the current
+constraint that explains its shape. Keep this drawn as the code is
 now. A task records a proposed shape in its design, then updates this current
 diagram at validate after the implementation matches.
 

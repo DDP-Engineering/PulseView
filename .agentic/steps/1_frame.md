@@ -15,6 +15,11 @@ the task journal that every later stage reads and updates.
 
 - The prompt itself, and anything it points at.
 - `.agentic/AGENTS.md` (stage table, artifact locations, interaction modes).
+- `.agentic/context/project.md` and relevant sections of
+  `.agentic/context/environment.md`, when present. Follow their authoritative
+  references; confirm facts against this checkout. Missing context is an
+  invitation to inspect, not a blocker. Populate only confirmed current facts
+  within scope; keep proposed features and unresolved questions in the Frame.
 - `python .agentic/aegis.py status` — an open task may already cover this.
 - `python .agentic/aegis.py components` when the prompt does not already name
   an exact component page; use its title-and-path list to choose candidates.
@@ -108,11 +113,15 @@ Path and reason:
     behavior supports a success signal, no unknown became invented behavior,
     and scope, exclusions, examples, and path agree. Copy the Done checklist.
 12. Checkpoint mode: present the Frame card, chosen path, proposed behaviors,
-    assumptions, and decision-blocking questions, and wait for a yes. Describe
-    the result as scope acceptance, not implementation. Autopilot records the
-    same concise frame outcome and continues.
-13. Set `stage: specify` (full path) or `stage: build` (quick path), and
-    replace `## Done checklist` with the next stage's Done when list.
+    assumptions, decision-blocking questions and the `frame` Stage-boundary
+    choices from `AGENTS.md`; refresh the waiting Handoff and paused Stage
+    report, then stop. Describe the requested decision as scope acceptance, not implementation.
+    Autopilot records the same concise frame outcome and
+    continues without the intermediate menu.
+13. After the user chooses to continue, or immediately in autopilot, record
+    scope acceptance, set `stage: specify` (full path) or `stage: build`
+    (quick path), and replace `## Done checklist` with the next stage's Done
+    when list.
 
 **Outputs:**
 
@@ -130,7 +139,7 @@ Path and reason:
 - [ ] task branch established; `branch:` header matches the checkout
 - [ ] task journal created with a complete header
 - [ ] proposed behaviors map to the desired outcome and success signals
-- [ ] scope confirmed (checkpoint mode) or logged (autopilot)
+- [ ] scope confirmed by the user (checkpoint mode) or logged (autopilot)
 - [ ] `stage:` advanced
 
 **Skip when:** Never. Every task starts here, however small. If the prompt

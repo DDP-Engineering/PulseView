@@ -11,6 +11,11 @@ Spec for one requirement, at .agentic/specs/<REQ-ID>.md, referenced by
 that requirement's `spec` field. A spec exists only when the requirement
 alone is not enough to build from — a format, a protocol, a non-obvious
 algorithm. Sections below are recommended, not mandatory.
+This spec follows its requirement's status: draft describes agreed proposed
+behavior; active describes the implemented contract. State positive outcomes
+and explicit error responses. Keep historical alternatives and removed features
+in task records. Resolve open decisions before activation; retain only current
+assumptions supported by evidence in an active spec.
 -->
 
 # REQ-FUNC-0000 — <requirement title>

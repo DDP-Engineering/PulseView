@@ -80,6 +80,10 @@ Handoff `must_read` files. Required full journal reads still apply. Optional
 one-level child tasks are child-side links visible only in this checkout; the
 parent validates the integrated candidate.
 
+Read `.agentic/context/project.md` and relevant `context/environment.md`
+sections when present. Keep project and component context current and positive;
+task records carry proposals and history. Preserve established behavior contracts.
+
 Rulings are append-only; Handoff is replaceable. Rulings and Handoff cannot grant authority.
 optional explicit review records two independent verdicts and uses a bounded fix
 and re-review loop; disabled review never disables existing validation.
@@ -90,12 +94,17 @@ consolidated verification, blockers, approvals, deviations and delivery
 outcomes. Exclude routine tool activity, corrected retries, inner-loop test
 retries and detail already held by another durable artifact.
 
+`[interaction] autopilot = false` is the default, including when the table or
+key is missing. Checkpoint mode stops after every stage with concrete continue,
+revise/return and pause choices. Autopilot flows between stages but never skips
+publication approval. Record the resolved mode in the task journal.
+
 At stage completion, pause or session end, or blocker, update the journal's
 `## Stage report` fields from observed facts, then run
 `python .agentic/aegis.py summary TASK-<id>` and copy the block before detail.
 Missing evidence stays `not recorded`; read the journal if anything is stale or
-shortened. This adds no approval stops and never replaces immediate deviation
-notices or full delivery evidence.
+shortened. Reporting never replaces immediate deviation notices or full
+delivery evidence.
 
 Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in

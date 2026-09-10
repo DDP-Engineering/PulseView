@@ -42,7 +42,9 @@ deviation notice. Reuse unchanged instructions already read in this session.
    results, accepted warnings and pre-existing failures, the exact diff
    summary, child status and integrated parent evidence when children are
    visible, what will be committed, exclusions, and the intended outcome.
-   Wait for the human's approval. Any deviation notices you gave along the
+    Present the `deliver` Stage-boundary choices from `AGENTS.md`, refresh the
+    waiting Handoff and paused Stage report, and wait for the human's choice.
+    Any deviation notices you gave along the
    way were notifications, not approvals: notices supplement this
    presentation and never shorten it, so repeat every deviation here even
    where you already said it, and state it as a deviation notice if this

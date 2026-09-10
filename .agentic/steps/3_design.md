@@ -82,9 +82,12 @@ deviation notice. Reuse unchanged instructions already read in this session.
     behavior, compatibility, verification seams, risks, and open decisions.
     Run `python .agentic/aegis.py check` and fix format errors.
 11. Append one concise `design` outcome line pointing to `## Design` and any
-    linked spec; do not copy decisions into the Log. Tick the checklist, set
-    `stage: build`, and replace `## Done checklist` with the build stage's Done
-    when list.
+    linked spec; do not copy decisions into the Log. In checkpoint mode,
+    present the `design` Stage-boundary choices from `AGENTS.md`, refresh the
+    waiting Handoff and paused Stage report, then stop before transition. After
+    the user chooses to continue, or immediately in autopilot, tick the
+    checklist, set `stage: build`, and replace `## Done checklist` with the
+    build stage's Done when list.
 
 **Outputs:**
 

@@ -30,6 +30,13 @@ status = "draft"
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
 # to other requirements.
+# State the positive observable outcome: "The admin page shall display the
+# project logo in its top-right corner." Keep the current rule, not rejected
+# alternatives, removed features, adoption notes, or before/after history.
+# Error handling and security remain explicit condition/response contracts,
+# for example "If access is unauthorized, the service shall return 403."
+# Draft records describe agreed proposed behavior; active records describe the
+# implemented contract. Keep past decisions and findings in the task journal.
 #
 # Recommended shape - EARS. Pick the one pattern that fits; a stated
 # trigger or condition is what the test has to arrange, so surfacing it
