@@ -57,6 +57,14 @@ LEGACY_MARK_PAIRS = ((
     "<!-- AEGIS-LIGHT:BEGIN (managed by .agentic/aegis.py init) -->",
     "<!-- AEGIS-LIGHT:END -->",
 ),)
+IGNORE_FILE = ".gitignore"
+IGNORE_MARK_BEGIN = "# AEGIS:BEGIN (managed by .agentic/aegis.py init)"
+IGNORE_MARK_END = "# AEGIS:END"
+#: anchor/evolution sidecars are local evidence: the journal log line is the
+#: durable record. They stay out of git unless `[records] commit_fingerprints`
+#: is true.
+FINGERPRINT_PATTERNS = (".agentic/tasks/*.anchor.json",
+                        ".agentic/tasks/*.evolution.json")
 
 TASK_TYPES = ("feature", "fix", "change", "adopt")
 
@@ -117,6 +125,12 @@ test = "pytest -q"
 source = ["src/"]
 tests = ["tests/"]
 docs = []  # documentation paths; still scanned for secrets, not source
+# default_branch = "develop"            # the ref every diff is measured from
+#
+# Set this when the branch your work merges into is not the one AEGIS would
+# find on its own. Without it the base is whatever `origin/HEAD` points at,
+# then a local `master`, then a local `main`. It decides what `check`,
+# `impacted`, `anchor` and `evolution` consider changed.
 
 [interaction]
 # false stops at every completed stage and presents the next choices.
@@ -126,6 +140,13 @@ autopilot = false
 [review]
 enabled = false
 max_fix_cycles = 2
+
+[records]
+# Anchor and evolution sidecars under .agentic/tasks/ are local evidence.
+# false keeps them out of git through a managed block in .gitignore that
+# init maintains; true removes that block so they are committed with the
+# journal. The journal log line is the durable record either way.
+commit_fingerprints = false
 
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
@@ -377,13 +398,20 @@ def review_settings(cfg: dict) -> tuple[bool, int]:
     enabled = raw_enabled if isinstance(raw_enabled, bool) else False
     raw_cycles = table.get("max_fix_cycles", DEFAULT_MAX_FIX_CYCLES)
     cycles = (raw_cycles if isinstance(raw_cycles, int)
-              and not isinstance(raw_cycles, bool) and 0 <= raw_cycles <= 5 else 0)
+              and not isinstance(raw_cycles, bool)
+              and 0 <= raw_cycles <= MAX_FIX_CYCLES_LIMIT else 0)
     return enabled, cycles
 
 
 def autopilot_enabled(cfg: dict) -> bool:
     """@brief Return fail-safe configured autopilot enablement."""
     raw = cfg_table(cfg, "interaction").get("autopilot", False)
+    return raw if isinstance(raw, bool) else False
+
+
+def commit_fingerprints(cfg: dict) -> bool:
+    """@brief Whether anchor/evolution sidecars are committed; fail-safe false."""
+    raw = cfg_table(cfg, "records").get("commit_fingerprints", False)
     return raw if isinstance(raw, bool) else False
 
 
@@ -947,6 +975,77 @@ def write_pointer(name: str) -> str:
     return outcome
 
 
+def tracked_fingerprints() -> list[str] | None:
+    """@brief Sidecar paths git tracks, or None when git cannot answer."""
+    out = run_git("ls-files", "-z", "--", *FINGERPRINT_PATTERNS)
+    if out is None or out[0] != 0:
+        return None
+    return sorted(name for name in out[1].split("\0") if name)
+
+
+def write_ignore_block(commit: bool) -> str:
+    """
+    @brief Maintain the managed fingerprint block in the root `.gitignore`.
+    @details `commit` false ensures the block is present, creating the file
+             when absent; true removes the block and creates nothing. Every
+             byte outside the marker pair is preserved, newline style
+             included. Returns a one-word outcome for the init report.
+    """
+    path = ROOT / IGNORE_FILE
+    block = "\n".join((IGNORE_MARK_BEGIN, *FINGERPRINT_PATTERNS,
+                       IGNORE_MARK_END)) + "\n"
+    if not path.exists():
+        if commit:
+            return "absent"
+        write_text(path, block)
+        return "created"
+
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        raw = handle.read()
+    crlf = "\r\n" in raw
+    text = raw.replace("\r\n", "\n")
+
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    while (begin := text.find(IGNORE_MARK_BEGIN, cursor)) >= 0:
+        end = text.find(IGNORE_MARK_END, begin + len(IGNORE_MARK_BEGIN))
+        if end < 0:
+            break
+        stop = end + len(IGNORE_MARK_END)
+        if text[stop : stop + 1] == "\n":
+            stop += 1
+        spans.append((begin, stop))
+        cursor = stop
+
+    if commit:
+        if not spans:
+            return "unchanged"
+        parts, cursor = [], 0
+        for begin, stop in spans:
+            parts.append(text[cursor:begin])
+            cursor = stop
+        parts.append(text[cursor:])
+        out, outcome = "".join(parts), "removed"
+    elif spans:
+        begin, stop = spans[0]
+        if len(spans) == 1 and text[begin:stop] == block:
+            return "unchanged"
+        parts, cursor = [text[:begin], block], stop
+        for duplicate_begin, duplicate_stop in spans[1:]:
+            parts.append(text[cursor:duplicate_begin])
+            cursor = duplicate_stop
+        parts.append(text[cursor:])
+        out, outcome = "".join(parts), "refreshed"
+    else:
+        separator = "" if text.endswith("\n") or not text else "\n"
+        out, outcome = text + separator + block, "appended"
+
+    if crlf:
+        out = out.replace("\n", "\r\n")
+    path.write_text(out, encoding="utf-8", newline="")
+    return outcome
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """@brief Finishing step after the payload was copied into a repo."""
     if not (AGENTIC / "AGENTS.md").is_file():
@@ -991,6 +1090,10 @@ def cmd_init(args: argparse.Namespace) -> int:
     for name in POINTER_FILES:
         print(f"  {name:<16} {write_pointer(name)}")
 
+    commit = commit_fingerprints(load_config())
+    print(f"  {IGNORE_FILE:<16} {write_ignore_block(commit)}"
+          + ("" if commit else " (anchor/evolution sidecars stay local)"))
+
     if not git_available:
         print("  git              unavailable; diff, impacted, anchor, and evolution "
               "evidence disabled")
@@ -1000,6 +1103,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     probe = run_git("rev-parse", "--git-dir")
     if probe and probe[0] == 0:
         print(f"  {'git':<16} repository ready ({git_version[1].strip()})")
+        tracked = [] if commit else (tracked_fingerprints() or [])
+        if tracked:
+            print(f"  {'fingerprints':<16} {len(tracked)} sidecar(s) still tracked; "
+                  "AEGIS runs no git write - untrack them yourself with:")
+            print("    git rm --cached -- "
+                  + " ".join(f"'{pattern}'" for pattern in FINGERPRINT_PATTERNS))
     elif args.git:
         created = run_git("init")
         if not created or created[0] != 0:
@@ -1227,6 +1336,8 @@ HANDOFF_STATUSES = ("ready", "waiting", "blocked")
 RULING_KEYS = ("date", "decision", "reason", "source", "supersedes")
 RULING_SOURCES = ("user", "repository", "requirement", "technical")
 DEFAULT_MAX_FIX_CYCLES = 2
+#: the largest accepted `[review] max_fix_cycles`; total rounds are one more.
+MAX_FIX_CYCLES_LIMIT = 255
 SUMMARY_VALUE_LIMIT = 240
 BRIEF_VALUE_LIMIT = 240
 BRIEF_RULING_LIMIT = 8
@@ -1632,6 +1743,8 @@ CHECKS: tuple[tuple[str, str], ...] = (
     ("outside-layout", "the diff stays inside source/tests/docs globs and .agentic/"),
     ("source-no-test-changes", "source changes come with test changes"),
     ("repo-evolution", "a scoped task has a completed anchor/evolution pair"),
+    ("fingerprints-tracked",
+     "anchor/evolution sidecars are committed only when [records] commit_fingerprints is true"),
     ("config", "aegis.toml keys have the documented shapes"),
     ("command-failed", "a --run command ran to completion and succeeded"),
     ("command-timeout", "no --run command was stopped by its time limit"),
@@ -1672,6 +1785,7 @@ CONFIG_SHAPE: dict[str, dict[str, type]] = {
     "zones": {stage: list for stage in DEFAULT_ZONES},
     "interaction": {"autopilot": bool},
     "review": {"enabled": bool, "max_fix_cycles": int},
+    "records": {"commit_fingerprints": bool},
 }
 
 
@@ -1694,9 +1808,9 @@ def check_config(add, cfg: dict) -> None:
                     f"[{table}] {key} should be {want.__name__}")
     cycles = cfg_table(cfg, "review").get("max_fix_cycles")
     if (isinstance(cycles, int) and not isinstance(cycles, bool)
-            and not 0 <= cycles <= 5):
+            and not 0 <= cycles <= MAX_FIX_CYCLES_LIMIT):
         add("WARN", "config", name,
-            "[review] max_fix_cycles should be 0 through 5")
+            f"[review] max_fix_cycles should be 0 through {MAX_FIX_CYCLES_LIMIT}")
     for key, value in cfg_table(cfg, "commands").items():
         if key != "timeout" and not isinstance(value, str):
             add("WARN", "config", name, f"[commands] {key} should be a string")
@@ -2469,6 +2583,7 @@ def run_checks(cfg: dict, task: str | None) -> list[tuple[str, str, str, str]]:
         return match_any(path, ignore)
 
     check_config(add, cfg)
+    check_fingerprints(add, cfg)
     scope_path, scope = read_journal(task) if task else (None, None)
     if scope:
         recorded, current = scope["header"].get("branch", ""), git_branch()
@@ -2485,6 +2600,32 @@ def run_checks(cfg: dict, task: str | None) -> list[tuple[str, str, str, str]]:
     if scope_path is not None and scope is not None:
         check_repo_evolution(add, scope_path, scope)
     return findings
+
+
+def check_fingerprints(add, cfg: dict) -> None:
+    """
+    @brief Report anchor/evolution sidecars whose git state contradicts
+           `[records] commit_fingerprints`.
+    @details With the setting false, sidecars still tracked are a warning
+             and a missing managed ignore block is a note; with it true, a
+             leftover block is a warning. AEGIS never untracks a file: the
+             remedy is printed for a human to run.
+    """
+    commit = commit_fingerprints(cfg)
+    path = ROOT / IGNORE_FILE
+    present = path.is_file() and IGNORE_MARK_BEGIN in read_text(path)
+    if commit:
+        if present:
+            add("WARN", "fingerprints-tracked", IGNORE_FILE,
+                "block present; commit_fingerprints=true - rerun init")
+        return
+    if not present:
+        add("NOTE", "fingerprints-tracked", IGNORE_FILE,
+            "no managed sidecar ignore block - run init")
+    tracked = tracked_fingerprints()
+    if tracked:
+        add("WARN", "fingerprints-tracked", ".agentic/tasks",
+            f"{len(tracked)} tracked sidecar(s) - untrack: git rm --cached")
 
 
 def check_repo_evolution(add, journal: Path, scope: dict) -> None:

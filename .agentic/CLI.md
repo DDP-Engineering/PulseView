@@ -89,6 +89,9 @@ python .agentic/aegis.py init [--git]
 - creates a default `.agentic/aegis.toml` only when absent;
 - adds or refreshes the managed AEGIS digest in root
   `AGENTS.md`, `assistant.md`, and `QWEN.md`;
+- adds or removes the managed anchor/evolution block in the root `.gitignore`
+  according to `[records] commit_fingerprints`, and names sidecars that are
+  still tracked so a human can untrack them (it never runs `git rm`);
 - reports whether Git is installed and whether the directory is a repository;
 - preserves project-owned data and an existing `aegis.toml`.
 
@@ -116,7 +119,7 @@ python .agentic/aegis.py init --git
 ```
 
 Afterward, edit `.agentic/aegis.toml` so `[commands]`, `[layout]`, optional
-`[interaction]`, and optional `[check]` settings describe the repository.
+`[interaction]`, `[records]`, and `[check]` settings describe the repository.
 
 ## `task`
 
@@ -182,7 +185,9 @@ implementation edit. Re-running replaces the active anchor and says whether
 the prior anchor already had a completed evolution report.
 
 The record describes a starting point; it is not tamper-proof and does not
-prove that a test or implementation was honest.
+prove that a test or implementation was honest. Both sidecars stay out of git
+by default; see `[records] commit_fingerprints` under Coordinated workflow
+records.
 
 ## `evolution`
 
@@ -437,7 +442,7 @@ max_fix_cycles = 2
 ```
 
 `enabled` must be a TOML Boolean. `max_fix_cycles` must be an integer from 0
-through 5, not a Boolean. Invalid values warn and fail safe to disabled review
+through 255, not a Boolean. Invalid values warn and fail safe to disabled review
 with the default bound. When enabled, the bound stage report records
 `spec_compliance` and `implementation_quality` independently as `approved` or
 `changes_required`, plus `review_round`. Both verdicts cover the same
@@ -446,6 +451,24 @@ candidate; any candidate edit invalidates both. The maximum total rounds are
 Review disabled skips only these optional verdicts and their fix loop; semantic
 review, full validation, the strict check, evidence, and delivery approval stay
 mandatory.
+
+Fingerprint sidecars are local evidence by default:
+
+```toml
+[records]
+commit_fingerprints = false
+```
+
+`commit_fingerprints` must be a TOML Boolean; missing or invalid values mean
+`false`. With `false`, `init` maintains a marked block in the root
+`.gitignore` that excludes `.agentic/tasks/*.anchor.json` and
+`*.evolution.json`, so anchor and evolution records stay on the machine that
+recorded them while the journal log line remains the durable record. With
+`true`, `init` removes that block and the sidecars are committed with the
+journal. `check` reports `fingerprints-tracked` when the repository disagrees
+with the setting: sidecars still tracked while it is `false`, or the block
+still present while it is `true`. AEGIS never untracks a file; `init` prints
+the `git rm --cached` command for a human to run.
 
 ## `check`
 

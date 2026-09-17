@@ -16,9 +16,28 @@ schema = 1
 # runner reports it as skipped; a run in which nothing at all executed exits
 # 77 itself rather than claiming a green suite.
 test = "bash 02_Tools/test/run_tests.sh"
+#
+# test_impacted = "bash 02_Tools/test/run_tests.sh {tests}"
+#
+# Deliberately absent. run_tests.sh globs every *_smoke.sh and *_test.sh in its
+# own directory and forwards "$@" to each one, so substituted paths would not
+# narrow anything: the full set would run while the result claimed to be
+# focused. Add a template only once a runner honours the paths it is given, and
+# preview it first with `test --impacted --base HEAD --dry-run`.
+#
+# timeout = 0                           # seconds allowed per command; 0 or
+#                                       # absent means no limit at all
+# workdir = "app"                       # run commands here, not at the root
+#
+# Set `workdir` when the application lives below the repository root, and never
+# put a directory change inside a command: paths substituted into `{tests}` are
+# repository-relative, so a command that moves itself would resolve them twice.
 
 [timeouts]
 # Add limits together with real commands. A stopped command proves nothing.
+# A value here overrides `[commands] timeout` for that one command, and only a
+# positive integer sets a limit at all.
+# test = 5400
 
 [layout]
 default_branch = "master"
@@ -36,6 +55,31 @@ tests = [
 # intentionally outside source/tests. An outside-layout finding for those paths
 # is a review prompt, not a reason to classify documentation as executable
 # source and demand irrelevant test changes.
+#
+# docs = ["00_Planning/", "01_Documentation/", "04_HardwareDocu/",
+#         "06_SoftwareDocu/", "07_Delivery/", "README.md"]
+#
+# Declaring documentation globs stops those paths being reported as outside the
+# layout, while keeping them in the diff and the secret scan and counting them
+# as neither source, tests, nor a stage write zone. Left commented so the
+# review prompt described above is preserved; uncomment to silence it.
+
+[interaction]
+# false stops after every completed stage and presents the next choices.
+# true flows between stages, but never bypasses publication approval. An
+# explicit instruction for one task overrides this and is recorded in that
+# task's journal header, so the choice survives a resume.
+autopilot = false
+
+[review]
+# Explicit review is on. Each round records two independent verdicts against
+# the same candidate - specification compliance, and implementation quality -
+# and any change to the candidate invalidates both. One initial round plus at
+# most `max_fix_cycles` fix-and-re-review rounds, so three rounds in total
+# before the decision returns to a human. Ordinary semantic review, the full
+# suite and the strict check remain required either way.
+enabled = true
+max_fix_cycles = 2
 
 [zones]
 frame = []
