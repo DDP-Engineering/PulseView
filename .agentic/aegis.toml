@@ -119,3 +119,6 @@ strict_promote = [
 # Populate this only when executable commands exist. Listing a command here
 # controls `aegis check --run`; it does not create the command.
 run = []
+
+[context]
+page_kb = 24

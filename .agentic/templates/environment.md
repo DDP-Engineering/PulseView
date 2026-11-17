@@ -1,8 +1,5 @@
 <!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt in the .agentic folder for full license details.
+SPDX-FileCopyrightText: 2026 DDP Engineering
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
@@ -10,8 +7,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 Project-owned current setup guide, at .agentic/context/environment.md.
 Populate reproducible setup and verification facts from manifests, scripts,
 configuration, CI, and confirmed documentation during frame or adoption.
-Link canonical instructions and aegis.toml command keys instead of duplicating
-them. Describe configuration names and provisioning routes, with credentials
+Link canonical instructions and .agentic/aegis.toml command keys instead of
+duplicating them. Describe configuration names and provisioning routes, with credentials
 kept in their approved secret store. Use repository-relative paths and portable
 commands; machine-specific paths and execution results belong in task evidence.
 Empty sections are valid. Record only actual supported setup, not future tools,

@@ -1,454 +1,206 @@
 <!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt in the .agentic folder for full license details.
+SPDX-FileCopyrightText: 2026 DDP Engineering
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
 # AEGIS — agent workflow
 
-## Philosophy
-
-This workflow is guidance, not enforcement. Nothing blocks you mid-flight:
-the lifecycle lives in these instructions, git is the state store and the
-undo, and `python .agentic/aegis.py check` is an advisory report you read
-and self-correct against — it always exits 0 outside CI. Work is durable
-because every artifact is a plain file committed on the branch: one
-requirement per file, one journal per task, one page per component. You
-can skip a step; the journal is what a reviewer reads to see that you
-did. Do the steps honestly and keep the journal true.
+AEGIS guides you through implementing one feature, fix or change at a time,
+stage by stage. It guides and never blocks: `check` is an advisory report,
+Git is the store, and every artifact is a plain file on the task's branch.
+Each task leaves the requirements and component knowledge accurate, so the
+next task — in a later session or on another developer's branch — starts
+from a current map.
 
 ## Scope
 
-AEGIS applies only to software development operations: work that changes,
-tests, or documents the software product. Do not use the workflow for
-repository operations or package and delivery operations, including version
-assignment, release-package construction, publication, and repository
-maintenance. Those operations follow the repository's own procedures; the
-software implementation they carry remains subject to AEGIS.
+AEGIS governs changes that add or change a durable product rule: logic,
+data, security, performance, integrations, or a product-wide UI rule such as
+a theme, layout system, accessibility or interaction convention. A rule
+applies to a class of things, and a later change could break it; a test
+should catch that.
+
+Make other changes directly, with no journal or requirement: a bug fix that
+restores intended behavior, a local UI adjustment (one element's position,
+spacing, wording or style), a refactor with no behavior change, or a test,
+docs or tooling fix. Follow the repository's own practice, and add a
+regression test for a logic bug. A fix that contradicts an active
+requirement, adds behavior, or touches security or data handling is a
+change: use AEGIS. The user's explicit choice wins; otherwise start with one
+line, `LANE: direct|aegis - <why>`, and carry on.
+
+Commits, pushes, pull requests, merges, tickets, releases and packaging are
+outside it; follow the repository's own procedures and the user's
+instructions for those.
 
 ## Stages
 
-| # | Stage | Step file | Purpose |
-|---|---|---|---|
-| 1 | frame | `.agentic/steps/1_frame.md` | Understand the ask, agree scope, open the task journal. |
-| 2 | specify | `.agentic/steps/2_specify.md` | Write or update the requirement(s), and a spec when useful. |
-| 3 | design | `.agentic/steps/3_design.md` | A short design note for non-trivial work; cite requirement IDs. |
-| 4 | build | `.agentic/steps/4_build.md` | Failing test first, then implementation, until green. |
-| 5 | validate | `.agentic/steps/5_validate.md` | Review and reconcile the candidate, then prove it as the final action. |
-| 6 | deliver | `.agentic/steps/6_deliver.md` | Present the validated candidate, report, commit, and publish. |
+| Stage | Step file | Result |
+|---|---|---|
+| frame | `.agentic/steps/1_frame.md` | Agreed scope, in a new task journal |
+| specify | `.agentic/steps/2_specify.md` | One requirement per behavior; a spec where needed |
+| design | `.agentic/steps/3_design.md` | A short design note, or the reason to skip it |
+| build | `.agentic/steps/4_build.md` | Failing tests first, then the implementation, until green |
+| validate | `.agentic/steps/5_validate.md` | Reviewed candidate, current knowledge, final proof; the task closes |
 
-## Semantic analysis protocol
+Path: frame → specify → design → build → validate → done. Specify and design
+each have a skip rule for work that does not need them; frame, build and
+validate are never skipped.
+Read a stage's step file when you enter that stage. Adopting an existing
+repository is a one-time task described in `.agentic/steps/adopt.md`.
 
-Frame, specify and design use the same compact analysis cycle before their
-workflow administration. The stage files define the artifact each cycle
-produces:
+## Start or resume
 
-1. **Analyze** the request and selected repository evidence. Read the smallest
-   sufficient set of linked sources rather than filling the context window.
-2. **Challenge** the emerging account for contradictions, missing actors or
-   triggers, boundary and failure cases, hidden constraints, and unsupported
-   assumptions. Ask only decision-blocking questions; preserve other gaps as
-   explicit unknowns.
-3. **Write** the durable stage artifact using its named structure. Classify
-   material claims as `STATED` by the user, `OBSERVED` in repository evidence,
-   `INFERRED` from those facts, or `UNKNOWN`. Cite paths for observed facts.
-4. **Audit** the artifact for completeness, internal consistency, traceability,
-   invented behavior, and unresolved decisions before advancing the stage.
+- New work: run `python .agentic/aegis.py status` (an open task may already
+  cover it), then follow `.agentic/steps/1_frame.md`.
+- An existing task: run `python .agentic/aegis.py brief TASK-<id>` and read
+  what its `Read next` line names. If `git branch --show-current` differs from
+  the journal's `branch:`, stop and say so before changing anything.
+- Read `.agentic/context/project.md` at frame and on resume, and the relevant
+  sections of `.agentic/context/environment.md` before setup, build or
+  verification. Load the requirements, knowledge pages
+  (`python .agentic/aegis.py components` lists them), source and tests the
+  stage needs, not the whole repository. Reuse files already read in this
+  session unless they changed.
 
-This is an evidence and output protocol, not a request to expose private model
-reasoning. Never silently turn an inference or unknown into product behavior.
-Record the decision or ask the human when it would materially change scope,
-observable behavior, compatibility, security, data handling, or verification.
-Use the journal and linked artifacts as the durable result; conversational
-reasoning and a large context window are not durable evidence.
+## The task journal
 
-**Quick path.** For a small fix or change: `frame → build → validate → deliver`.
-Decide this in `frame`, record `path: quick` in the journal header, and
-say why in the log. Everything else uses the full path.
+One journal per task, `.agentic/tasks/TASK-<id>.md`, created by `task`.
+You edit Frame, Requirement coverage and Design, and tick Done checklist
+items as they are met. The CLI writes the rest — the header stage, the Done
+checklist, Log, Rulings and State:
 
-**Write zones.** Every stage may write under `.agentic/`. Beyond that,
-`frame`, `specify` and `design` write nothing else — they come before the
-code is agreed — while `build`, `validate`, and `deliver` have no mechanical
-zone. `deliver` is still publish-only by instruction: if the validated
-candidate changes, return to `validate`. It has no configured zone because
-the merge-base diff cannot tell which stage introduced an edit. Advisory
-like the rest: `check` reports an edit outside the current stage's zone
-as `stage-zone`, it never blocks one, and a hit usually means the
-journal's `stage:` is stale rather than that the edit was wrong. Change
-the zones in `[zones]` in `aegis.toml`.
-
-**Adopting an existing repo** into this workflow is not a stage — follow
-`.agentic/steps/adopt.md` once, then work normally. Adoption journals use
-their own stage values (`survey → components → close → done`), all
-defined in that one file; `status` points them back at it.
-
-## Where everything lives
-
-| Artifact | Location |
+| When | Command |
 |---|---|
-| Requirements | `.agentic/requirements/<category>/REQ-<CAT>-<hex>.toml`, one file each |
-| Category folders | `functional/ ux/ nfr/ security/ data/ platform/ reliability/ test/` for `REQ-FUNC/UX/NFR/SEC/DATA/PLAT/REL/TEST` |
-| Specs (optional) | `.agentic/specs/REQ-<CAT>-<hex>.md` |
-| Task journals | `.agentic/tasks/TASK-<hex>.md`, one per task, kept after delivery |
-| Component knowledge | `.agentic/knowledge/<component>.md`, one page per component |
-| Project profile | `.agentic/context/project.md`, current purpose, responsibilities, constraints, and entry points |
-| Environment guide | `.agentic/context/environment.md`, current toolchain, setup, readiness, and verification routes |
-| Templates | `.agentic/templates/` - `requirement.toml`, `spec.md`, `task.md`, `component.md`, `project.md`, `environment.md` |
-| Step files | `.agentic/steps/` |
-| CLI reference | `.agentic/CLI.md` |
-| Config | `.agentic/aegis.toml` — test/lint commands, source and test globs |
+| A stage is finished | `advance TASK-<id>` (`--skipped` for a skipped stage) |
+| Work must go back | `advance TASK-<id> --to <stage> --reason "<why>"` |
+| You stop, or need the user | `pause TASK-<id> --next "<one action or question>"` (`--blocked` when a decision blocks) |
+| A durable event happens | `log TASK-<id> "<decision, verification result, discovery or deviation>"` |
+| A question is settled | `ruling TASK-<id> --decision "..." --reason "..." --source user` |
+| Explicit review returns | `verdict TASK-<id> --spec <verdict> --quality <verdict>` |
 
-Source code and tests stay where the repo already keeps them. Never write
-work products anywhere else; `check` flags strays.
+End every session with one of them: `advance` when the stage is finished,
+otherwise `pause` — also after a record-only update, a reconciliation or an
+explicit stop. Never edit the `## State` block by hand; these commands rewrite
+it. `advance` and `pause` take `--changed`, `--evidence` and `--issues`, one
+line each, from what you observed. Evidence names the commands you actually ran and
+their exit codes; reading code or test definitions is not a test run. Open
+problems, failures and limitations go in `--issues`. Both
+commands print a summary block: start your reply with that printed block in a
+text fence, then explain; never write the block yourself. The Log holds
+durable events only, not routine reads, edits or
+retries. Rulings are append-only: a changed decision is a new ruling with
+`--supersedes`, and that link is what marks the old one superseded, so never
+edit or annotate an earlier line. A ruling records a decision someone with
+authority made; it cannot grant authority or override newer user
+instructions, repository rules or Git permissions.
 
-**Do not edit the payload.** `AGENTS.md`, `CLI.md`, `steps/`, `templates/`,
-`aegis.py` and `LICENSE.txt` are replaced wholesale when this workflow is
-upgraded, so any change you make there is silently lost. Found a bug in
-`aegis.py`, or need a rule the steps do not cover? Say so and let the
-human decide — a project-specific rule belongs in a file this repository
-owns, not in the payload. Everything else under `.agentic/` —
-`requirements/`, `specs/`, `tasks/`, `knowledge/`, `context/`, `aegis.toml` - is
-yours to write.
+## Evidence
 
-## Current project context
+In frame, specify and design, label each material claim:
 
-`init` creates each missing context file from its template and preserves every
-existing file. The files are project-owned Markdown with stable headings, not
-an event log or a generated copy of the repository. Empty sections are valid;
-initialization supplies structure, not project facts. Older projects can use
-the workflow with either file absent. Discover the relevant facts directly
-and populate context incrementally within the agreed scope.
-
-Read the project profile at frame and resume; read the relevant environment
-sections before setup, build, or verification, especially on a new computer.
-Follow links to the selected component, requirements, exact source, and tests.
-`brief` lists context paths and file presence only; presence is not proof that
-a file is populated or accurate. Load selected references, not every page.
-
-Populate context from repository evidence during frame or adoption. For a new
-project, record its confirmed purpose and actual setup, then add responsibilities
-as they are implemented. Keep planned capabilities in the task and draft
-requirements/specs until realized. Update affected sections when implementation
-or setup changes; validate reconciles them before final proof. Leave unchanged
-sections untouched. On resume or after branch integration, recheck relevant
-claims against this checkout; another branch's plans are not current facts.
-
-### Current-state documentation rule
-
-Project documents, component pages, and active requirements/specs describe
-current responsibilities and observable behavior directly and positively.
-For example: "The admin page displays the project logo in its top-right
-corner." Keep one current statement, not alternatives, removed features,
-before/after accounts, task IDs, or a running change history. State adjacent
-components' actual responsibilities when explaining boundaries.
-
-Positive wording preserves the complete contract, including errors, security,
-privacy, and compatibility. For example: "The service returns 403 for callers
-without the required role" and "Exports contain authorized records only."
-Keep the trigger, response, and testable boundary; a word-level ban on negative
-phrases would lose meaning. Review semantics instead.
-
-Keep proposals and open decisions in task records and explicitly draft
-requirements/specs; keep past decisions and investigation findings in journals,
-Git, and the changelog. Retired requirements remain available for traceability
-but are not current behavior or a reason to list removed features in summaries.
-When touching an existing page, reconcile relevant stale statements rather
-than appending a correction history. Preserve established requirements unless
-the user authorizes a behavior change: a code/document conflict is a finding,
-not permission to rewrite the contract to fit the easiest implementation.
-
-Link authoritative setup docs and `[commands]`/`[layout]` in `aegis.toml` rather
-than maintaining duplicate values. Keep secrets in their approved stores and
-machine-specific paths and run outcomes in task evidence. Context adds guidance,
-not a new gate, approval, or automatic setup authority.
-
-## Resume a task
-
-1. Run `python .agentic/aegis.py brief TASK-<id>` for the named task
-   (use `status` to find its ID when needed), then open the journal header,
-   current checklist, current step file, and the Handoff `must_read` paths.
-2. Compare `git branch --show-current` with the journal's `branch:` line.
-   On a mismatch, stop and reconcile first — check out the recorded
-   branch, or say so if it does not exist here — before touching anything.
-3. Read its `stage:` line, dedicated Frame/Design/Rulings/Handoff sections as
-   applicable, and relevant log entries: stage outcomes, blockers, material
-   changes, and consolidated evidence; open the step file for that stage from
-   the table above. Follow references to complete
-   evidence, not just the last few lines of a long log. A missing, stale,
-   or shortened summary requires journal review before continuing.
-4. Continue at the first unticked item of `## Done checklist`. The
-   checklist always belongs to the **current** stage: advancing a stage
-   replaces it with the next stage's "Done when" list (each step file's
-   last step says so).
-
-Load linked requirements, specs, knowledge, source, and tests as the current
-stage needs them; do not preload the whole repository or requirement register.
-Full journal reads required by validate and deliver still apply. Brief and
-summary are entry points, never substitutes for required review or fresh proof.
-
-The journal is a committed file, so this works across sessions, machines,
-and models. End every session by updating the journal. A journal travels
-only with its branch: to continue on another computer, commit and push
-the branch first (ask before pushing), then pull there — uncommitted work
-never crosses machines.
-
-## Optional child tasks
-
-Large work may use opt-in child tasks, limited to one level, with
-`task "<title>" --parent TASK-<id>`. The relationship is stored only in the
-child; creation never edits the parent. A child cannot be a parent, and every
-child keeps its own branch, base, requirements, journal, evidence, and
-approvals. Visible-child views scan only journals in the current checkout and
-must never claim state hidden on another branch or machine.
-
-Frame decides whether the work is large enough to split. Design assigns
-non-overlapping scopes and requirement links. Children are governed and
-validated independently. After their work is reconciled, the parent owns
-validation of the integrated candidate and the status of children visible in
-this checkout. AEGIS does not dispatch, branch, merge, or create worktrees.
-
-## Interaction modes
-
-- **Checkpoint (default).** With autopilot off, stop after every completed stage,
-  show its report and the applicable Stage-boundary choices below, and wait for
-  the user before advancing. This keeps scope, requirements, design, code and
-  proof separately reviewable.
-- **Autopilot.** With autopilot on, flow between stages without presenting the
-  intermediate choice menus. The pre-publication approval always remains,
-  because publishing is the outward-facing act.
-
-The repository default is project-owned configuration:
-
-```toml
-[interaction]
-autopilot = false
-```
-
-Missing table or key means `false`. An invalid value also fails safe to off and
-`check` reports it. `aegis task` records the resolved mode as `interaction:` in
-the new journal. A legacy journal without that header resolves from the current
-configuration. An explicit user instruction for the task overrides the
-configured default; update the journal header so the choice survives resume.
-
-At a checkpoint boundary, finish and audit the stage artifacts but do not
-advance the header or replace the checklist yet. Refresh Handoff with the
-current stage and `status: waiting`; record the Stage report with
-`result: paused`, `current:` equal to the header, and `needs_user: yes`; show
-the summary and the applicable choices; then stop. When the user chooses to
-continue, record the decision, tick the completed checklist, advance the header
-and checklist, refresh Handoff and the Stage report, and begin the next stage.
-When the user chooses a revision or return, keep or restore the named stage and
-its checklist before changing artifacts. A pause leaves the current stage and
-waiting Handoff intact.
-
-### Stage-boundary choices
-
-Use concrete stage names and artifacts rather than generic wording. Render
-each choice as its own numbered or bulleted line:
-
-| Completed work | Present these choices |
+| Label | Source |
 |---|---|
-| `frame` | Continue to `specify` (or `build` on the quick path); revise scope, assumptions or path; pause current workflow. |
-| `specify` | Continue to `design`; revise requirements or specs; return to `frame`; pause current workflow. |
-| `design` | Continue to `build`; revise the design; return to `specify`; pause current workflow. |
-| `build` | Continue to `validate`; change implementation or tests; return to `design` or `specify`; pause current workflow. |
-| `validate` | Continue to `deliver`; return to `build` for corrections; reconsider scope or requirements; pause current workflow. |
-| `deliver`, before publication | Approve the stated delivery action; change the delivery outcome; return to `validate`; pause current workflow. |
+| STATED | The user's own words, or an authoritative clause you cite |
+| OBSERVED | A file, test or command result you inspected, with its path or command |
+| INFERRED | A conclusion from stated or observed premises; name them |
+| UNKNOWN | Not established by the available sources |
 
-After successful delivery and transition to `done`, report the outcome without
-another continuation menu.
+Never turn an inference or an unknown into product behavior. Ask when the
+answer changes the outcome, scope, observable behavior, compatibility,
+security, data handling or verification; otherwise keep it in Unknowns.
 
-These pauses are conversational and sit on top of whatever permission or
-sandbox prompts your host already applies. Autopilot loses no
-auditability: the journal still shows the scope decision, the red-test
-line, the check findings, and the ticked checklists after the fact.
+## Checkpoint or autopilot
 
-Children, Rulings, Handoff, brief and optional explicit review do not create
-additional stops beyond the configured stage boundaries.
+The journal's `interaction:` header, copied from `[interaction] autopilot` in
+`.agentic/aegis.toml` (default `false`), decides what happens when a stage is
+finished:
 
-**Deviation notices.** A third thing, and not a stop. The moment you record
-a deviation, say it in the conversation too, as one line:
+- **checkpoint** (default): `pause` with the decision you need, show the
+  summary and the choices — continue, revise, go back, or stop — and wait.
+  When the user continues, `advance`.
+- **autopilot**: `advance` and go on. A decision-blocking question still
+  stops the work with `pause --blocked`.
 
-```
+Stopping before a stage is finished — for a question, a blocker or an
+explicit instruction — is a `pause` too: record it first, then ask. An
+explicit user instruction, such as stop after a stage or do not run
+something, always wins. Record a mode the user changes in the journal header.
+
+## Deviations
+
+When the candidate, the agreed scope or design, or the strength of required
+verification departs from plan, say it in one line and `log` it:
+
+```text
 DEVIATION <stage>: <what> — <why accepted, or what it costs>
 ```
 
-Then carry on: stating one never pauses the work and never waits for a
-reply. Autopilot does not suppress them either - the mode that flows between
-stage boundaries is exactly the one where silence costs most.
+Then carry on: it never waits for a reply, and autopilot never suppresses it.
+Examples: skipped or weakened verification, an accepted relevant warning, a
+manual check standing in for an automatable test, a retired requirement,
+unrequested work kept. Corrected tool errors, expected red tests and
+unrelated findings are not deviations.
 
-A deviation exists only when the candidate, agreed scope, design or contract,
-or confidence in required verification materially differs from what was
-planned or required. Say one when you accept a current-task finding that
-affects the candidate or its evidence, skip or replace required verification,
-weaken or remove a test, accept an implementation that departs from the agreed
-design, retire a requirement, accept unexpected candidate files, or retain
-unrequested work found in review.
+## Feature by feature, branch by branch
 
-Do not use `DEVIATION` for recoverable internal tool-use errors — bad shell
-quoting, a failed search, a rejected atomic patch, a mistyped path, or a
-transient command failure — when they are corrected or rerun without changing
-the candidate, scope, or verification evidence. An expected failing test in
-the red phase is ordinary test-first evidence, not a deviation. Pre-existing
-or unrelated findings are reported with validation evidence, not promoted to
-current-task deviations.
+- One task per feature, fix or change, each on its own branch. Branches,
+  like commits, are the developer's: the journal records the current branch,
+  and you create or switch one only when the user asks. IDs are random, so
+  records from parallel branches do not collide.
+- Edit only your own task's journal. Change requirements, specs and knowledge
+  pages only within your task's scope, section by section, so parallel
+  branches merge cleanly.
+- Current-state records — `.agentic/context/`, `.agentic/knowledge/` and
+  active requirements — describe what the code does now: one current,
+  positive statement per fact, including its errors and limits, such as "The
+  service returns 403 for callers without the role." Proposals, history and
+  removed behavior stay in the journal.
+- A conflict between code and an established requirement is a finding, not
+  permission to rewrite the requirement: preserve the contract unless the
+  user changes it.
+- After another branch is integrated, re-check current-state claims against
+  this checkout; another branch's plans are not facts here.
+- Large work may split into child tasks, one level deep:
+  `task "<title>" --parent TASK-<id>`. Each child is an ordinary task, and
+  the parent validates the integrated result.
 
-Record the material deviation in the journal Log as durable history. The notice
-is its twin, not its replacement — a journal is read afterwards, and by then
-the human has already paid for not knowing. `DEVIATION` is deliberately not
-`WARNING`: `check` prints `WARN` and `NOTE` for its own findings, and your
-judgement should not be mistaken for the tool's.
+## Where things live
 
-## Journal log
-
-The append-only `## Log` is a progress-and-evidence ledger, not a session or
-tool transcript. Record only durable events that change the task's stage,
-scope, engineering outcome, verification status, authority, or ability to
-proceed: stage transitions; material scope or implementation decisions not
-already captured in Rulings, Design, or a spec; consolidated automated or
-manual verification results; material discoveries; blockers; approvals;
-deviations; and delivery outcomes.
-
-Do not log routine reads, searches, edits, tool mechanics, corrected command
-retries, or repeated content already held by another journal section or linked
-artifact. A failed command belongs only when it exposes a candidate problem,
-changes the implementation or tests, or remains an accepted verification
-limitation. Consolidate related test results by meaningful behavior increment;
-do not append every inner-loop retry. Keep entries concise and link to the
-durable detail instead of copying it. Existing entries are never rewritten.
-
-## Verification efficiency
-
-Use the project's documented readiness checks before testing in a new checkout.
-Build uses focused native tests or configured impacted selection that actually
-honors the selected references. `test --impacted --dry-run` previews the command;
-`--no-fallback` refuses to start the full command when selection is unavailable.
-A successful preview proves nothing. Runner syntax, toolchains and environment
-setup belong to the project; AEGIS never installs them or guesses test adapters.
-Run the configured full verification at the end of validate, after edits and
-review. Repeat it for a failure or a changed final candidate, not merely because
-a stage changed. Do not run a separate full suite immediately before strict
-validation. Inspect existing jobs and logs before starting or polling another.
-
-Read shared instructions once per intact session. Reuse documents already read
-when they have not changed; inspect changed sections and relevant earlier
-rulings/evidence. After compaction or lost context, follow the resume procedure
-and required full reads. Keep Handoff fields short and update changed fields
-instead of restating Frame, Design, or Log. Generated records omit marked
-authoring notes; full guidance stays in `templates/` for reference.
-
-## Rulings and handoffs
-
-Rulings are append-only durable decisions. Use the exact `RULING-` format in
-the task template for approved scope changes, authority constraints, durable
-technical choices, and accepted deviations with future impact. Never edit or
-delete an old ruling; append a later ruling whose `supersedes` value names it.
-Rulings cannot grant authority or override newer user instructions,
-repository rules, or Git authority.
-
-Handoff is one replaceable minimal resume snapshot. Handoff current must match
-the journal header stage; `next` names exactly one action and `must_read` names
-only the repository-relative files needed for that action. Refresh it at every
-stage transition, pause, blocker, and session end. The log remains the history,
-the Stage report remains the user-facing result, and neither Rulings nor
-Handoff adds an approval stop.
-
-## Stage reporting
-
-At each stage completion, pause or session end, or blocker, present one compact
-report **before any detailed explanation**. Reporting does not introduce
-stops by itself: checkpoint mode, the publication boundary, adoption approvals
-and explicit user limits determine when a response is required. Immediate
-`DEVIATION` notices remain immediate; do not defer them to the report. Do not
-report after every command.
-
-At that boundary, record any durable event that belongs in `## Log`, then
-update the journal's single `## Stage report` section using the plain fields in
-`templates/task.md`:
-`stage`, `result`, `current`, `changed`, `evidence`, `issues`, `next`,
-`needs_user`, `spec_compliance`, `implementation_quality`, and `review_round`.
-It is a replaceable latest snapshot; the log stays append-only. Review fields
-are `disabled`/blank when optional review is off and current-candidate verdicts
-when it is on.
-Record the completed stage in `stage`, and the actual header stage in
-`current` after any transition. Use `result: paused` when waiting or ending a
-session; other outcomes are `in_progress`, `completed`, `blocked`, `skipped`.
-Stage names stay canonical (`specify` means requirements); reporting must not
-rename stages or claim the next stage has been completed.
-
-Run `python .agentic/aegis.py summary TASK-<id>` and copy its output into one
-plain text code block. The fields are always Stage, Task, Current,
-Requirements, Changed, Evidence, Issues, Next, Needs user, Details.
-The command only reads the journal; it does not run tests or grant approval.
-Write observed command results and their scope, never an inferred "passed";
-blank values remain `not recorded`. Name all unresolved issues and carry
-required decisions forward. At every checkpoint boundary use `needs_user: yes`;
-`needs_user: no` requires autopilot or an explicit reason to continue, not a
-guess from silence.
-
-A missing or stale record must be reconstructed from the journal before
-continuing. A shortened field is visibly marked: read the full journal before
-acting, especially unresolved issues, deviations, evidence, and user requests.
-Do not replace omitted content with "none". The snapshot is agent-authored,
-not fresh proof; refresh it after work, new results, or decisions even when
-the stage has not changed. Full delivery presentation remains required.
-
-## Prompt cheatsheet
-
-Starting work is one line:
-
-```
-using aegis workflow, implement feature X
-```
-
-That means: read this file, start at `1_frame.md`, and follow the interaction
-mode recorded for the task. With the default configuration, stop after each
-stage and show the Stage-boundary choices. An explicit `autopilot to deliver`
-instruction selects autopilot for that task, while preserving pre-publication
-approval. `fix X` or `change X` work the same way - `frame` decides whether
-they take the quick path.
-
-For a small local model, give one stage per session:
-
-For a resumed task, start with `brief TASK-<id>`, then read the current step
-file and only the Handoff `must_read` paths before following the stage prompt.
-
-Each prompt below explicitly ends the session after that stage. In checkpoint
-mode this is the normal stage boundary; in autopilot it is an explicit
-single-session limit. Record the report and stop before work on the next stage.
-The workflow is model-independent: compact
-output reduces context use but does not prove compliance by a particular
-model or guarantee a tokenizer-specific 64K budget.
-
-| Stage | One-line prompt |
+| Artifact | Location |
 |---|---|
-| frame | `Read .agentic/AGENTS.md. Start task "<title>": follow .agentic/steps/1_frame.md, then record and show the stage report. Stop after this stage.` |
-| specify | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage specify): follow .agentic/steps/2_specify.md, then record and show the stage report. Stop after this stage.` |
-| design | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage design): follow .agentic/steps/3_design.md, then record and show the stage report. Stop after this stage.` |
-| build | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage build): follow .agentic/steps/4_build.md, then record and show the stage report. Stop after this stage.` |
-| validate | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage validate): follow .agentic/steps/5_validate.md, then record and show the stage report. Stop after this stage.` |
-| deliver | `Read .agentic/AGENTS.md. Continue TASK-<id> (stage deliver): follow .agentic/steps/6_deliver.md, then record and show the stage report. Stop after this stage.` |
-| adopt | `Read .agentic/AGENTS.md. Adopt this repo: follow .agentic/steps/adopt.md, one component per session.` |
+| Requirements | `.agentic/requirements/<category>/REQ-<CAT>-<hex>.toml`, one behavior each |
+| Specs | `.agentic/specs/REQ-<CAT>-<hex>.md`, only where a requirement needs one |
+| Task journals | `.agentic/tasks/TASK-<hex>.md`, kept after the task closes |
+| Component knowledge | `.agentic/knowledge/<component>.md`; `components` lists them |
+| Project and environment | `.agentic/context/project.md`, `.agentic/context/environment.md` |
+| Templates | `.agentic/templates/` |
+| Configuration | `.agentic/aegis.toml`: commands, layout, interaction, review, diagrams |
 
-## Commands you will use
+Source and tests stay where the repository keeps them. Frame, specify and
+design write only under `.agentic/`; `check` reports a source or test edit
+made in those stages as `stage-zone`. Do not edit the payload — `.agentic/AGENTS.md`, `CLI.md`,
+`steps/`, `templates/`, `aegis.py` and `LICENSE.txt` are replaced on upgrade;
+tell the user what needs to change instead.
 
-The complete syntax, options, examples, exit behavior, and guidance on when
-to use each command are in `.agentic/CLI.md`.
+## Commands
 
-```
-# "python" throughout - use "python3" on Linux distributions without it
-python .agentic/aegis.py status                 # open tasks, or one task's state
-python .agentic/aegis.py brief TASK-<id>         # bounded durable resume view
-python .agentic/aegis.py summary TASK-<id>       # compact recorded stage report
-python .agentic/aegis.py components              # component titles and page paths
-python .agentic/aegis.py task "<title>"         # new task journal
-python .agentic/aegis.py req <cat> "<title>"    # new requirement file
-python .agentic/aegis.py check                  # advisory report, always exits 0
-python .agentic/aegis.py test --impacted --base HEAD --no-fallback  # optional focused build check
-python .agentic/aegis.py check --task TASK-<id> --strict --run  # final full proof
-python .agentic/aegis.py report TASK-<id>       # delivery summary into the journal
-python .agentic/aegis.py diagram --component <name>    # coverage map, for a human
-python .agentic/aegis.py explain <path>         # what governs this file
+Run `python .agentic/aegis.py <command>`, or `python3` where `python` is not
+Python 3. `<command> --help` shows one command's options and
+`.agentic/CLI.md` is the full reference; you never need to read `aegis.py`.
+
+```text
+status                          open tasks, or one task's state
+brief TASK-<id>                 resume view: state, decisions, what to read next
+task "<title>" --type T         new journal: feature, fix, change or adopt
+advance | pause | log | ruling | verdict TASK-<id>    journal writers
+summary TASK-<id>               the recorded state, read-only
+components                      component knowledge pages
+explain <path>                  requirements and tasks that govern a path
+req <category> "<title>"        new requirement file
+check                           advisory report; always exits 0
+test --impacted --base HEAD --no-fallback    focused tests during build
+anchor | evolution --task TASK-<id>          fingerprints around build
+check --task TASK-<id> --strict --run        the final proof in validate
+report TASK-<id>                closing summary, appended to the journal
 ```

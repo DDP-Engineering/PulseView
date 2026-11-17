@@ -1,8 +1,5 @@
 <!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt in the .agentic folder for full license details.
+SPDX-FileCopyrightText: 2026 DDP Engineering
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
@@ -12,123 +9,100 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 component by component, by describing what is there — not by rewriting it.
 Three phases: survey, one component per session, close.
 
-**Read first:**
+**Read:**
 
-- The repo's own README and any existing design or architecture docs.
+- The repository's own README and any existing design or architecture docs.
 - The top-level directory tree, the entry points, and the test layout.
-- `python .agentic/aegis.py components` to inventory component pages already
-  present before proposing or resuming the adoption checklist.
+- `python .agentic/aegis.py components`, to inventory the component pages
+  already present before proposing or resuming the adoption checklist.
 - `.agentic/templates/component.md` and `.agentic/templates/requirement.toml`.
 - The adoption journal, if a previous session already created one.
 - Existing `.agentic/context/project.md` and `.agentic/context/environment.md`.
-  Populate their affected sections during survey from confirmed purpose,
-  implementation, manifests, setup documentation, and verification configuration.
-  Keep absent or uncertain facts in the journal; empty context sections are valid.
-
-**Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
-"Rulings and handoffs", and "Stage reporting". At transitions and pauses,
-update the current checklist, minimal Handoff and Stage report, then show
-`summary TASK-<id>`. Read required durable evidence; missing or shortened
-context requires review. This adds no approval stop and never defers a material
-deviation notice. Reuse unchanged instructions already read in this session.
+  Populate their affected sections during survey from the confirmed purpose,
+  implementation, manifests, setup documentation and verification
+  configuration. Keep absent or uncertain facts in the journal; empty context
+  sections are valid.
 
 **Steps:**
 
-Adoption has its own durable stage values so any later session can see
-exactly where it stands: `stage: survey` → `stage: components` →
-`stage: close` → `stage: done`. The `## Components` checklist plus the
-`stage:` line are the complete resume state.
+The adoption journal walks `survey` → `components` → `close` → `done`.
+`python .agentic/aegis.py advance TASK-<id>` moves it, `pause` records a stop,
+and `brief` shows where it stands. The stage, the State and the
+`## Components` checklist carry the resume state.
 
 *Phase 1 — survey (one session).*
 
-1. Run `python .agentic/aegis.py init`. If you are on the repo's default
-   branch, create an adoption branch first (`git checkout -b adopt/<repo>`
-   or the repo's own convention). Then open an adoption journal:
-   `python .agentic/aegis.py task "Adopt <repo>" --type adopt`, and
-   set `stage: survey` in its header.
-2. Propose a component breakdown heuristically: directory structure,
-   entry points, import clusters, existing docs, test file grouping. Aim
-   for components a single session can read end to end. Compare it with the
-   `python .agentic/aegis.py components` inventory so an existing page is
-   reused or deliberately reconciled rather than duplicated.
+1. Run `python .agentic/aegis.py init`, then open the journal with
+   `python .agentic/aegis.py task "Adopt <repo>" --type adopt` on the current
+   branch; it starts at `survey`. Creating an adoption branch is the
+   developer's call unless the user asks you to.
+2. Propose a component breakdown heuristically: directory structure, entry
+   points, import clusters, existing docs, test file grouping. Aim for
+   components a single session can read end to end. Compare it with the
+   `components` inventory so an existing page is reused or deliberately
+   reconciled rather than duplicated.
 3. Write the breakdown into the journal as `## Components`, one checklist
    item per component with a one-line scope and its file globs.
-4. **Stop and hand the list to the owner.** They review and edit it —
-   splitting, merging, renaming, dropping. This is the alignment moment
-   of adoption; nothing else happens until the list is agreed. Present choices
-   to continue to `components`, revise the component list, or pause the
-   adoption workflow. After the user chooses to continue, or immediately in
-   autopilot, record one consolidated approval outcome and any material
-   boundary changes in the Log, then set `stage: components`.
+4. **Hand the list to the owner**, in both interaction modes:
+   `pause TASK-<id> --next "Review the component list: split, merge, rename
+   or drop?"`, show the summary and wait. This is adoption's alignment
+   moment; nothing else happens until the list is agreed. When it is, log the
+   material boundary changes and run `advance TASK-<id>`.
 
 *Phase 2 — one component per session.*
 
-To parallelize across people or branches, split the work into one
-adoption journal per person (each `--type adopt`, each owning a subset of
-the components) — a single shared journal is a merge hotspot, separate
-ones are not.
+To parallelize across people or branches, give each person their own
+adoption journal (each `--type adopt`, each owning a subset of the
+components): one shared journal is a merge hotspot, separate ones are not.
 
 5. Take the first unticked component. Read its source **and its existing
-   tests** — the tests are the primary evidence of intended behavior.
-6. Write `.agentic/knowledge/<component>.md` from the template. Derive
+   tests**; the tests are the primary evidence of intended behavior.
+6. Write `.agentic/knowledge/<component>.md` from the template, leaving out
+   the template's license comment and guidance comment. Derive
    `## Routing`, `## Purpose and boundaries`, `## Public interface`,
-   `## Invariants`, `## Key behaviors`, `## Architecture`, and `## Files`
-   from the exact source and tests. Add `## Change map` when multiple
-   independent edit-and-test seams would otherwise require broad discovery.
-   The page is an orientation route; the exact source and tests remain the
-   authority for future changes.
-7. Draw the component's `## Architecture` diagram while its source is still
-   in front of you — this session is the cheapest this drawing will ever
-   be. Draw what the code does, not what it should do: an odd shape you
-   cannot explain is a finding for the log, not something to tidy away in
-   the picture. Where you cannot tell which way a dependency points, leave
-   the arrow out and record the uncertainty in the Log rather than guessing.
-8. Derive requirements from the behavior you found: `status = "active"`,
-   `affected_paths` = the component's files, `linked_tests` = the
-   existing tests that already verify each behavior. Adoption mostly
-   *links* tests; it does not write them.
-9. Add a spec only where a requirement alone would not be buildable.
-10. Real behavior with no test: write a characterization test now if the
-    behavior is load-bearing; otherwise leave `linked_tests` empty. `check`
-    will flag it on every run — that standing list is the post-adoption
-    test backlog, and it is meant to stay visible. A behavior no test
-    could ever settle is different: start its `verification` with
-    `Manual:` or `Inspection:` and name the method, and it is recorded as
-    verified by hand instead of joining that backlog. Keep the two apart
-    honestly — a test you have not written yet is not a manual method.
-11. Behavior that looks *wrong*: record the observed behavior and suspected
-    defect in one consolidated component finding or future-task record in the
-    Log, with source/test evidence. Confirm intended behavior with the owner
-    before activating a new requirement for that disputed behavior. Preserve
-    an existing active contract while its mismatch is investigated. Requirement
-    prose states only the agreed positive behavior; adoption dates, suspicion,
-    and investigation history belong in the journal. The fix is a separate task.
-12. Tick the component off and end the session. Present choices to continue
-    with the next component, revise the current component records, or pause the
-    adoption workflow. Commit only under the user's Git authority. The next
-    session resumes from the checklist.
+   `## Invariants`, `## Key behaviors` and `## Files` from the exact source
+   and tests. Add `## Change map` when several independent edit-and-test
+   seams would otherwise require broad discovery. The page is an orientation
+   route; the source and tests stay the authority. Compare existing active
+   requirements with the implementation before describing the interface:
+   when code disagrees with a normative interface, label the interface as the
+   agreed contract and describe the actual behavior separately, with
+   source and test evidence. Keep the defect and its investigation in the
+   journal; adoption neither fixes it nor changes the contract.
+7. Derive requirements from the behavior you found: create each with
+   `python .agentic/aegis.py req functional "<title>"` (or another category),
+   then set `status = "active"`, `affected_paths` = the component's files and
+   `linked_tests` = the existing tests that already verify each behavior.
+   Adoption mostly *links* tests; it does not write them.
+8. Add a spec only where a requirement alone would not be buildable.
+9. Real behavior with no test: write a characterization test now if the
+   behavior is load-bearing; otherwise leave `linked_tests` empty. `check`
+   flags it on every run, and that standing list is the post-adoption test
+   backlog, meant to stay visible. A behavior no test could ever settle is
+   different: start its `verification` with `Manual:` or `Inspection:` and
+   name the method. A test you have not written yet is not a manual method.
+10. Behavior that looks *wrong*: `log` the observed behavior and the
+    suspected defect as one consolidated finding with source and test
+    evidence. Confirm the intended behavior with the owner before activating
+    a requirement for it, and preserve an existing active contract while the
+    mismatch is investigated. Requirement prose states only agreed positive
+    behavior; the fix is a separate task.
+11. Tick the component off, `pause TASK-<id> --next "Continue with
+    <next component>?"` and end the session. The next session resumes from
+    the checklist.
 
 *Phase 3 — close.*
 
-13. When the last component is ticked, checkpoint mode presents choices to
-    continue to `close`, revise component records, or pause the adoption
-    workflow, then stops. After the user chooses to continue, or immediately
-    in autopilot, set `stage: close`. Run `python .agentic/aegis.py check` over
-    the whole tree and fix-forward what it reports.
-    Reconcile current context and component pages against the surveyed checkout.
-    Keep actual responsibilities and setup, expressed positively; retain unresolved
-    findings and historical adoption evidence in the journal.
-14. Run `python .agentic/aegis.py report TASK-<id>`, then present choices to
-    approve the stated adoption delivery, revise the records, or pause. Stop
-    for explicit publication approval in both interaction modes. After
-    approval, tick the checklist except the close-out item, **commit** - journal
-    and report inside the adoption commit - and open the PR.
-15. **Close out only after the outcome succeeded**: set `stage: done`,
-    tick the close-out item, and make a small close-out commit on the
-    same branch, pushed with it. If the outcome failed — or there is no
-    remote, so the commit *is* the outcome, which is fine — log what
-    actually happened; leave `stage: close` whenever the agreed outcome
-    was not delivered, so the journal stays truthful in `status`.
+12. When the last component is ticked, `advance TASK-<id>` to `close` (in
+    checkpoint mode, `pause` first and wait for the owner). Run
+    `python .agentic/aegis.py check` over the whole tree and fix forward what
+    it reports. Reconcile the context and component pages against the
+    surveyed checkout: actual responsibilities and setup, stated positively;
+    unresolved findings and adoption history stay in the journal.
+13. Run `python .agentic/aegis.py report TASK-<id>`, then
+    `pause TASK-<id> --next "Close the adoption?"`. When the owner agrees,
+    `advance TASK-<id>` to `done`. Committing and opening a pull request
+    follow the repository's procedures, outside AEGIS.
 
 **Outputs:**
 
@@ -136,8 +110,8 @@ ones are not.
 - `.agentic/knowledge/<component>.md` per adopted component.
 - Project and environment context describing confirmed current facts.
 - Requirement files, and specs only where needed.
-- Untested behaviors remain visible through empty `linked_tests` and `check`;
-  suspect behaviors remain in consolidated Log findings pending clarification.
+- Untested behaviors visible through empty `linked_tests` and `check`;
+  suspect behaviors in consolidated Log findings pending clarification.
 
 **Done when:**
 
@@ -145,21 +119,17 @@ ones are not.
 - [ ] every agreed component has a knowledge page
 - [ ] every knowledge page routes a request to owned source and focused tests,
       with boundaries and invariants derived from current evidence
-- [ ] every knowledge page carries an `## Architecture` diagram of what the
-      code does now
-- [ ] agreed component behaviors are covered by requirements; disputed behavior
-      is recorded with evidence in the journal for owner clarification
+- [ ] agreed component behaviors are covered by requirements; disputed
+      behavior is recorded with evidence for owner clarification
 - [ ] `linked_tests` point at the existing tests that verify them
 - [ ] untested behaviors visible through requirement links and `check`, not
       duplicated line by line in the Log
-- [ ] suspected defects and their evidence are logged as future tasks, with
-      current requirement prose reserved for agreed behavior
+- [ ] suspected defects logged as future tasks, with requirement prose
+      reserved for agreed behavior
 - [ ] `check` reports no errors over the whole tree
-- [ ] report generated; journal and report inside the adoption commit;
-      agreed outcome delivered (PR where there is a remote)
-- [ ] close-out: `stage: done` set and committed only after that
+- [ ] report appended and the owner agreed to close
 
-**Skip when:** The repo is already adopted — go straight to `1_frame.md`.
-Partial adoption is normal and expected: adopt only the components you
-actively work on, and let `check` warn you when a task touches an
-un-adopted area.
+**Skip when:** The repository is already adopted: go straight to
+`.agentic/steps/1_frame.md`. Partial adoption is normal: adopt the components
+you actively work on, and let `check` warn when a task touches an unadopted
+area.
